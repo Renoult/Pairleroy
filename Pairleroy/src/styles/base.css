@@ -1,12 +1,22 @@
 /* Fichier: src/styles/base.css */
 :root {
-  --bg: #efe6d3; /* parchment base */
-  --panel: #e6ddc8;
-  --text: #3a3a35;
-  --muted: #6a6556;
-  --accent: #5ea0ff;
+  --bg: #f5ede0;
+  --bg-secondary: #ebe2d3;
+  --panel: #f0e8db;
+  --panel-dark: #e3d9c9;
+  --text: #2d2a26;
+  --text-secondary: #5a5449;
+  --muted: #7a7165;
+  --accent: #4a8fd9;
+  --accent-hover: #3a7fc9;
+  --accent-light: rgba(74, 143, 217, 0.15);
   --overlay-gray: #6f6a5c;
-  --outline: #847e6f;
+  --outline: #9a9080;
+  --border: rgba(140, 126, 103, 0.3);
+  --border-strong: rgba(140, 126, 103, 0.5);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 * { box-sizing: border-box; }
@@ -14,11 +24,11 @@ html, body { height: 100%; }
 body {
   margin: 0;
   background:
-    radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px) 0 0/3px 3px,
-    radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px) 1.5px 1.5px/4px 4px,
-    linear-gradient(135deg, #f4ecd7, #e8dcc3 60%, #f1e7d2);
+    radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px) 0 0/4px 4px,
+    radial-gradient(rgba(0,0,0,0.015) 1px, transparent 1px) 2px 2px/5px 5px,
+    linear-gradient(135deg, #f8f0e3, #ede4d5 50%, #f3ebe0);
   color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   display: flex;
   flex-direction: column;
   min-height: 100vh;
