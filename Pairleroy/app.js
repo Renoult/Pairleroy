@@ -1211,12 +1211,30 @@ function colorLabelForIndex(idx) {
   return trimmed || `C${idx + 1}`;
 }
 
+let cachedColorValues = ['', '', '', ''];
+let cachedParsedColors = [null, null, null, null];
+
 function updateColorPercentageStyles() {
+  let colorsChanged = false;
+  
   for (let idx = 1; idx <= 4; idx++) {
     const colorInput = document.getElementById(`color-c${idx}`);
     const percentInput = document.getElementById(`pct-c${idx}`);
     if (!colorInput || !percentInput) continue;
-    const rgb = parseHexColor(colorInput.value);
+    
+    const currentValue = colorInput.value;
+    const cacheIdx = idx - 1;
+    
+    let rgb;
+    if (cachedColorValues[cacheIdx] === currentValue) {
+      rgb = cachedParsedColors[cacheIdx];
+    } else {
+      rgb = parseHexColor(currentValue);
+      cachedColorValues[cacheIdx] = currentValue;
+      cachedParsedColors[cacheIdx] = rgb;
+      colorsChanged = true;
+    }
+    
     if (!rgb) {
       percentInput.style.backgroundColor = '';
       percentInput.style.borderColor = '';
@@ -1224,10 +1242,13 @@ function updateColorPercentageStyles() {
       continue;
     }
     percentInput.style.backgroundColor = blendWithWhite(rgb, 0.55);
-    percentInput.style.borderColor = colorInput.value;
+    percentInput.style.borderColor = currentValue;
     percentInput.style.color = idealTextColor(rgb);
   }
-  renderBuildingPanel();
+  
+  if (colorsChanged) {
+    renderBuildingPanel();
+  }
 }
 
 function generateBuildingId(base = 'building') {
