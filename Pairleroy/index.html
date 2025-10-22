@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pairleroy - Generateur de grille hexagonale</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-section topbar-section--controls">
+        <div class="field">
+          <label>Types de tuiles (%)</label>
+          <div class="row">
+            <label>Mono <input id="pct-mono" type="number" min="0" max="100" value="40" /></label>
+            <label>Bi <input id="pct-bi" type="number" min="0" max="100" value="40" /></label>
+            <label>Tri <input id="pct-tri" type="number" min="0" max="100" value="20" /></label>
+          </div>
+        </div>
+        <div class="field field--colors">
+          <label>Repartition des 4 couleurs (%)</label>
+          <div class="row">
+            <label title="Couleur 1">
+              <input id="color-c1" class="color-picker" type="color" value="#e57373" />
+              <input id="pct-c1" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Couleur 2">
+              <input id="color-c2" class="color-picker" type="color" value="#64b5f6" />
+              <input id="pct-c2" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Couleur 3">
+              <input id="color-c3" class="color-picker" type="color" value="#81c784" />
+              <input id="pct-c3" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Couleur 4">
+              <input id="color-c4" class="color-picker" type="color" value="#ffd54f" />
+              <input id="pct-c4" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="topbar-section topbar-section--center">
+        <div id="turn-indicator" class="turn-indicator">Tour 1 - Joueur 1</div>
+        <div class="action-buttons">
+          <button id="end-turn" type="button">Fin du tour</button>
+          <button id="generate">Generer</button>
+          <button id="clear">Vider la grille</button>
+        </div>
+      </div>
+      <div class="topbar-section topbar-section--score">
+        <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
+      </div>
+    </header>
+
+    <main>
+      <div id="board-container">
+        <div id="board-surface">
+          <!-- SVG inline injected by app.js -->
+        </div>
+        <div id="building-panel" class="buildings"></div>
+      </div>
+      <aside id="palette" aria-label="Palette de tuiles">
+        <div id="palette-items"></div>
+      </aside>
+    </main>
+
+    <footer class="bottombar"></footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

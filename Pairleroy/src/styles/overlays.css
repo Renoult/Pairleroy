@@ -1,0 +1,7 @@
+/* Fichier: src/styles/overlays.css */
+.overlay { fill: none; stroke: var(--overlay-gray); stroke-width: 2.5; }
+.overlay.fill { fill: color-mix(in srgb, var(--overlay-gray) 25%, transparent); }
+.overlay-solid { fill: var(--overlay-gray); stroke: none; }
+
+.junction { fill: transparent; stroke: var(--overlay-gray); stroke-width: 1.5; cursor: pointer; }
+.junction.selected { fill: transparent; stroke-width: 2; }

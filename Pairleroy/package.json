@@ -1,0 +1,8 @@
+{
+  "name": "pairleroy",
+  "version": "1.0.0",
+  "description": "Générateur de grille hexagonale Pairleroy",
+  "scripts": {
+    "build": "node ./scripts/build.js"
+  }
+}

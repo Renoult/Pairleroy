@@ -1,0 +1,26 @@
+/* Fichier: src/styles/base.css */
+:root {
+  --bg: #efe6d3; /* parchment base */
+  --panel: #e6ddc8;
+  --text: #3a3a35;
+  --muted: #6a6556;
+  --accent: #5ea0ff;
+  --overlay-gray: #6f6a5c;
+  --outline: #847e6f;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px) 0 0/3px 3px,
+    radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px) 1.5px 1.5px/4px 4px,
+    linear-gradient(135deg, #f4ecd7, #e8dcc3 60%, #f1e7d2);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
