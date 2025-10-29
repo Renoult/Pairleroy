@@ -8,9 +8,11 @@
   --text: #2d2a26;
   --text-secondary: #5a5449;
   --muted: #7a7165;
-  --accent: #4a8fd9;
-  --accent-hover: #3a7fc9;
-  --accent-light: rgba(74, 143, 217, 0.15);
+  --accent: #c97a36;
+  --accent-hover: #b0682e;
+  --accent-light: rgba(201, 122, 54, 0.18);
+  --accent-ring: rgba(201, 122, 54, 0.45);
+  --accent-wash: rgba(201, 122, 54, 0.14);
   --overlay-gray: #6f6a5c;
   --outline: #9a9080;
   --border: rgba(140, 126, 103, 0.3);
@@ -453,22 +455,21 @@ main { flex: 1 1 auto; display: flex; min-height: 0; }
   width: 90px;
   height: 90px;
   border-radius: 16px;
-  border: 2px solid var(--border);
-  background: #ffffff;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), var(--panel));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), var(--shadow-sm);
   transition: all 0.2s ease;
 }
 .palette-label:hover .palette-shape { 
   border-color: var(--accent);
-  box-shadow: var(--shadow-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), var(--shadow-md);
   transform: translateY(-2px);
 }
 .palette-option input:checked + .palette-label .palette-shape {
   border-color: var(--accent);
-  border-width: 3px;
-  background: var(--accent-light);
-  box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-light);
-  transform: translateY(-3px);
+  background: linear-gradient(150deg, rgba(201, 122, 54, 0.22), rgba(255, 255, 255, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 10px 24px rgba(0, 0, 0, 0.16), 0 0 0 3px var(--accent-light);
+  transform: translateY(-2px);
 }
 .palette-option input:focus-visible + .palette-label .palette-shape {
   outline: 2px solid var(--accent);
@@ -482,12 +483,12 @@ main { flex: 1 1 auto; display: flex; min-height: 0; }
   padding: 4px 8px;
   border-radius: 8px;
   color: var(--text-secondary);
-  background: #ffffff;
+  background: var(--panel);
   border: 1px solid var(--border);
 }
 .palette-option input:checked + .palette-label .palette-name {
   color: var(--accent);
-  background: var(--accent-light);
+  background: var(--accent-wash);
   border-color: var(--accent);
   font-weight: 700;
 }
@@ -598,47 +599,59 @@ svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; background: 
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 8px;
-  border: none;
-  background: transparent;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: linear-gradient(155deg, var(--panel) 0%, var(--panel-dark) 100%);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  position: relative;
 }
 
 .scorecard:hover {
   transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .scorecard:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-  border-radius: 12px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+
+.scorecard--active {
+  border-color: var(--accent);
+  background: linear-gradient(155deg, var(--panel) 0%, rgba(201, 122, 54, 0.16) 45%, var(--panel-dark) 100%);
+  box-shadow: var(--shadow-lg), 0 0 0 3px var(--accent-light);
 }
 
 .scorecard-icon {
   display: inline-flex;
   width: 76px;
   height: 76px;
-  border-radius: 16px;
+  border-radius: 18px;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #ffffff, var(--panel));
-  border: 2px solid var(--border);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.95), var(--panel));
+  border: 1px solid var(--border-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
   position: relative;
   transition: all 0.2s ease;
 }
 
 .scorecard:hover .scorecard-icon {
-  box-shadow: var(--shadow-lg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.08), 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .scorecard-icon::after {
   content: '';
   position: absolute;
-  inset: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .scorecard-svg {
@@ -659,14 +672,14 @@ svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; background: 
 }
 
 .scorecard--active .scorecard-icon {
-  border-color: #e89b3c;
-  border-width: 3px;
-  background: linear-gradient(145deg, #fff8ed, #ffefd4);
-  box-shadow: var(--shadow-lg), 0 0 0 4px rgba(232, 155, 60, 0.15);
+  border-color: var(--accent);
+  background: linear-gradient(150deg, rgba(201, 122, 54, 0.2), rgba(255, 255, 255, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -1px 0 rgba(201, 122, 54, 0.28);
 }
 
 .scorecard--active .scorecard-icon::after {
-  border-color: #e89b3c;
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 4px var(--accent-light);
 }
 
 .scorecard-meta {
@@ -692,9 +705,9 @@ svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; background: 
 }
 
 .scorecard--active .scorecard-label {
-  background: rgba(232, 155, 60, 0.15);
-  color: #b5661e;
-  border-color: #e89b3c;
+  background: var(--accent-wash);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .scorecard-points {
@@ -707,7 +720,7 @@ svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; background: 
 }
 
 .scorecard--active .scorecard-points {
-  color: #b5661e;
+  color: var(--accent);
 }
 
 .building-card {

@@ -7,9 +7,11 @@
   --text: #2d2a26;
   --text-secondary: #5a5449;
   --muted: #7a7165;
-  --accent: #4a8fd9;
-  --accent-hover: #3a7fc9;
-  --accent-light: rgba(74, 143, 217, 0.15);
+  --accent: #c97a36;
+  --accent-hover: #b0682e;
+  --accent-light: rgba(201, 122, 54, 0.18);
+  --accent-ring: rgba(201, 122, 54, 0.45);
+  --accent-wash: rgba(201, 122, 54, 0.14);
   --overlay-gray: #6f6a5c;
   --outline: #9a9080;
   --border: rgba(140, 126, 103, 0.3);

@@ -1359,8 +1359,12 @@ function renderGameHud() {
       card.type = 'button';
       card.className = 'scorecard';
       card.dataset.player = String(player);
-      card.title = `Joueur ${player} – ${scoreValue} points`;
-      if (player === turnState.activePlayer) card.classList.add('scorecard--active');
+      const isActive = player === turnState.activePlayer;
+      const labelText = `Joueur ${player} - ${scoreValue} points${isActive ? ' (actif)' : ''}`;
+      card.title = labelText;
+      card.setAttribute('aria-label', labelText);
+      card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      if (isActive) card.classList.add('scorecard--active');
       card.addEventListener('click', () => {
         if (player !== turnState.activePlayer) setActivePlayer(player);
       });
