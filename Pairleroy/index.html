@@ -8,7 +8,7 @@
   </head>
   <body>
     <header class="topbar">
-      <div class="topbar-section topbar-section--controls">
+      <div class="topbar-controls">
         <div class="field">
           <label>Types de tuiles (%)</label>
           <div class="row">
@@ -39,7 +39,7 @@
           </div>
         </div>
       </div>
-      <div class="topbar-section topbar-section--center">
+      <div class="topbar-actions">
         <div id="turn-indicator" class="turn-indicator">Tour 1 - Joueur 1</div>
         <div class="action-buttons">
           <button id="end-turn" type="button">Fin du tour</button>
@@ -47,9 +47,7 @@
           <button id="clear">Vider la grille</button>
         </div>
       </div>
-      <div class="topbar-section topbar-section--score">
-        <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
-      </div>
+      <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
     </header>
 
     <main>
@@ -57,16 +55,11 @@
         <div id="board-surface">
           <!-- SVG inline injected by app.js -->
         </div>
-        <div id="building-panel" class="buildings"></div>
       </div>
       <aside id="palette" aria-label="Palette de tuiles">
         <div id="palette-items"></div>
       </aside>
     </main>
-
-    <footer class="bottombar">
-      <div class="version-indicator">v1.1.2</div>
-    </footer>
 
     <script src="app.js"></script>
   </body>

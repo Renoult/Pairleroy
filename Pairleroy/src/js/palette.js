@@ -172,7 +172,7 @@ function renderPalette(combos, colors, setSelectedPalette) {
 
 function createPalette(typesPct, colorPct, rng) {
   const combos = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     const combo = sampleCombo(typesPct, colorPct, rng);
     const steps = rotationStepsForCombo(combo);
     combo.rotationStep = steps[0] ?? 0;

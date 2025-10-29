@@ -543,7 +543,7 @@ function renderPalette(combos, colors, setSelectedPalette) {
 
 function createPalette(typesPct, colorPct, rng) {
   const combos = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     const combo = sampleCombo(typesPct, colorPct, rng);
     const steps = rotationStepsForCombo(combo);
     combo.rotationStep = steps[0] ?? 0;
@@ -670,6 +670,10 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   junctionsG.setAttribute('id', 'junctions');
   const junctionOverlaysG = document.createElementNS(svgNS, 'g');
   junctionOverlaysG.setAttribute('id', 'junction-overlays');
+  const castleLayer = document.createElementNS(svgNS, 'g');
+  castleLayer.setAttribute('id', 'junction-castles');
+  const colonsLayer = document.createElementNS(svgNS, 'g');
+  colonsLayer.setAttribute('id', 'colons');
 
   tiles.forEach((t, idx) => {
     const { x, y } = axialToPixel(t.q, t.r, size);
@@ -753,12 +757,79 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     gridG.appendChild(g);
   });
 
+  const squareGrid = document.createElementNS(svgNS, 'g');
+  squareGrid.setAttribute('id', 'square-grid');
+  squareGrid.setAttribute('aria-hidden', 'true');
+  squareGrid.style.pointerEvents = 'none';
+  const gridCols = 4;
+  const gridRows = 4;
+  const cellSize = size * 5;
+  const gap = size * 5;
+  const totalWidth = gridCols * cellSize + (gridCols - 1) * gap;
+  const totalHeight = gridRows * cellSize + (gridRows - 1) * gap;
+  const baseX = -totalWidth / 2;
+  const baseY = -totalHeight / 2;
+
+  const squareCells = [];
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      const posX = baseX + col * (cellSize + gap);
+      const posY = baseY + row * (cellSize + gap);
+      squareCells.push({
+        index: row * gridCols + col + 1,
+        centerX: posX + cellSize / 2,
+        centerY: posY + cellSize / 2,
+      });
+      if (row === 0 || row === gridRows - 1 || col === 0 || col === gridCols - 1) {
+        const rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttribute('x', posX.toFixed(3));
+        rect.setAttribute('y', posY.toFixed(3));
+        rect.setAttribute('width', cellSize.toFixed(3));
+        rect.setAttribute('height', cellSize.toFixed(3));
+        rect.setAttribute('rx', (cellSize * 0.22).toFixed(3));
+        rect.setAttribute('ry', (cellSize * 0.22).toFixed(3));
+        squareGrid.appendChild(rect);
+      }
+    }
+  }
+
+  const squareIndicator = document.createElementNS(svgNS, 'g');
+  squareIndicator.setAttribute('id', 'square-indicator');
+  squareIndicator.style.pointerEvents = 'none';
+  const indicatorCircle = document.createElementNS(svgNS, 'circle');
+  indicatorCircle.setAttribute('class', 'square-indicator-circle');
+  indicatorCircle.setAttribute('r', (cellSize * 0.38).toFixed(3));
+  indicatorCircle.setAttribute('cx', '0');
+  indicatorCircle.setAttribute('cy', '0');
+  squareIndicator.appendChild(indicatorCircle);
+  const indicatorCrest = document.createElementNS(svgNS, 'image');
+  indicatorCrest.setAttribute('class', 'square-indicator-crest');
+  const crestSize = cellSize * 0.76;
+  indicatorCrest.setAttribute('x', (-crestSize / 2).toFixed(3));
+  indicatorCrest.setAttribute('y', (-crestSize / 2).toFixed(3));
+  indicatorCrest.setAttribute('width', crestSize.toFixed(3));
+  indicatorCrest.setAttribute('height', crestSize.toFixed(3));
+  indicatorCrest.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  squareIndicator.appendChild(indicatorCrest);
+  squareIndicator.style.display = 'none';
+
   viewport.appendChild(gridG);
-  viewport.appendChild(previewG);
+  viewport.appendChild(squareGrid);
+  viewport.appendChild(squareIndicator);
   viewport.appendChild(overlaysG);
+  viewport.appendChild(previewG);
+  viewport.appendChild(colonsLayer);
   viewport.appendChild(junctionsG);
   viewport.appendChild(junctionOverlaysG);
+  viewport.appendChild(castleLayer);
   svg.appendChild(viewport);
+  svg.__squareGrid = {
+    cells: squareCells,
+    indicator: squareIndicator,
+    crest: indicatorCrest,
+  };
+  svg.__colonsLayer = colonsLayer;
+  svg.__castleLayer = castleLayer;
   return svg;
 }
 
@@ -831,93 +902,36 @@ const PLAYER_CRESTS = {
   6: 'crests/tortue.svg',
 };
 
-const BUILDING_EFFECT_TYPES = [
-  { value: 'points', label: 'Points immediats' },
-  { value: 'tileLimit', label: 'Tuiles supplementaires par tour' },
-  { value: 'tilePoints', label: 'Points par tuile placee' },
-  { value: 'amenagementPoints', label: 'Bonus/malus amenagement' },
+const PLAYER_COLON_COLORS = [
+  '#d46a6a',
+  '#4d82c3',
+  '#5abf83',
+  '#c785d9',
+  '#e0ad4b',
+  '#6cc2be',
 ];
 
-const DEFAULT_BUILDINGS = [
-  {
-    id: 'watchtower',
-    name: 'Tour de garde',
-    description: 'Accorde 3 points immediats.',
-    cost: { 0: 2 },
-    effect: { type: 'points', value: 3 },
-  },
-  {
-    id: 'market',
-    name: 'Marche',
-    description: 'Accorde 5 points immediats.',
-    cost: { 1: 1, 2: 1 },
-    effect: { type: 'points', value: 5 },
-  },
-  {
-    id: 'citadel',
-    name: 'Citadelle',
-    description: 'Augmente la limite de pose de tuile de 1.',
-    cost: { 0: 2, 1: 1, 2: 1 },
-    effect: { type: 'tileLimit', value: 1 },
-  },
-];
+const DEFAULT_CENTER_TILE_INDEX = (() => {
+  const idx = tiles.findIndex((t) => t.q === 0 && t.r === 0 && t.s === 0);
+  return idx >= 0 ? idx : 0;
+})();
 
-function normalizeBuildingCost(cost = {}) {
-  const normalized = {};
-  for (let i = 0; i < 4; i++) {
-    const value = Number(cost[i] ?? cost[String(i)] ?? 0) || 0;
-    if (value > 0) normalized[i] = value;
-  }
-  return normalized;
-}
-
-function normalizeBuildingEffect(effect, fallbackPoints = 0) {
-  if (effect && typeof effect.type === 'string') {
-    return {
-      type: effect.type,
-      value: Number(effect.value) || 0,
-      target: effect.target ?? null,
-      color: Number.isInteger(effect.color) ? effect.color : null,
-    };
-  }
-  if (Number.isFinite(fallbackPoints) && fallbackPoints !== 0) {
-    return { type: 'points', value: Number(fallbackPoints) || 0 };
-  }
-  return { type: 'points', value: 0 };
-}
-
-function normalizeBuilding(def, idx = 0) {
-  return {
-    id: def.id || `building-${idx + 1}`,
-    name: def.name || `Batiment ${idx + 1}`,
-    description: def.description || '',
-    cost: normalizeBuildingCost(def.cost),
-    effect: normalizeBuildingEffect(def.effect, def.points),
-  };
-}
-
-let buildingDefinitions = DEFAULT_BUILDINGS.map(normalizeBuilding);
+let colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
+let colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+let colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
+let selectedColonPlayer = null;
+let colonMarkers = new Map();
 
 function createEmptyPlayerResource() {
   return {
     tileColors: new Map(),
     amenagements: new Set(),
     amenagementColors: new Map(),
-    buildings: new Map(),
-  };
-}
-
-function defaultPlayerModifiers() {
-  return {
-    tileLimitBonus: 0,
-    tilePointBonus: 0,
-    amenagementPointModifier: 0,
   };
 }
 
 let playerScores = Array.from({ length: PLAYER_COUNT }, () => 0);
 let playerResources = Array.from({ length: PLAYER_COUNT }, () => createEmptyPlayerResource());
-let playerModifiers = Array.from({ length: PLAYER_COUNT }, () => defaultPlayerModifiers());
 
 const turnState = {
   activePlayer: PLAYER_IDS[0],
@@ -929,11 +943,9 @@ const hudElements = {
   scoreboard: null,
   turnIndicator: null,
   endTurnButton: null,
-  buildingPanel: null,
 };
 
 const amenagementColorByKey = new Map();
-let castleOwners = [];
 
 function isValidPlayer(player) {
   return Number.isInteger(player) && player >= 1 && player <= PLAYER_COUNT;
@@ -949,43 +961,16 @@ function resetTurnCounters() {
   } else {
     turnState.tilesPlacedByPlayer.fill(0);
   }
-}
-
-function recomputePlayerModifiersFor(playerIdx) {
-  const mods = defaultPlayerModifiers();
-  const record = playerResources[playerIdx];
-  if (record) {
-    record.buildings.forEach((count, buildingId) => {
-      const definition = buildingDefinitions.find((b) => b.id === buildingId);
-      if (!definition || !definition.effect) return;
-      const value = Number(definition.effect.value) || 0;
-      switch (definition.effect.type) {
-        case 'tileLimit':
-          mods.tileLimitBonus += value * count;
-          break;
-        case 'tilePoints':
-          mods.tilePointBonus += value * count;
-          break;
-        case 'amenagementPoints':
-          mods.amenagementPointModifier += value * count;
-          break;
-        default:
-          break;
-      }
-    });
-  }
-  playerModifiers[playerIdx] = mods;
-}
-
-function recomputeAllPlayerModifiers() {
-  for (let idx = 0; idx < PLAYER_COUNT; idx++) recomputePlayerModifiersFor(idx);
+  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+  colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
+  selectedColonPlayer = null;
+  updateColonMarkersPositions();
 }
 
 function ensureHudElements() {
   if (!hudElements.scoreboard) hudElements.scoreboard = document.getElementById('scoreboard');
   if (!hudElements.turnIndicator) hudElements.turnIndicator = document.getElementById('turn-indicator');
   if (!hudElements.endTurnButton) hudElements.endTurnButton = document.getElementById('end-turn');
-  if (!hudElements.buildingPanel) hudElements.buildingPanel = document.getElementById('building-panel');
   const { endTurnButton } = hudElements;
   if (endTurnButton && !endTurnButton.__pairleroyBound) {
     endTurnButton.__pairleroyBound = true;
@@ -1029,54 +1014,142 @@ function adjustPlayerTileResources(player, combo, delta) {
   }
 }
 
-function amenagementColorAvailable(playerIdx, colorIdx) {
-  const record = playerResources[playerIdx];
-  if (!record) return 0;
-  return record.amenagementColors.get(colorIdx) || 0;
+function colonColorForIndex(idx) {
+  return PLAYER_COLON_COLORS[idx % PLAYER_COLON_COLORS.length];
 }
 
-function effectiveBuildingCost(definition, playerIdx) {
-  const base = normalizeBuildingCost(definition.cost);
-  if (!playerModifiers[playerIdx]) return base;
-  const modifier = playerModifiers[playerIdx].amenagementPointModifier || 0;
-  if (!modifier) return base;
-  const adjusted = {};
-  Object.entries(base).forEach(([colorKey, value]) => {
-    const next = Math.max(0, value - modifier);
-    if (next > 0) adjusted[colorKey] = next;
-  });
-  return adjusted;
+function getBoardSvg() {
+  return document.querySelector('#board-container svg');
 }
 
-function canBuild(playerIdx, building) {
-  if (!building) return false;
-  const costs = effectiveBuildingCost(building, playerIdx);
-  return Object.entries(costs).every(([colorKey, value]) => {
-    const required = Number(value) || 0;
-    if (required <= 0) return true;
-    return amenagementColorAvailable(playerIdx, Number(colorKey)) >= required;
-  });
+function hexDistanceBetween(idxA, idxB) {
+  if (idxA === idxB) return 0;
+  const tileA = tiles[idxA];
+  const tileB = tiles[idxB];
+  if (!tileA || !tileB) return Infinity;
+  const dq = tileA.q - tileB.q;
+  const dr = tileA.r - tileB.r;
+  const ds = tileA.s - tileB.s;
+  return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
 }
 
-function buildBuilding(player, building) {
-  if (!isValidPlayer(player) || !building) return false;
-  const idx = playerIndex(player);
-  const definition = buildingDefinitions.find((b) => b.id === building.id) || building;
-  if (!canBuild(idx, definition)) return false;
-  Object.entries(effectiveBuildingCost(definition, idx)).forEach(([colorKey, value]) => {
-    const required = Number(value) || 0;
-    if (required > 0) adjustResourceColorTally(player, Number(colorKey), -required);
-  });
-  const record = playerResources[idx];
-  const current = record.buildings.get(definition.id) || 0;
-  record.buildings.set(definition.id, current + 1);
-  recomputePlayerModifiersFor(idx);
-  if (definition.effect?.type === 'points') {
-    const points = Number(definition.effect.value) || 0;
-    if (points !== 0) awardPoints(player, points, `building:${definition.id}`);
+function handleColonMarkerClick(event) {
+  event.stopPropagation();
+  const marker = event.currentTarget;
+  const player = Number(marker.dataset.player);
+  if (!isValidPlayer(player)) return;
+  if (player !== turnState.activePlayer) {
+    setActivePlayer(player);
   }
+  const idx = playerIndex(player);
+  if (idx === -1) return;
+
+  const svg = getBoardSvg();
+  const svgState = svg?.__state ?? null;
+  if (svgState?.selectedPalette >= 0) {
+    svgState.setSelectedPalette?.(-1);
+  }
+
+  if (colonMoveRemaining[idx] <= 0) {
+    selectedColonPlayer = null;
+    updateColonMarkersPositions();
+    return;
+  }
+
+  selectedColonPlayer = selectedColonPlayer === player ? null : player;
+  updateColonMarkersPositions();
+}
+
+function renderColonMarkers() {
+  const svg = getBoardSvg();
+  const layer = svg?.__colonsLayer ?? null;
+  if (!layer || !svg?.__state) return;
+  layer.innerHTML = '';
+  colonMarkers = new Map();
+  const { size } = svg.__state;
+  const radius = size * 0.35;
+  PLAYER_IDS.forEach((player) => {
+    const idx = playerIndex(player);
+    if (idx === -1) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'colon-marker');
+    g.dataset.player = String(player);
+    g.style.pointerEvents = 'auto';
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', 'colon-marker-circle');
+    circle.setAttribute('r', radius.toFixed(3));
+    circle.setAttribute('fill', colonColorForIndex(idx));
+    circle.setAttribute('stroke', '#ffffff');
+    circle.setAttribute('stroke-width', (size * 0.06).toFixed(3));
+    g.appendChild(circle);
+    g.addEventListener('click', handleColonMarkerClick);
+    layer.appendChild(g);
+    colonMarkers.set(player, g);
+  });
+  updateColonMarkersPositions();
+}
+
+function updateColonMarkersPositions() {
+  const svg = getBoardSvg();
+  if (!svg?.__state) return;
+  const { size } = svg.__state;
+  colonMarkers.forEach((marker, player) => {
+    const idx = playerIndex(player);
+    if (idx === -1) {
+      marker.style.display = 'none';
+      return;
+    }
+    const tileIdx = colonPositions[idx];
+    const tile = tiles[tileIdx];
+    if (!tile) {
+      marker.style.display = 'none';
+      return;
+    }
+    const { x, y } = axialToPixel(tile.q, tile.r, size);
+    marker.setAttribute('transform', `translate(${x.toFixed(3)} ${y.toFixed(3)})`);
+    marker.style.display = 'block';
+    marker.classList.toggle('colon-marker--active', player === turnState.activePlayer);
+    marker.classList.toggle('colon-marker--selected', player === selectedColonPlayer);
+    const remaining = colonMoveRemaining[idx] ?? 0;
+    marker.classList.toggle('colon-marker--exhausted', remaining <= 0);
+  });
+}
+
+function clearColonSelection() {
+  selectedColonPlayer = null;
+  updateColonMarkersPositions();
+}
+
+function attemptColonMoveTo(tileIdx) {
+  if (!isValidPlayer(selectedColonPlayer)) return false;
+  const player = selectedColonPlayer;
+  if (player !== turnState.activePlayer) {
+    clearColonSelection();
+    return true;
+  }
+  const pIdx = playerIndex(player);
+  if (pIdx === -1) {
+    clearColonSelection();
+    return true;
+  }
+  if (colonMoveRemaining[pIdx] <= 0) {
+    clearColonSelection();
+    return true;
+  }
+  const currentIdx = colonPositions[pIdx];
+  const distance = hexDistanceBetween(currentIdx, tileIdx);
+  if (!Number.isFinite(distance) || distance > 2 || distance > colonMoveRemaining[pIdx]) {
+    return true;
+  }
+  if (distance === 0) {
+    clearColonSelection();
+    return true;
+  }
+  colonPositions[pIdx] = tileIdx;
+  colonMoveRemaining[pIdx] = Math.max(0, colonMoveRemaining[pIdx] - distance);
+  clearColonSelection();
+  updateColonMarkersPositions();
   renderGameHud();
-  refreshStatsModal();
   return true;
 }
 
@@ -1247,44 +1320,8 @@ function updateColorPercentageStyles() {
   }
   
   if (colorsChanged) {
-    renderBuildingPanel();
+    renderGameHud();
   }
-}
-
-function generateBuildingId(base = 'building') {
-  let counter = 1;
-  let id = `${base}-${counter}`;
-  while (buildingDefinitions.some((b) => b.id === id)) {
-    counter += 1;
-    id = `${base}-${counter}`;
-  }
-  return id;
-}
-
-function addNewBuildingDefinition() {
-  const id = generateBuildingId();
-  buildingDefinitions.push({
-    id,
-    name: 'Nouveau batiment',
-    description: '',
-    cost: {},
-    effect: { type: 'points', value: 0 },
-  });
-  recomputeAllPlayerModifiers();
-  renderGameHud();
-  refreshStatsModal();
-}
-
-function removeBuildingDefinition(id) {
-  const index = buildingDefinitions.findIndex((b) => b.id === id);
-  if (index === -1) return;
-  buildingDefinitions.splice(index, 1);
-  playerResources.forEach((record, idx) => {
-    if (record.buildings.delete(id)) recomputePlayerModifiersFor(idx);
-  });
-  recomputeAllPlayerModifiers();
-  renderGameHud();
-  refreshStatsModal();
 }
 
 function registerAmenagementForPlayer(player, key, colorIdx) {
@@ -1317,12 +1354,21 @@ function unregisterAmenagementForPlayer(player, key, colorIdx = null) {
 function resetGameDataForNewBoard() {
   playerScores = Array.from({ length: PLAYER_COUNT }, () => 0);
   playerResources = Array.from({ length: PLAYER_COUNT }, () => createEmptyPlayerResource());
-  playerModifiers = Array.from({ length: PLAYER_COUNT }, () => defaultPlayerModifiers());
   resetTurnCounters();
   turnState.turnNumber = 1;
   turnState.activePlayer = PLAYER_IDS[0];
   amenagementColorByKey.clear();
-  castleOwners = new Array(tiles.length).fill(null);
+  const svg = getBoardSvg();
+  const castleMap = svg?.__state?.castleByJunction ?? null;
+  if (castleMap) {
+    castleMap.clear();
+    svg?.__state?.renderCastleOverlays?.();
+  }
+  colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
+  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+  colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
+  selectedColonPlayer = null;
+  updateColonMarkersPositions();
   renderGameHud();
 }
 
@@ -1333,6 +1379,8 @@ function setActivePlayer(player, { advanceTurn = false } = {}) {
     return;
   }
   turnState.activePlayer = player;
+  selectedColonPlayer = null;
+  updateColonMarkersPositions();
   renderGameHud();
 }
 
@@ -1343,6 +1391,12 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
   const nextIdx = (currentIdx + 1) % PLAYER_COUNT;
   if (nextIdx === 0) turnState.turnNumber += 1;
   turnState.activePlayer = PLAYER_IDS[nextIdx];
+  colonMoveRemaining[currentIdx] = 2;
+  colonPlacementUsed[currentIdx] = false;
+  colonMoveRemaining[nextIdx] = 2;
+  colonPlacementUsed[nextIdx] = false;
+  selectedColonPlayer = null;
+  updateColonMarkersPositions();
   renderGameHud();
   debugLog('endCurrentTurn', { reason, activePlayer: turnState.activePlayer, turn: turnState.turnNumber });
 }
@@ -1395,161 +1449,18 @@ function renderGameHud() {
   if (turnIndicator) {
     turnIndicator.textContent = `Tour ${turnState.turnNumber} - Joueur ${turnState.activePlayer}`;
   }
-  renderBuildingPanel();
-}
-
-function renderBuildingPanel() {
-  ensureHudElements();
-  const container = hudElements.buildingPanel;
-  if (!container) return;
-  const activeColors = window.__pairleroyActiveColors ?? [];
-  const colorCount = Math.max(4, activeColors.length);
-  const player = turnState.activePlayer;
-  const playerIdx = playerIndex(player);
-  const record = playerResources[playerIdx];
-  container.innerHTML = '';
-
-  const header = document.createElement('div');
-  header.className = 'building-panel-header';
-  header.textContent = 'Bâtiments';
-  container.appendChild(header);
-
-  if (!buildingDefinitions.length) {
-    const empty = document.createElement('div');
-    empty.className = 'building-empty';
-    empty.textContent = 'Aucun bâtiment configuré.';
-    container.appendChild(empty);
+  const svg = document.querySelector('#board-container svg');
+  if (svg?.__state?.updateSquareIndicator) {
+    const activePlayer = turnState.activePlayer;
+    const activeIdx = playerIndex(activePlayer);
+    const scoreValue = activeIdx !== -1 ? playerScores[activeIdx] || 0 : 0;
+    svg.__state.updateSquareIndicator(activePlayer, scoreValue);
   }
-
-  buildingDefinitions.forEach((building, index) => {
-    const card = document.createElement('div');
-    card.className = 'building-card';
-
-    const nameRow = document.createElement('div');
-    nameRow.className = 'building-name-row';
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'building-name-input';
-    nameInput.value = building.name;
-    nameInput.addEventListener('change', (event) => {
-      const value = event.target.value.trim();
-      building.name = value || `Batiment ${index + 1}`;
-      renderGameHud();
-    });
-    nameRow.appendChild(nameInput);
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'building-delete';
-    deleteBtn.textContent = 'Supprimer';
-    deleteBtn.addEventListener('click', () => removeBuildingDefinition(building.id));
-    nameRow.appendChild(deleteBtn);
-    card.appendChild(nameRow);
-
-    const descInput = document.createElement('textarea');
-    descInput.className = 'building-desc-input';
-    descInput.rows = 2;
-    descInput.value = building.description || '';
-    descInput.placeholder = 'Description';
-    descInput.addEventListener('change', (event) => {
-      building.description = event.target.value;
-      renderGameHud();
-    });
-    card.appendChild(descInput);
-
-    const costSection = document.createElement('div');
-    costSection.className = 'building-cost-inputs';
-    for (let colorIdx = 0; colorIdx < colorCount; colorIdx++) {
-      const wrapper = document.createElement('label');
-      wrapper.className = 'building-cost-input';
-      const badge = document.createElement('span');
-      badge.className = 'building-cost-label';
-      badge.textContent = colorLabelForIndex(colorIdx);
-      const paletteColor = activeColors[colorIdx] ?? '#bdae92';
-      badge.style.borderColor = paletteColor;
-      const rgbCost = parseHexColor(paletteColor);
-      if (rgbCost) wrapper.style.backgroundColor = blendWithWhite(rgbCost, 0.8);
-      wrapper.appendChild(badge);
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.min = '0';
-      input.value = String(building.cost[colorIdx] ?? 0);
-      input.addEventListener('change', (event) => {
-        const value = Math.max(0, Number(event.target.value) || 0);
-        if (value > 0) building.cost[colorIdx] = value;
-        else delete building.cost[colorIdx];
-        renderGameHud();
-      });
-      wrapper.appendChild(input);
-      const available = amenagementColorAvailable(playerIdx, colorIdx);
-      if (available < (Number(input.value) || 0)) wrapper.classList.add('insufficient');
-      input.setAttribute('title', `Disponible: ${available}`);
-      costSection.appendChild(wrapper);
-    }
-    card.appendChild(costSection);
-
-    const effectRow = document.createElement('div');
-    effectRow.className = 'building-effect-row';
-    const effectSelect = document.createElement('select');
-    effectSelect.className = 'building-effect-select';
-    BUILDING_EFFECT_TYPES.forEach((type) => {
-      const option = document.createElement('option');
-      option.value = type.value;
-      option.textContent = type.label;
-      effectSelect.appendChild(option);
-    });
-    effectSelect.value = building.effect?.type || 'points';
-    effectSelect.addEventListener('change', (event) => {
-      building.effect = {
-        type: event.target.value,
-        value: Number(building.effect?.value) || 0,
-        target: building.effect?.target ?? null,
-        color: building.effect?.color ?? null,
-      };
-      recomputeAllPlayerModifiers();
-      renderGameHud();
-    });
-    effectRow.appendChild(effectSelect);
-    const effectValue = document.createElement('input');
-    effectValue.type = 'number';
-    effectValue.className = 'building-effect-value';
-    effectValue.value = String(Number(building.effect?.value) || 0);
-    effectValue.addEventListener('change', (event) => {
-      if (!building.effect) building.effect = { type: 'points', value: 0 };
-      building.effect.value = Number(event.target.value) || 0;
-      recomputeAllPlayerModifiers();
-      renderGameHud();
-    });
-    effectRow.appendChild(effectValue);
-    card.appendChild(effectRow);
-
-    const footer = document.createElement('div');
-    footer.className = 'building-footer';
-    const count = record?.buildings.get(building.id) || 0;
-    const countLabel = document.createElement('span');
-    countLabel.className = 'building-count';
-    countLabel.textContent = `Possede : ${count}`;
-    footer.appendChild(countLabel);
-    const buildBtn = document.createElement('button');
-    buildBtn.type = 'button';
-    buildBtn.textContent = 'Construire';
-    const enabled = canBuild(playerIdx, building);
-    buildBtn.disabled = !enabled;
-    buildBtn.addEventListener('click', () => buildBuilding(player, building));
-    footer.appendChild(buildBtn);
-    card.appendChild(footer);
-
-    container.appendChild(card);
-  });
-
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'building-add';
-  addBtn.textContent = 'Ajouter un batiment';
-  addBtn.addEventListener('click', () => addNewBuildingDefinition());
-  container.appendChild(addBtn);
-
-  container.classList.toggle('building-panel--empty', buildingDefinitions.length === 0);
+  updateColonMarkersPositions();
+  if (svg?.__state?.renderCastleOverlays) svg.__state.renderCastleOverlays();
 }
+
+
 
 let gridSideColors = [];
 let placements = [];
@@ -1593,7 +1504,9 @@ function layoutSize(container) {
   const estH = 1.5 * (2 * RADIUS) + 2;
   const sizeByW = W / estW;
   const sizeByH = H / estH;
-  const size = Math.floor(Math.min(sizeByW, sizeByH)) - 2;
+  const base = Math.min(sizeByW, sizeByH);
+  const sizeRaw = Math.floor(base) - 2;
+  const size = Math.max(12, Number.isFinite(sizeRaw) ? sizeRaw : 12);
   const width = Math.sqrt(3) * size * (2 * RADIUS + 1);
   const height = 1.5 * size * (2 * RADIUS) + 2 * size;
   return { width, height, size };
@@ -1697,7 +1610,9 @@ function generateAndRender() {
       });
     }
     state.renderJunctionOverlays?.();
+    state.renderCastleOverlays?.();
     updateClearButtonState();
+    updateColonMarkersPositions();
     serializeConfigToURL(cfg);
     refreshStatsModal();
     return svg;
@@ -1713,6 +1628,49 @@ function generateAndRender() {
 
   const junctionMap = computeJunctionMap(tiles, size);
   const overlayByJunction = new Map();
+  const castleByJunction = new Map();
+  const squareGridMeta = svg.__squareGrid ?? null;
+  const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
+  const squareIndicator = squareGridMeta?.indicator ?? null;
+  const squareIndicatorCrest = squareGridMeta?.crest ?? null;
+
+  function updateSquareIndicator(player, score = 0) {
+    if (!squareIndicator || squareCells.length === 0) {
+      if (squareIndicator) squareIndicator.style.display = 'none';
+      if (squareIndicatorCrest) {
+        squareIndicatorCrest.removeAttribute('href');
+        squareIndicatorCrest.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      }
+      return;
+    }
+    if (!isValidPlayer(player)) {
+      squareIndicator.style.display = 'none';
+      if (squareIndicatorCrest) {
+        squareIndicatorCrest.removeAttribute('href');
+        squareIndicatorCrest.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      }
+      return;
+    }
+    const normalized = ((score % 16) + 16) % 16;
+    const targetIndex = normalized === 0 ? 16 : normalized;
+    const target = squareCells.find((cell) => cell.index === targetIndex);
+    if (!target) {
+      squareIndicator.style.display = 'none';
+      return;
+    }
+    squareIndicator.setAttribute('transform', `translate(${target.centerX.toFixed(3)} ${target.centerY.toFixed(3)})`);
+    squareIndicator.style.display = 'block';
+    if (squareIndicatorCrest) {
+      const crestHref = PLAYER_CRESTS[player] || '';
+      if (crestHref) {
+        squareIndicatorCrest.setAttribute('href', crestHref);
+        squareIndicatorCrest.setAttributeNS('http://www.w3.org/1999/xlink', 'href', crestHref);
+      } else {
+        squareIndicatorCrest.removeAttribute('href');
+        squareIndicatorCrest.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      }
+    }
+  }
 
   function dominantColorForJunction(entry) {
     if (!entry) return null;
@@ -1762,6 +1720,64 @@ function generateAndRender() {
     overlayByJunction.delete(key);
     unregisterAmenagementForPlayer(previousOwner, key, colorIdx);
     renderJunctionOverlays();
+  }
+
+  function toggleCastleAtJunction(key, player) {
+    if (!junctionMap.has(key) || !isValidPlayer(player)) return;
+    const entry = junctionMap.get(key);
+    if (!isJunctionReady(entry)) return;
+    const current = castleByJunction.get(key) ?? null;
+    if (current === player) castleByJunction.delete(key);
+    else castleByJunction.set(key, player);
+    renderCastleOverlays();
+    refreshStatsModal();
+  }
+
+  function renderCastleOverlays() {
+    const layer = svg.__castleLayer ?? svg.querySelector('#junction-castles');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const sizeFactor = size * 0.85;
+    const crestOffset = -(sizeFactor / 2);
+    for (const [key, player] of castleByJunction.entries()) {
+      const entry = junctionMap.get(key);
+      if (!entry || !isJunctionReady(entry) || !isValidPlayer(player)) {
+        castleByJunction.delete(key);
+        continue;
+      }
+      const crestHref = PLAYER_CRESTS[player] || '';
+      if (!crestHref) {
+        castleByJunction.delete(key);
+        continue;
+      }
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      marker.setAttribute('class', 'castle-marker');
+      marker.dataset.key = key;
+      marker.dataset.player = String(player);
+      marker.setAttribute('transform', `translate(${entry.x.toFixed(3)} ${entry.y.toFixed(3)})`);
+      const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      image.setAttribute('href', crestHref);
+      image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', crestHref);
+      image.setAttribute('width', sizeFactor.toFixed(3));
+      image.setAttribute('height', sizeFactor.toFixed(3));
+      image.setAttribute('x', crestOffset.toFixed(3));
+      image.setAttribute('y', crestOffset.toFixed(3));
+      image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      marker.appendChild(image);
+      marker.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCastleAtJunction(key, currentPlayer());
+      });
+      marker.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        castleByJunction.delete(key);
+        renderCastleOverlays();
+        refreshStatsModal();
+      });
+      marker.classList.toggle('castle-marker--active', player === turnState.activePlayer);
+      layer.appendChild(marker);
+    }
   }
 
   gridSideColors = new Array(tiles.length).fill(null);
@@ -1814,6 +1830,11 @@ function generateAndRender() {
             event.preventDefault();
             assignAmenagementOwner(key, currentPlayer());
           });
+          c.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleCastleAtJunction(key, currentPlayer());
+          });
           c.addEventListener('contextmenu', (event) => {
             event.preventDefault();
             removeAmenagementOwner(key);
@@ -1847,12 +1868,19 @@ function generateAndRender() {
         if (!isJunctionReady(entry)) return;
         assignAmenagementOwner(key, currentPlayer());
       });
+      ng.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isJunctionReady(entry)) return;
+        toggleCastleAtJunction(key, currentPlayer());
+      });
       ng.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         removeAmenagementOwner(key);
       });
       g.appendChild(ng);
     }
+    renderCastleOverlays();
     renderJunctionCircles();
     refreshStatsModal();
   }
@@ -1872,6 +1900,7 @@ function generateAndRender() {
 
   function setSelectedPalette(idx) {
     selectedPalette = idx;
+    if (idx >= 0) clearColonSelection();
     if (paletteEl) {
       const options = paletteEl.querySelectorAll('.palette-option input');
       options.forEach((input) => {
@@ -1956,40 +1985,62 @@ function generateAndRender() {
       hasNeighbor = true;
       const oppositeDir = (dir + 3) % 6;
       if (neighborColors[oppositeDir] !== candidateColors[dir]) return false;
-    }
-    return hasNeighbor || placedCount === 0;
   }
+  return hasNeighbor || placedCount === 0;
+}
 
-  function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, options = {}) {
-    const sideColorValues = mapSideColorIndices(sideColors, colors);
-    gridSideColors[tileIdx] = sideColorValues;
-    placements[tileIdx] = {
-      player: isValidPlayer(player) ? player : null,
-      combo,
-      rotationStep,
-      sideColors: sideColors.slice(),
-      colors: sideColorValues.slice(),
-    };
-    emptyTiles.delete(tileIdx);
-    placedCount++;
-
-    renderTileFill(tileIdx, sideColors, svg, tiles, size, colors);
-    updateClearButtonState();
-    const trackResources = options.trackResources !== false;
-    if (trackResources && isValidPlayer(player)) {
-      adjustPlayerTileResources(player, combo, 1);
-      const idx = playerIndex(player);
-      if (idx !== -1) {
-        const current = turnState.tilesPlacedByPlayer[idx] ?? 0;
-        turnState.tilesPlacedByPlayer[idx] = current + 1;
-        const tileBonus = playerModifiers[idx]?.tilePointBonus || 0;
-        if (tileBonus) awardPoints(player, tileBonus, 'tile-bonus');
-      }
-      renderGameHud();
-    }
-    refreshStatsModal();
-    return true;
+function neighborPlacementCount(tileIdx) {
+  const neighbors = tileNeighbors[tileIdx] || [];
+  let count = 0;
+  for (let i = 0; i < neighbors.length; i++) {
+    const neighborIdx = neighbors[i];
+    if (neighborIdx >= 0 && placements[neighborIdx]) count++;
   }
+  return count;
+}
+
+function pointsForNeighborCount(count) {
+  if (count <= 0) return 0;
+  if (count <= 2) return 1;
+  if (count <= 4) return 2;
+  return 4;
+}
+
+function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, options = {}) {
+  const sideColorValues = mapSideColorIndices(sideColors, colors);
+  gridSideColors[tileIdx] = sideColorValues;
+  placements[tileIdx] = {
+    player: isValidPlayer(player) ? player : null,
+    combo,
+    rotationStep,
+    sideColors: sideColors.slice(),
+    colors: sideColorValues.slice(),
+  };
+  emptyTiles.delete(tileIdx);
+  placedCount++;
+
+  renderTileFill(tileIdx, sideColors, svg, tiles, size, colors);
+  updateClearButtonState();
+  const trackResources = options.trackResources !== false;
+  const idx = isValidPlayer(player) ? playerIndex(player) : -1;
+  const isColonPlacement = trackResources && idx !== -1 && colonPositions[idx] === tileIdx;
+  const colonBonusAvailable = isColonPlacement && !colonPlacementUsed[idx];
+  if (trackResources && idx !== -1) {
+    adjustPlayerTileResources(player, combo, 1);
+    if (colonBonusAvailable) {
+      colonPlacementUsed[idx] = true;
+    } else {
+      const current = turnState.tilesPlacedByPlayer[idx] ?? 0;
+      turnState.tilesPlacedByPlayer[idx] = current + 1;
+      const neighborCount = neighborPlacementCount(tileIdx);
+      const points = pointsForNeighborCount(neighborCount);
+      if (points > 0) awardPoints(player, points, `neighbor:${neighborCount}`);
+    }
+    renderGameHud();
+  }
+  refreshStatsModal();
+  return true;
+}
 
   function tryPlaceComboOnTile(tileIdx, combo, player = turnState.activePlayer, options = {}) {
     if (!combo) return false;
@@ -2156,9 +2207,11 @@ function generateAndRender() {
     const player = turnState.activePlayer;
     const pIdx = playerIndex(player);
     if (pIdx !== -1) {
+      const isColonTile = colonPositions[pIdx] === tileIdx;
+      const colonFreeAvailable = isColonTile && !colonPlacementUsed[pIdx];
       const placedThisTurn = turnState.tilesPlacedByPlayer[pIdx] ?? 0;
-      const limit = 1 + (playerModifiers[pIdx]?.tileLimitBonus || 0);
-      if (placedThisTurn >= limit) {
+      const limit = 1;
+      if (!colonFreeAvailable && placedThisTurn >= limit) {
         debugLog('tile-limit-reached', { player, tileIdx, limit });
         renderPlacementPreview(null);
         return;
@@ -2176,6 +2229,7 @@ function generateAndRender() {
       svg.__state.paletteCombos = paletteCombos;
       setSelectedPalette(-1);
       renderPlacementPreview(null);
+      clearColonSelection();
     } else {
       renderPlacementPreview(tileIdx);
     }
@@ -2285,6 +2339,9 @@ function generateAndRender() {
   const svgState = {
     overlayByJunction,
     renderJunctionOverlays,
+    castleByJunction,
+    renderCastleOverlays,
+    toggleCastleAtJunction,
     junctionMap,
     tiles,
     size,
@@ -2305,10 +2362,21 @@ function generateAndRender() {
     get selectedPalette() { return selectedPalette; },
     set selectedPalette(value) { setSelectedPalette(Number(value)); },
     setSelectedPalette,
-    renderPalette: renderPaletteUI,
-    autoState,
+   renderPalette: renderPaletteUI,
+   autoState,
+   squareCells,
+    squareIndicator,
+    squareIndicatorCrest,
+    updateSquareIndicator,
   };
   svg.__state = svgState;
+
+  renderColonMarkers();
+
+  const activePlayerForIndicator = turnState.activePlayer;
+  const activeIdxForIndicator = playerIndex(activePlayerForIndicator);
+  const initialScore = activeIdxForIndicator !== -1 ? playerScores[activeIdxForIndicator] || 0 : 0;
+  updateSquareIndicator(activePlayerForIndicator, initialScore);
 
   regenerateAndRenderPalette();
 
@@ -2330,6 +2398,9 @@ function generateAndRender() {
     const tile = event.target.closest('.tile');
     if (!tile) return;
     const idx = Number(tile.getAttribute('data-idx'));
+    if (selectedColonPlayer === turnState.activePlayer && selectedPalette < 0 && selectedColonPlayer != null) {
+      if (attemptColonMoveTo(idx)) return;
+    }
     handleTilePlacement(idx);
   }
   svg.addEventListener('click', handlePointerUpClick);
@@ -2450,9 +2521,15 @@ function refreshStatsModal() {
   });
   const svg = document.querySelector('#board-container svg');
   const overlayMap = svg?.__state?.overlayByJunction ?? null;
+  const castleMap = svg?.__state?.castleByJunction ?? null;
   const crestCounts = [0, 0, 0, 0, 0, 0];
   if (overlayMap) {
     for (const player of overlayMap.values()) {
+      if (player >= 1 && player <= 6) crestCounts[player - 1]++;
+    }
+  }
+  if (castleMap) {
+    for (const player of castleMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
     }
   }
@@ -2606,6 +2683,8 @@ function bindUI() {
     state.clearGrid?.();
     state.overlayByJunction?.clear();
     state.renderJunctionOverlays?.();
+    state.castleByJunction?.clear?.();
+    state.renderCastleOverlays?.();
     state.regenPalette?.();
     state.setSelectedPalette?.(-1);
   });

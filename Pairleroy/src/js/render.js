@@ -115,6 +115,10 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   junctionsG.setAttribute('id', 'junctions');
   const junctionOverlaysG = document.createElementNS(svgNS, 'g');
   junctionOverlaysG.setAttribute('id', 'junction-overlays');
+  const castleLayer = document.createElementNS(svgNS, 'g');
+  castleLayer.setAttribute('id', 'junction-castles');
+  const colonsLayer = document.createElementNS(svgNS, 'g');
+  colonsLayer.setAttribute('id', 'colons');
 
   tiles.forEach((t, idx) => {
     const { x, y } = axialToPixel(t.q, t.r, size);
@@ -198,12 +202,79 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     gridG.appendChild(g);
   });
 
+  const squareGrid = document.createElementNS(svgNS, 'g');
+  squareGrid.setAttribute('id', 'square-grid');
+  squareGrid.setAttribute('aria-hidden', 'true');
+  squareGrid.style.pointerEvents = 'none';
+  const gridCols = 4;
+  const gridRows = 4;
+  const cellSize = size * 5;
+  const gap = size * 5;
+  const totalWidth = gridCols * cellSize + (gridCols - 1) * gap;
+  const totalHeight = gridRows * cellSize + (gridRows - 1) * gap;
+  const baseX = -totalWidth / 2;
+  const baseY = -totalHeight / 2;
+
+  const squareCells = [];
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      const posX = baseX + col * (cellSize + gap);
+      const posY = baseY + row * (cellSize + gap);
+      squareCells.push({
+        index: row * gridCols + col + 1,
+        centerX: posX + cellSize / 2,
+        centerY: posY + cellSize / 2,
+      });
+      if (row === 0 || row === gridRows - 1 || col === 0 || col === gridCols - 1) {
+        const rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttribute('x', posX.toFixed(3));
+        rect.setAttribute('y', posY.toFixed(3));
+        rect.setAttribute('width', cellSize.toFixed(3));
+        rect.setAttribute('height', cellSize.toFixed(3));
+        rect.setAttribute('rx', (cellSize * 0.22).toFixed(3));
+        rect.setAttribute('ry', (cellSize * 0.22).toFixed(3));
+        squareGrid.appendChild(rect);
+      }
+    }
+  }
+
+  const squareIndicator = document.createElementNS(svgNS, 'g');
+  squareIndicator.setAttribute('id', 'square-indicator');
+  squareIndicator.style.pointerEvents = 'none';
+  const indicatorCircle = document.createElementNS(svgNS, 'circle');
+  indicatorCircle.setAttribute('class', 'square-indicator-circle');
+  indicatorCircle.setAttribute('r', (cellSize * 0.38).toFixed(3));
+  indicatorCircle.setAttribute('cx', '0');
+  indicatorCircle.setAttribute('cy', '0');
+  squareIndicator.appendChild(indicatorCircle);
+  const indicatorCrest = document.createElementNS(svgNS, 'image');
+  indicatorCrest.setAttribute('class', 'square-indicator-crest');
+  const crestSize = cellSize * 0.76;
+  indicatorCrest.setAttribute('x', (-crestSize / 2).toFixed(3));
+  indicatorCrest.setAttribute('y', (-crestSize / 2).toFixed(3));
+  indicatorCrest.setAttribute('width', crestSize.toFixed(3));
+  indicatorCrest.setAttribute('height', crestSize.toFixed(3));
+  indicatorCrest.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  squareIndicator.appendChild(indicatorCrest);
+  squareIndicator.style.display = 'none';
+
   viewport.appendChild(gridG);
-  viewport.appendChild(previewG);
+  viewport.appendChild(squareGrid);
+  viewport.appendChild(squareIndicator);
   viewport.appendChild(overlaysG);
+  viewport.appendChild(previewG);
+  viewport.appendChild(colonsLayer);
   viewport.appendChild(junctionsG);
   viewport.appendChild(junctionOverlaysG);
+  viewport.appendChild(castleLayer);
   svg.appendChild(viewport);
+  svg.__squareGrid = {
+    cells: squareCells,
+    indicator: squareIndicator,
+    crest: indicatorCrest,
+  };
+  svg.__colonsLayer = colonsLayer;
+  svg.__castleLayer = castleLayer;
   return svg;
 }
 
