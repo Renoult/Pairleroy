@@ -1,6 +1,7 @@
 // Fichier: src/js/render.js
 // Description: Fonctions DOM/SVG liées à l'affichage de la grille et des palettes.
 
+
 const PLAYER_SHAPES = {
   1: {
     name: 'rond',
@@ -140,8 +141,7 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     const clipId = `clip-${idx}`;
     const cp = document.createElementNS(svgNS, 'clipPath');
     cp.setAttribute('id', clipId);
-    const roundPath = document.createElementNS(svgNS, 'path');
-    roundPath.setAttribute('d', roundedHexPathAt(center.x, center.y, size - 0.2, 0.18));
+    const roundPath = createHexOutlineElement(center.x, center.y, size - 0.2, { 'data-clip': 'round' });
     cp.appendChild(roundPath);
     defs.appendChild(cp);
     const fillGroup = document.createElementNS(svgNS, 'g');
@@ -152,8 +152,7 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     for (let i = 0; i < 6; i++) {
       const a = verts[i];
       const b = verts[(i + 1) % 6];
-      const p = document.createElementNS(svgNS, 'path');
-      p.setAttribute('d', `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`);
+      const p = createTrianglePathElement(center, a, b);
       tris.push(p);
     }
     if (type === 1) {
@@ -191,13 +190,9 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
 
     if (fillGroup.childNodes.length) g.appendChild(fillGroup);
     else fillGroup.remove();
-    const hitArea = document.createElementNS(svgNS, 'path');
-    hitArea.setAttribute('class', 'hit-area');
-    hitArea.setAttribute('d', roundedHexPathAt(center.x, center.y, size, 0.18));
+    const hitArea = createHexOutlineElement(center.x, center.y, size, { class: 'hit-area' });
     g.appendChild(hitArea);
-    const outline = document.createElementNS(svgNS, 'path');
-    outline.setAttribute('class', 'outline');
-    outline.setAttribute('d', roundedHexPathAt(center.x, center.y, size, 0.18));
+    const outline = createHexOutlineElement(center.x, center.y, size, { class: 'outline' });
     g.appendChild(outline);
     gridG.appendChild(g);
   });
@@ -294,10 +289,8 @@ function renderTileFill(tileIdx, sideColors, svg, tiles, size, colors) {
   for (let i = 0; i < 6; i++) {
     const a = verts[i];
     const b = verts[(i + 1) % 6];
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`);
     const fillColor = fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]];
-    p.setAttribute('fill', fillColor);
+    const p = createTrianglePathElement(center, a, b, { fill: fillColor });
     fillGroup.appendChild(p);
   }
   gTile.insertBefore(fillGroup, gTile.querySelector('.outline'));

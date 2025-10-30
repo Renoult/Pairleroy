@@ -12,7 +12,6 @@ const NEIGHBOR_DIRS = [
   { q: 1, r: 0 },  // index 4
   { q: 0, r: 1 },  // index 5
 ];
-const ORIENTED_INDEX_FOR_TRIANGLE = [4, 5, 0, 1, 2, 3];
 const DEBUG_AUTOFILL = true;
 
 function debugLog(...args) {
@@ -283,49 +282,78 @@ function quotasHamiltonCap(total, weights, caps) {
   return base;
 }
 
+/**
+ * Assigne des combinaisons de couleurs aux tuiles selon les quotas Hamilton
+ * 
+ * Algorithme de répartition en 3 phases :
+ * 1. Monochromatiques (3 unités par tuile) - priorité haute
+ * 2. Bicolores majeures (2+1 unités par tuile) - priorité moyenne  
+ * 3. Répartition des unités restantes entre bicolores mineures et tricolores
+ * 
+ * @param {number[]} types - Types de tuiles (1=mono, 2=bi, 3=tri)
+ * @param {number[]} colorUnitTargets - Quotas d'unités par couleur (somme = 3N)
+ * @param {function} rng - Générateur de nombres aléatoires
+ * @returns {Array} Combinaisons assignées aux tuiles
+ */
 function assignTileCombos(types, colorUnitTargets, rng) {
+  // Phase 0: Compter les types de tuiles
   const N = types.length;
-  const M = types.filter((k) => k === 1).length;
-  const B = types.filter((k) => k === 2).length;
-  const T = types.filter((k) => k === 3).length;
-  const U = colorUnitTargets.slice(); // sum = 3N
-  // A) Mono (3 units per tile)
-  const cap3 = U.map((u) => Math.floor(u / 3));
-  const M_c = quotasHamiltonCap(M, U, cap3);
-  for (let i = 0; i < 4; i++) U[i] -= 3 * M_c[i];
-  // B) Bi-major (2 units per tile)
-  const cap2 = U.map((u) => Math.floor(u / 2));
-  const B2_c = quotasHamiltonCap(B, U, cap2);
-  for (let i = 0; i < 4; i++) U[i] -= 2 * B2_c[i];
-  // C) Remaining units split into bi-minor (sum B) and tri units (sum 3T)
-  const totalRem = U.reduce((a, b) => a + b, 0);
-  if (totalRem !== B + 3 * T) throw new Error('Incohérence unités restantes');
-  const m1_c = quotasHamiltonCap(B, U, U);
-  const t1_c = U.map((v, i) => v - m1_c[i]);
-  if (T > 0 && t1_c.filter((v) => v > 0).length < 3) {
-    for (let i = 0; i < 4 && t1_c.filter((v) => v > 0).length < 3; i++) {
-      if (t1_c[i] === 0 && m1_c[i] > 0) {
-        m1_c[i]--;
-        t1_c[i]++;
+  const monoTileCount = types.filter((k) => k === 1).length;
+  const biTileCount = types.filter((k) => k === 2).length;
+  const triTileCount = types.filter((k) => k === 3).length;
+  
+  // Variable de travail pour les unités de couleurs restantes
+  const colorUnitTargetsRemaining = colorUnitTargets.slice(); // sum = 3N
+  
+  // Phase 1: Attribuer les monochromatiques (3 unités par tuile)
+  // Calcul des limites supérieures basées sur les unités disponibles
+  const monoCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 3));
+  // Répartition selon la méthode Hamilton avec contraintes
+  const monoComboCount = quotasHamiltonCap(monoTileCount, colorUnitTargetsRemaining, monoCap);
+  // Déduire les unités utilisées pour les monochromatiques
+  for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 3 * monoComboCount[i];
+  
+  // Phase 2: Attribuer les bicolores majeures (2+1 unités par tuile)
+  const biCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 2));
+  const biMajorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, biCap);
+  // Déduire les unités utilisées pour les bicolores majeures
+  for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 2 * biMajorComboCount[i];
+  
+  // Phase 3: Répartir les unités restantes entre bicolores mineures et tricolores
+  const totalRem = colorUnitTargetsRemaining.reduce((a, b) => a + b, 0);
+  // Vérification: unités restantes = B tuiles bi + 3*T tuiles tri
+  if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('Incohérence unités restantes');
+  
+  // Répartir d'abord les bicolores mineures (1+2 unités par tuile)
+  const biMinorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, colorUnitTargetsRemaining);
+  // Les unités tricolores sont le reste après les bicolores mineures
+  const triComboCount = colorUnitTargetsRemaining.map((v, i) => v - biMinorComboCount[i]);
+  
+  // Ajustement pour assurer au moins 3 couleurs disponibles pour les tricolores
+  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) {
+    for (let i = 0; i < 4 && triComboCount.filter((v) => v > 0).length < 3; i++) {
+      if (triComboCount[i] === 0 && biMinorComboCount[i] > 0) {
+        biMinorComboCount[i]--;
+        triComboCount[i]++;
       }
     }
   }
-  if (T > 0 && t1_c.filter((v) => v > 0).length < 3) throw new Error('Tri nécessite au moins 3 couleurs');
+  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) throw new Error('Tri nécessite au moins 3 couleurs');
 
   const monos = [];
-  for (let c = 0; c < 4; c++) for (let k = 0; k < M_c[c]; k++) monos.push(c);
+  for (let c = 0; c < 4; c++) for (let k = 0; k < monoComboCount[c]; k++) monos.push(c);
   const biMaj = [];
-  for (let c = 0; c < 4; c++) for (let k = 0; k < B2_c[c]; k++) biMaj.push(c);
+  for (let c = 0; c < 4; c++) for (let k = 0; k < biMajorComboCount[c]; k++) biMaj.push(c);
   const biMin = [];
-  for (let c = 0; c < 4; c++) for (let k = 0; k < m1_c[c]; k++) biMin.push(c);
-  const triUnits = t1_c.slice();
+  for (let c = 0; c < 4; c++) for (let k = 0; k < biMinorComboCount[c]; k++) biMin.push(c);
+  const triUnits = triComboCount.slice();
   seededShuffle(biMaj, rng);
   seededShuffle(biMin, rng);
   for (let att = 0; att < 50 && biMaj.some((c, i) => c === biMin[i]); att++) seededShuffle(biMin, rng);
 
   function buildTriTriples(counts) {
     const triples = [];
-    for (let t = 0; t < T; t++) {
+    for (let t = 0; t < triTileCount; t++) {
       const avail = [0, 1, 2, 3].filter((i) => counts[i] > 0).sort((a, b) => counts[b] - counts[a]);
       if (avail.length < 3) return null;
       const tri = [avail[0], avail[1], avail[2]];

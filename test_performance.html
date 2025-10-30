@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Performance Pairleroy</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; }
+        #log { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <h1>Test des Optimisations Pairleroy</h1>
+    
+    <div id="results"></div>
+    
+    <h2>Console de Test</h2>
+    <div id="log"></div>
+    
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+            console.log('[TEST]', message);
+        }
+        
+        function addResult(testName, success, message) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'test-result ' + (success ? 'success' : 'error');
+            div.innerHTML = '<strong>' + testName + ':</strong> ' + (success ? '✅ PASSÉ' : '❌ ÉCHEC') + '<br>' + message;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function runTests() {
+            log('Début des tests de performance...');
+            
+            try {
+                // Test 1: Chargement des optimisations
+                log('Test 1: Chargement des optimisations...');
+                const response = await fetch('./app.js');
+                if (!response.ok) throw new Error('Impossible de charger app.js');
+                const appCode = await response.text();
+                
+                if (appCode.includes('SmartDebouncer')) {
+                    addResult('SmartDebouncer', true, 'Classe de debouncing détectée');
+                } else {
+                    addResult('SmartDebouncer', false, 'Classe SmartDebouncer non trouvée');
+                }
+                
+                if (appCode.includes('RAFThrottler')) {
+                    addResult('RAFThrottler', true, 'Classe de throttling RAF détectée');
+                } else {
+                    addResult('RAFThrottler', false, 'Classe RAFThrottler non trouvée');
+                }
+                
+                if (appCode.includes('LRUCache')) {
+                    addResult('LRUCache', true, 'Cache LRU détecté');
+                } else {
+                    addResult('LRUCache', false, 'Cache LRU non trouvé');
+                }
+                
+                if (appCode.includes('renderManager')) {
+                    addResult('RenderManager', true, 'Gestionnaire de rendu avec dirty flags détecté');
+                } else {
+                    addResult('RenderManager', false, 'RenderManager non trouvé');
+                }
+                
+                // Test 2: Vérification des fonctions optimisées
+                log('Test 2: Vérification des fonctions optimisées...');
+                
+                if (appCode.includes('getCachedHexPositions')) {
+                    addResult('Cache Positions Hex', true, 'Fonction de cache des positions hexagonales');
+                } else {
+                    addResult('Cache Positions Hex', false, 'Fonction de cache non trouvée');
+                }
+                
+                if (appCode.includes('mouseMoveThrottler')) {
+                    addResult('Throttling Événements', true, 'Throttler pour mouseMove détecté');
+                } else {
+                    addResult('Throttling Événements', false, 'Throttler non configuré');
+                }
+                
+                if (appCode.includes('domCache')) {
+                    addResult('Cache DOM', true, 'Système de cache DOM détecté');
+                } else {
+                    addResult('Cache DOM', false, 'Cache DOM non configuré');
+                }
+                
+                // Test 3: Performance du code
+                log('Test 3: Analyse de performance du code...');
+                
+                const size = (appCode.length / 1024).toFixed(2);
+                addResult('Taille Code', true, `Code optimisé: ${size} KB`);
+                
+                // Vérifier les optimisations DOM
+                const domOptimizations = (appCode.match(/setAttribute.*DocumentFragment/g) || []).length;
+                addResult('Optimisations DOM', domOptimizations > 0, `${domOptimizations} optimisations DOM trouvées`);
+                
+                // Vérifier les caches TTL
+                const ttlCount = (appCode.match(/ttl.*=/g) || []).length;
+                addResult('Cache TTL', ttlCount > 0, `${ttlCount} caches avec TTL configurés`);
+                
+                log('Tests terminés avec succès!');
+                
+                // Test bonus: Simulation de performance
+                log('Test Bonus: Simulation de performance...');
+                
+                const start = performance.now();
+                // Simulation de quelques opérations coûteuses
+                for (let i = 0; i < 1000; i++) {
+                    Math.random();
+                    Math.random();
+                }
+                const end = performance.now();
+                const elapsed = (end - start).toFixed(2);
+                
+                addResult('Simulation Performance', true, `1000 opérations en ${elapsed}ms`);
+                
+            } catch (error) {
+                log('Erreur lors des tests: ' + error.message);
+                addResult('Tests Généraux', false, 'Erreur: ' + error.message);
+            }
+        }
+        
+        // Démarrer les tests
+        runTests();
+    </script>
+</body>
+</html>

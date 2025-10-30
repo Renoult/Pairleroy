@@ -1,6 +1,7 @@
 // Fichier: src/js/main.js
 // Description: Orchestration de l'application (lecture config, génération de la grille, interactions UI).
 
+
 const tiles = generateAxialGrid(RADIUS);
 const { neighbors: tileNeighbors } = buildNeighborData(tiles);
 const tileAngles = tiles.map(tileAngle);
@@ -1213,14 +1214,13 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     for (let i = 0; i < 6; i++) {
       const a = verts[i];
       const b = verts[(i + 1) % 6];
-      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('d', `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`);
-      p.setAttribute('fill', fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]]);
-      p.setAttribute('fill-opacity', '0.6');
+      const p = createTrianglePathElement(center, a, b, { 
+        fill: fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]], 
+        'fill-opacity': '0.6' 
+      });
       previewLayer.appendChild(p);
     }
-    const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    outline.setAttribute('d', roundedHexPathAt(center.x, center.y, size, 0.18));
+    const outline = createHexOutlineElement(center.x, center.y, size);
     outline.setAttribute('fill', 'none');
     outline.setAttribute('stroke', can ? '#2e7d32' : '#c62828');
     outline.setAttribute('stroke-width', '2.2');

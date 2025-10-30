@@ -1,6 +1,7 @@
 // Fichier: src/js/palette.js
 // Description: Fonctions liées à la palette de tuiles (sélection, rotation, rendu miniatures).
 
+
 function colorFromIndex(colorIdx, colors) {
   if (typeof colorIdx === 'string') {
     const trimmed = colorIdx.trim();
@@ -141,16 +142,12 @@ function renderComboSVG(combo, size = 80, colors) {
   for (let i = 0; i < 6; i++) {
     const a = verts[i];
     const b = verts[(i + 1) % 6];
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`);
     const fillColor = fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]];
-    p.setAttribute('fill', fillColor);
+    const p = createTrianglePathElement(center, a, b, { fill: fillColor });
     tris.push(p);
     svgSmall.appendChild(p);
   }
-  const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  outline.setAttribute('d', roundedHexPathAt(cx, cy, outlineRadius));
-  outline.setAttribute('class', 'outline');
+  const outline = createHexOutlineElement(cx, cy, outlineRadius, { class: 'outline' });
   svgSmall.appendChild(outline);
   return svgSmall;
 }
