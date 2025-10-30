@@ -51,9 +51,16 @@
     </header>
 
     <main>
-      <div id="board-container">
-        <div id="board-surface">
-          <!-- SVG inline injected by app.js -->
+      <div class="boards-container">
+        <div id="hex-container" class="board-container">
+          <div id="hex-surface" class="board-surface">
+            <!-- SVG inline injected by app.js -->
+          </div>
+        </div>
+        <div id="square-container" class="board-container">
+          <div id="square-surface" class="board-surface">
+            <!-- Square grid SVG will be injected here -->
+          </div>
         </div>
       </div>
       <aside id="palette" aria-label="Palette de tuiles">
