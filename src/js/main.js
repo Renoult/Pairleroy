@@ -36,6 +36,14 @@ const PLAYER_COLON_COLORS = [
   '#6cc2be',
 ];
 
+const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
+const DEFAULT_COLOR_LABELS = ['Couleur 1', 'Couleur 2', 'Couleur 3', 'Couleur 4'];
+
+let activeColors = DEFAULT_COLOR_HEX.slice();
+if (typeof window !== 'undefined') {
+  window.__pairleroyActiveColors = activeColors.slice();
+}
+
 const DEFAULT_CENTER_TILE_INDEX = (() => {
   const idx = tiles.findIndex((t) => t.q === 0 && t.r === 0 && t.s === 0);
   return idx >= 0 ? idx : 0;
@@ -427,11 +435,10 @@ function idealTextColor(rgb) {
 }
 
 function colorLabelForIndex(idx) {
-  const input = document.getElementById(`color-c${idx + 1}`);
-  if (!input) return `C${idx + 1}`;
-  const label = input.getAttribute('data-label');
+  const percentInput = document.getElementById(`pct-c${idx + 1}`);
+  const label = percentInput?.parentElement?.getAttribute('title');
   const trimmed = label ? label.trim() : '';
-  return trimmed || `C${idx + 1}`;
+  return trimmed || DEFAULT_COLOR_LABELS[idx] || `C${idx + 1}`;
 }
 
 let cachedColorValues = ['', '', '', ''];
@@ -441,12 +448,11 @@ function updateColorPercentageStyles() {
   let colorsChanged = false;
   
   for (let idx = 1; idx <= 4; idx++) {
-    const colorInput = document.getElementById(`color-c${idx}`);
     const percentInput = document.getElementById(`pct-c${idx}`);
-    if (!colorInput || !percentInput) continue;
+    if (!percentInput) continue;
     
-    const currentValue = colorInput.value;
     const cacheIdx = idx - 1;
+    const currentValue = activeColors[cacheIdx] || DEFAULT_COLOR_HEX[cacheIdx];
     
     let rgb;
     if (cachedColorValues[cacheIdx] === currentValue) {
@@ -471,6 +477,30 @@ function updateColorPercentageStyles() {
   
   if (colorsChanged) {
     renderGameHud();
+  }
+}
+
+function sanitizeHexColor(value, fallback) {
+  const hex = (value ?? '').toString().trim();
+  if (/^#?[0-9a-fA-F]{6}$/.test(hex)) {
+    return hex.startsWith('#') ? hex : `#${hex}`;
+  }
+  return fallback;
+}
+
+function setActiveColors(list) {
+  const next = DEFAULT_COLOR_HEX.map((fallback, idx) =>
+    sanitizeHexColor(Array.isArray(list) ? list[idx] : null, fallback),
+  );
+  const changed = next.some((color, idx) => color !== activeColors[idx]);
+  activeColors = next;
+  if (typeof window !== 'undefined') {
+    window.__pairleroyActiveColors = next.slice();
+  }
+  if (changed) {
+    cachedColorValues = ['', '', '', ''];
+    cachedParsedColors = [null, null, null, null];
+    updateColorPercentageStyles();
   }
 }
 
@@ -568,30 +598,18 @@ function renderGameHud() {
       card.title = labelText;
       card.setAttribute('aria-label', labelText);
       card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      if (isActive) card.classList.add('scorecard--active');
+      card.classList.toggle('scorecard--active', isActive);
       card.addEventListener('click', () => {
         if (player !== turnState.activePlayer) setActivePlayer(player);
       });
 
-      const iconWrap = document.createElement('span');
-      iconWrap.className = 'scorecard-icon';
-      iconWrap.appendChild(createScorecardIcon(player));
-      card.appendChild(iconWrap);
+      const crestSvg = createScorecardIcon(player);
+      card.appendChild(crestSvg);
 
-      const meta = document.createElement('div');
-      meta.className = 'scorecard-meta';
-
-      const label = document.createElement('span');
-      label.className = 'scorecard-label';
-      label.textContent = `J${player}`;
-      meta.appendChild(label);
-
-      const points = document.createElement('span');
-      points.className = 'scorecard-points';
-      points.textContent = String(scoreValue);
-      meta.appendChild(points);
-
-      card.appendChild(meta);
+      const scoreNode = document.createElement('span');
+      scoreNode.className = 'scorecard-score';
+      scoreNode.textContent = String(scoreValue);
+      card.appendChild(scoreNode);
 
       scoreboard.appendChild(card);
     });
@@ -634,12 +652,7 @@ function readConfig() {
   const c2 = Number(document.getElementById('pct-c2').value) || 0;
   const c3 = Number(document.getElementById('pct-c3').value) || 0;
   const c4 = Number(document.getElementById('pct-c4').value) || 0;
-  const colors = [
-    document.getElementById('color-c1').value,
-    document.getElementById('color-c2').value,
-    document.getElementById('color-c3').value,
-    document.getElementById('color-c4').value,
-  ];
+  const colors = activeColors.slice();
   return { typesPct: [mono, bi, tri], colorPct: [c1, c2, c3, c4], colors };
 }
 
@@ -703,13 +716,9 @@ function parseConfigFromURL() {
   }
   if (colStr) {
     const cols = colStr.split(',');
-    if (cols.length === 4) {
-      document.getElementById('color-c1').value = cols[0];
-      document.getElementById('color-c2').value = cols[1];
-      document.getElementById('color-c3').value = cols[2];
-      document.getElementById('color-c4').value = cols[3];
-    }
+    if (cols.length === 4) setActiveColors(cols);
   }
+  updateColorPercentageStyles();
 }
 
 function isJunctionReady(entry) {
@@ -1939,10 +1948,10 @@ function bindUI() {
   const ids = [
     'pct-mono', 'pct-bi', 'pct-tri',
     'pct-c1', 'pct-c2', 'pct-c3', 'pct-c4',
-    'color-c1', 'color-c2', 'color-c3', 'color-c4',
   ];
   for (const id of ids) {
-    document.getElementById(id).addEventListener('change', generateAndRender);
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', generateAndRender);
   }
 
   document.addEventListener('keydown', (event) => {

@@ -11,10 +11,52 @@
       <div class="topbar-controls">
         <div class="field">
           <label>Types de tuiles (%)</label>
-          <div class="row">
-            <label>Mono <input id="pct-mono" type="number" min="0" max="100" value="40" /></label>
-            <label>Bi <input id="pct-bi" type="number" min="0" max="100" value="40" /></label>
-            <label>Tri <input id="pct-tri" type="number" min="0" max="100" value="20" /></label>
+          <div class="row tile-type-row">
+            <label class="tile-type-label" title="Tuile mono couleur">
+              <span class="sr-only">Mono</span>
+              <svg class="tile-icon tile-icon--mono" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--mono">
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 8 32 8 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 8 12 24 4" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-mono" type="number" min="0" max="100" value="40" />
+            </label>
+            <label class="tile-type-label" title="Tuile bi couleur">
+              <span class="sr-only">Bi</span>
+              <svg class="tile-icon tile-icon--bi" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--bi">
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 8 12 24 4" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-minor" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-minor" points="24 22 8 32 8 12" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-bi" type="number" min="0" max="100" value="40" />
+            </label>
+            <label class="tile-type-label" title="Tuile tri couleur">
+              <span class="sr-only">Tri</span>
+              <svg class="tile-icon tile-icon--tri" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--tri">
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-a" points="24 22 8 12 24 4" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-a" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-b" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-b" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-c" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-c" points="24 22 8 32 8 12" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-tri" type="number" min="0" max="100" value="20" />
+            </label>
           </div>
         </div>
         <div class="field field--colors">

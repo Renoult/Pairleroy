@@ -2,11 +2,21 @@
 .controls { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center; }
 .controls .field { display: flex; flex-direction: column; gap: 8px; }
 .controls .row { display: flex; gap: 10px; align-items: center; }
-label { 
-  color: var(--text-secondary); 
+label {
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 input[type="number"] {
   width: 56px;
@@ -33,27 +43,77 @@ input[type="number"]:focus {
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
-input[type="color"] { 
-  width: 28px; 
-  height: 28px; 
-  border: 2px solid var(--border); 
-  border-radius: 6px;
-  background: transparent; 
-  padding: 0; 
-  margin-right: 6px; 
-  vertical-align: middle;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
+
+.tile-type-row {
+  gap: 14px;
 }
-input[type="color"]:hover {
-  border-color: var(--border-strong);
+
+.tile-type-label {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
 }
-button { 
-  background: var(--accent); 
-  color: #fff; 
-  border: none; 
-  padding: 10px 16px; 
-  border-radius: 8px; 
+
+.tile-icon {
+  width: 48px;
+  height: 44px;
+  display: block;
+}
+
+.tile-icon polygon {
+  stroke: rgba(55, 47, 36, 0.35);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.tile-icon__outline {
+  fill: none;
+}
+
+.tile-icon__segments {
+  display: block;
+}
+
+.tile-icon__segment {
+  stroke: none;
+}
+
+.tile-icon__segments--mono .tile-icon__segment--mono {
+  fill: #d46a6a;
+}
+
+.tile-icon__segments--bi .tile-icon__segment--bi-major {
+  fill: #d46a6a;
+}
+
+.tile-icon__segments--bi .tile-icon__segment--bi-minor {
+  fill: #b8b1a7;
+}
+
+.tile-icon__segments--tri .tile-icon__segment--tri-a {
+  fill: #d46a6a;
+}
+
+.tile-icon__segments--tri .tile-icon__segment--tri-b {
+  fill: #64b5f6;
+}
+
+.tile-icon__segments--tri .tile-icon__segment--tri-c {
+  fill: #81c784;
+}
+
+.tile-type-label input {
+  margin-top: 2px;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
@@ -76,48 +136,6 @@ button:active {
 .field--colors .row {
   flex-wrap: wrap;
   gap: 12px;
-}
-
-.color-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.color-field:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-}
-
-.color-tag {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--text-secondary);
-  padding: 3px 7px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.color-picker {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
-}
-
-.color-picker:hover {
-  border-color: var(--border-strong);
 }
 
 .color-percent {
