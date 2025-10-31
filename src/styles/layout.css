@@ -316,6 +316,12 @@ main {
   stroke-opacity: 0.35;
 }
 
+.influence-outline {
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  transition: opacity 0.15s ease;
+}
+
 #square-values {
   pointer-events: none;
 }

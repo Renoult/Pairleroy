@@ -1647,7 +1647,7 @@ function generateAndRender() {
     const layer = svg.__influenceLayer ?? svg.querySelector('#influence-zones');
     if (!layer) return;
     layer.innerHTML = '';
-    const radius = size * 2.9;
+    const influencedTilesByPlayer = new Map();
     const seeds = [];
     castleByJunction.forEach((player, key) => {
       const entry = junctionMap.get(key);
@@ -1657,19 +1657,42 @@ function generateAndRender() {
       const entry = junctionMap.get(key);
       if (entry && isValidPlayer(player)) seeds.push({ player, entry });
     });
+    if (seeds.length === 0) return;
     seeds.forEach(({ player, entry }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
-      const zone = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      zone.setAttribute('class', 'influence-zone');
-      zone.setAttribute('cx', entry.x.toFixed(3));
-      zone.setAttribute('cy', entry.y.toFixed(3));
-      zone.setAttribute('r', radius.toFixed(3));
-      const baseColor = colonColorForIndex(idx);
-      zone.setAttribute('fill', colorWithAlpha(baseColor, 0.16));
-      zone.setAttribute('stroke', colorWithAlpha(baseColor, 0.45));
-      zone.setAttribute('stroke-width', (size * 0.18).toFixed(3));
-      layer.appendChild(zone);
+      const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
+      if (tilesAround.length === 0) return;
+      if (!influencedTilesByPlayer.has(player)) influencedTilesByPlayer.set(player, new Set());
+      const tileSet = influencedTilesByPlayer.get(player);
+      for (let tileIdx = 0; tileIdx < tiles.length; tileIdx++) {
+        const tile = tiles[tileIdx];
+        if (!tile) continue;
+        let best = Infinity;
+        for (let t = 0; t < tilesAround.length; t++) {
+          const baseTileIdx = tilesAround[t];
+          const dist = hexDistanceBetweenCached(tileIdx, baseTileIdx);
+          if (Number.isFinite(dist) && dist < best) best = dist;
+          if (best <= 2) break;
+        }
+        if (best <= 2) tileSet.add(tileIdx);
+      }
+    });
+
+    influencedTilesByPlayer.forEach((tileSet, player) => {
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      tileSet.forEach((tileIdx) => {
+        const tile = tiles[tileIdx];
+        if (!tile) return;
+        const center = axialToPixel(tile.q, tile.r, size);
+        const outline = createHexOutlineElement(center.x, center.y, size - 0.2, { class: 'influence-outline' });
+        const baseColor = colonColorForIndex(idx);
+        outline.setAttribute('fill', colorWithAlpha(baseColor, 0.12));
+        outline.setAttribute('stroke', colorWithAlpha(baseColor, 0.6));
+        outline.setAttribute('stroke-width', (size * 0.12).toFixed(3));
+        layer.appendChild(outline);
+      });
     });
   }
 
