@@ -2658,8 +2658,14 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     get selectedPalette() { return selectedPalette; },
     set selectedPalette(value) { setSelectedPalette(Number(value)); },
     setSelectedPalette,
-   renderPalette: renderPaletteUI,
-   autoState,
+    renderPalette: renderPaletteUI,
+    refreshPreview: () => renderPlacementPreview(hoveredTileIdx),
+    get hoveredTile() { return hoveredTileIdx; },
+    set hoveredTile(value) {
+      hoveredTileIdx = Number.isInteger(value) ? Number(value) : null;
+      renderPlacementPreview(hoveredTileIdx);
+    },
+    autoState,
     squareCells,
     squareTrack,
     squareIndicator,
@@ -3002,26 +3008,30 @@ function bindUI() {
   document.addEventListener('keydown', (event) => {
     const activeTag = document.activeElement?.tagName;
     const isEditing = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+
     if ((event.key === 'r' || event.key === 'R') && !isEditing) {
       const svg = document.querySelector('#board-container svg');
       const state = svg?.__state ?? null;
       if (!state) return;
+
       const combos = state.paletteCombos ?? [];
       const selected = state.selectedPalette ?? -1;
-      if (selected >= 0) {
-          const combo = combos[selected];
-          if (combo) {
-            const steps = rotationStepsForCombo(combo);
-            if (steps.length > 1) {
-              combo.rotationStep = nextRotationStep(combo, combo.rotationStep);
-            renderPaletteUI(combos);
+      if (selected >= 0 && Array.isArray(combos)) {
+        const combo = combos[selected];
+        if (combo) {
+          const steps = rotationStepsForCombo(combo);
+          if (steps.length > 1) {
+            combo.rotationStep = nextRotationStep(combo, combo.rotationStep);
             state.paletteCombos = combos;
             state.setSelectedPalette?.(selected);
-              event.preventDefault();
-            }
+            state.refreshPreview?.();
+            event.preventDefault();
           }
         }
+      }
+      return;
     }
+
     if (event.key >= '1' && event.key <= '6') {
       const playerId = Number(event.key);
       if (isValidPlayer(playerId)) setActivePlayer(playerId);

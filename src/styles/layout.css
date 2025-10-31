@@ -126,8 +126,9 @@ main {
   flex: 1 1 auto;
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 20px;
-  padding: 0 24px 24px;
+  padding: 16px 24px 24px;
   min-height: 0;
 }
 #board-container {
@@ -138,7 +139,9 @@ main {
   padding: 16px;
   min-height: 0;
   min-width: 0;
-  height: clamp(320px, calc(100vh - 220px), 720px);
+  max-width: 100%;
+  height: clamp(320px, calc(100vh - 240px), 760px);
+  max-height: calc(100vh - 240px);
 }
 
 #board-surface {
@@ -153,8 +156,8 @@ main {
 }
 
 #palette {
-  flex: 0 0 140px;
-  width: 140px;
+  flex: 0 0 clamp(150px, 20vw, 220px);
+  width: clamp(150px, 20vw, 220px);
   border: 1px solid var(--border);
   padding: 16px 12px;
   display: flex;
@@ -163,6 +166,7 @@ main {
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
   min-height: 0;
+  max-height: calc(100vh - 240px);
   overflow-y: auto;
 }
 #palette-items { 
