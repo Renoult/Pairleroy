@@ -1394,8 +1394,32 @@ const DEFAULT_CENTER_TILE_INDEX = (() => {
   return idx >= 0 ? idx : 0;
 })();
 
+const DEFAULT_GAME_SETTINGS = Object.freeze({
+  tilePlacementsPerTurn: 1,
+  colonStepsPerTurn: 2,
+  neighborPoints: [0, 1, 1, 2, 2, 4, 4],
+  castleCost: 5,
+  outpostCost: 3,
+  amenagementCost: 0,
+  influenceRadius: 1,
+});
+
+const gameSettings = {
+  tilePlacementsPerTurn: DEFAULT_GAME_SETTINGS.tilePlacementsPerTurn,
+  colonStepsPerTurn: DEFAULT_GAME_SETTINGS.colonStepsPerTurn,
+  neighborPoints: DEFAULT_GAME_SETTINGS.neighborPoints.slice(),
+  castleCost: DEFAULT_GAME_SETTINGS.castleCost,
+  outpostCost: DEFAULT_GAME_SETTINGS.outpostCost,
+  amenagementCost: DEFAULT_GAME_SETTINGS.amenagementCost,
+  influenceRadius: DEFAULT_GAME_SETTINGS.influenceRadius,
+};
+
+if (typeof window !== 'undefined') {
+  window.__pairleroySettings = gameSettings;
+}
+
 let colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
-let colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+let colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
 let colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
 let selectedColonPlayer = null;
 let colonMarkers = new Map();
@@ -1466,11 +1490,425 @@ function resetTurnCounters() {
   } else {
     turnState.tilesPlacedByPlayer.fill(0);
   }
-  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
   colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
   selectedColonPlayer = null;
   updateColonMarkersPositions();
   influenceMap.clear();
+}
+
+function snapshotGameSettings() {
+  return {
+    tilePlacementsPerTurn: gameSettings.tilePlacementsPerTurn,
+    colonStepsPerTurn: gameSettings.colonStepsPerTurn,
+    neighborPoints: Array.isArray(gameSettings.neighborPoints)
+      ? gameSettings.neighborPoints.slice()
+      : DEFAULT_GAME_SETTINGS.neighborPoints.slice(),
+    castleCost: gameSettings.castleCost,
+    outpostCost: gameSettings.outpostCost,
+    amenagementCost: gameSettings.amenagementCost,
+    influenceRadius: gameSettings.influenceRadius,
+  };
+}
+
+function normalizeIntegerSetting(value, fallback, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
+  const base = Number(value);
+  const safeFallback = Number.isFinite(fallback) ? fallback : 0;
+  if (!Number.isFinite(base)) {
+    return Math.min(max, Math.max(min, Math.round(safeFallback)));
+  }
+  const rounded = Math.round(base);
+  return Math.min(max, Math.max(min, rounded));
+}
+
+function applyGameSettingsDiff(previous) {
+  if (gameSettings.tilePlacementsPerTurn !== previous.tilePlacementsPerTurn) {
+    const limit = Math.max(0, gameSettings.tilePlacementsPerTurn);
+    if (!Array.isArray(turnState.tilesPlacedByPlayer)) {
+      turnState.tilesPlacedByPlayer = Array.from({ length: PLAYER_COUNT }, () => 0);
+    }
+    turnState.tilesPlacedByPlayer = turnState.tilesPlacedByPlayer.map((value) => {
+      const current = Number.isFinite(value) ? value : 0;
+      return Math.min(limit, Math.max(0, current));
+    });
+  }
+
+  const colonLimit = Math.max(0, gameSettings.colonStepsPerTurn);
+  if (gameSettings.colonStepsPerTurn !== previous.colonStepsPerTurn) {
+    colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => colonLimit);
+  } else {
+    colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, (_, idx) =>
+      Math.min(colonLimit, Math.max(0, colonMoveRemaining[idx] ?? colonLimit)),
+    );
+  }
+  updateColonMarkersPositions();
+
+  if (gameSettings.influenceRadius !== previous.influenceRadius) {
+    influenceMap.clear();
+  }
+
+  const svg = getBoardSvg();
+  svg?.__state?.renderInfluenceZones?.();
+  renderGameHud();
+}
+
+function updateGameSettings(changes = {}) {
+  const previous = snapshotGameSettings();
+  let changed = false;
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'tilePlacementsPerTurn')) {
+    const next = normalizeIntegerSetting(
+      changes.tilePlacementsPerTurn,
+      previous.tilePlacementsPerTurn,
+      { min: 0, max: 6 },
+    );
+    if (next !== gameSettings.tilePlacementsPerTurn) {
+      gameSettings.tilePlacementsPerTurn = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'colonStepsPerTurn')) {
+    const next = normalizeIntegerSetting(
+      changes.colonStepsPerTurn,
+      previous.colonStepsPerTurn,
+      { min: 0, max: 8 },
+    );
+    if (next !== gameSettings.colonStepsPerTurn) {
+      gameSettings.colonStepsPerTurn = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'castleCost')) {
+    const next = normalizeIntegerSetting(
+      changes.castleCost,
+      previous.castleCost,
+      { min: 0, max: 50 },
+    );
+    if (next !== gameSettings.castleCost) {
+      gameSettings.castleCost = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'outpostCost')) {
+    const next = normalizeIntegerSetting(
+      changes.outpostCost,
+      previous.outpostCost,
+      { min: 0, max: 50 },
+    );
+    if (next !== gameSettings.outpostCost) {
+      gameSettings.outpostCost = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'amenagementCost')) {
+    const next = normalizeIntegerSetting(
+      changes.amenagementCost,
+      previous.amenagementCost,
+      { min: 0, max: 50 },
+    );
+    if (next !== gameSettings.amenagementCost) {
+      gameSettings.amenagementCost = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'influenceRadius')) {
+    const next = normalizeIntegerSetting(
+      changes.influenceRadius,
+      previous.influenceRadius,
+      { min: 0, max: 6 },
+    );
+    if (next !== gameSettings.influenceRadius) {
+      gameSettings.influenceRadius = next;
+      changed = true;
+    }
+  }
+
+  if (changes.neighborPoint && Number.isInteger(changes.neighborPoint.index)) {
+    const desiredLen = DEFAULT_GAME_SETTINGS.neighborPoints.length;
+    const idx = Math.min(desiredLen - 1, Math.max(0, changes.neighborPoint.index));
+    const table = Array.isArray(gameSettings.neighborPoints)
+      ? gameSettings.neighborPoints.slice()
+      : DEFAULT_GAME_SETTINGS.neighborPoints.slice();
+    const nextValue = normalizeIntegerSetting(
+      changes.neighborPoint.value,
+      table[idx],
+      { min: 0, max: 20 },
+    );
+    if (nextValue !== table[idx]) {
+      table[idx] = nextValue;
+      gameSettings.neighborPoints = table;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    applyGameSettingsDiff(previous);
+    if (typeof window !== 'undefined') {
+      window.__pairleroySettings = gameSettings;
+    }
+  }
+  return changed;
+}
+
+const SETTINGS_KEYS = new Set(['m', 'o', 'd']);
+const settingsPressedKeys = new Set();
+let settingsComboLatched = false;
+let settingsPanelVisible = false;
+let settingsPanelElements = null;
+
+function createNumberSettingControl(container, { label, setting, min, max, step = 1, dataset = {} }) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'settings-panel__control';
+  const text = document.createElement('span');
+  text.className = 'settings-panel__label';
+  text.textContent = label;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.className = 'settings-panel__input';
+  if (Number.isFinite(min)) input.min = String(min);
+  if (Number.isFinite(max)) input.max = String(max);
+  if (Number.isFinite(step)) input.step = String(step);
+  input.dataset.setting = setting;
+  Object.entries(dataset).forEach(([key, value]) => {
+    input.dataset[key] = String(value);
+  });
+  input.addEventListener('change', handleGameSettingInput);
+  input.addEventListener('input', handleGameSettingInput);
+  wrapper.appendChild(text);
+  wrapper.appendChild(input);
+  container.appendChild(wrapper);
+  return input;
+}
+
+function ensureSettingsPanel() {
+  if (settingsPanelElements) return settingsPanelElements;
+
+  const panel = document.createElement('div');
+  panel.className = 'settings-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Param\u00e8tres de partie');
+  panel.tabIndex = -1;
+
+  const header = document.createElement('div');
+  header.className = 'settings-panel__header';
+  const title = document.createElement('span');
+  title.className = 'settings-panel__title';
+  title.textContent = 'R\u00e8gles dynamiques';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'settings-panel__close';
+  closeBtn.setAttribute('aria-label', 'Fermer');
+  closeBtn.textContent = '×';
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'settings-panel__body';
+
+  panel.appendChild(header);
+  panel.appendChild(body);
+  document.body.appendChild(panel);
+
+  const sections = [];
+  const createSection = (sectionTitle) => {
+    const section = document.createElement('section');
+    section.className = 'settings-panel__section';
+    if (sectionTitle) {
+      const heading = document.createElement('div');
+      heading.className = 'settings-panel__section-title';
+      heading.textContent = sectionTitle;
+      section.appendChild(heading);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'settings-panel__grid';
+    section.appendChild(grid);
+    body.appendChild(section);
+    sections.push({ section, grid });
+    return grid;
+  };
+
+  const turnGrid = createSection('Tours');
+  const influenceGrid = createSection('Influence');
+  const costGrid = createSection('Co\u00fbts');
+  const neighborGrid = createSection('Points par voisins');
+
+  const inputs = {
+    tilePlacements: createNumberSettingControl(turnGrid, {
+      label: 'Placements par tour',
+      setting: 'tilePlacementsPerTurn',
+      min: 0,
+      max: 6,
+    }),
+    colonSteps: createNumberSettingControl(turnGrid, {
+      label: 'Pas du colon par tour',
+      setting: 'colonStepsPerTurn',
+      min: 0,
+      max: 8,
+    }),
+    influenceRadius: createNumberSettingControl(influenceGrid, {
+      label: 'Distance d\u2019influence',
+      setting: 'influenceRadius',
+      min: 0,
+      max: 6,
+    }),
+    castleCost: createNumberSettingControl(costGrid, {
+      label: 'Co\u00fbt d\u2019un ch\u00e2teau',
+      setting: 'castleCost',
+      min: 0,
+      max: 50,
+    }),
+    outpostCost: createNumberSettingControl(costGrid, {
+      label: 'Co\u00fbt d\u2019un avant-poste',
+      setting: 'outpostCost',
+      min: 0,
+      max: 50,
+    }),
+    amenagementCost: createNumberSettingControl(costGrid, {
+      label: 'Co\u00fbt d\u2019un am\u00e9nagement',
+      setting: 'amenagementCost',
+      min: 0,
+      max: 50,
+    }),
+  };
+
+  const neighborInputs = [];
+  const neighborLabels = ['0', '1', '2', '3', '4', '5', '6+'];
+  neighborLabels.forEach((label, index) => {
+    const input = createNumberSettingControl(neighborGrid, {
+      label: `Voisins ${label}`,
+      setting: 'neighborPoint',
+      min: 0,
+      max: 20,
+      dataset: { index },
+    });
+    neighborInputs.push(input);
+  });
+
+  closeBtn.addEventListener('click', () => hideSettingsPanel());
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      hideSettingsPanel();
+      event.stopPropagation();
+    }
+  });
+
+  settingsPanelElements = {
+    panel,
+    body,
+    inputs,
+    neighborInputs,
+  };
+  return settingsPanelElements;
+}
+
+function syncSettingsPanelInputs() {
+  if (!settingsPanelVisible && !settingsPanelElements) return;
+  const elements = ensureSettingsPanel();
+  const table = Array.isArray(gameSettings.neighborPoints)
+    ? gameSettings.neighborPoints
+    : DEFAULT_GAME_SETTINGS.neighborPoints;
+  if (elements.inputs.tilePlacements) {
+    elements.inputs.tilePlacements.value = String(gameSettings.tilePlacementsPerTurn);
+  }
+  if (elements.inputs.colonSteps) {
+    elements.inputs.colonSteps.value = String(gameSettings.colonStepsPerTurn);
+  }
+  if (elements.inputs.influenceRadius) {
+    elements.inputs.influenceRadius.value = String(gameSettings.influenceRadius);
+  }
+  if (elements.inputs.castleCost) {
+    elements.inputs.castleCost.value = String(gameSettings.castleCost);
+  }
+  if (elements.inputs.outpostCost) {
+    elements.inputs.outpostCost.value = String(gameSettings.outpostCost);
+  }
+  if (elements.inputs.amenagementCost) {
+    elements.inputs.amenagementCost.value = String(gameSettings.amenagementCost);
+  }
+  elements.neighborInputs.forEach((input, idx) => {
+    if (input) {
+      input.value = String(table[Math.min(table.length - 1, idx)] ?? 0);
+    }
+  });
+}
+
+function showSettingsPanel() {
+  const elements = ensureSettingsPanel();
+  settingsPanelVisible = true;
+  elements.panel.classList.add('settings-panel--visible');
+  syncSettingsPanelInputs();
+  elements.panel.focus({ preventScroll: true });
+}
+
+function hideSettingsPanel() {
+  if (!settingsPanelVisible) return;
+  const elements = ensureSettingsPanel();
+  elements.panel.classList.remove('settings-panel--visible');
+  settingsPanelVisible = false;
+  settingsPressedKeys.clear();
+  settingsComboLatched = false;
+}
+
+function toggleSettingsPanel() {
+  if (settingsPanelVisible) hideSettingsPanel();
+  else showSettingsPanel();
+}
+
+function handleGameSettingInput(event) {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) return;
+  const setting = target.dataset.setting;
+  if (!setting) return;
+  if (setting === 'neighborPoint') {
+    const index = Number(target.dataset.index);
+    const value = Number(target.value);
+    updateGameSettings({ neighborPoint: { index, value } });
+  } else {
+    const value = Number(target.value);
+    updateGameSettings({ [setting]: value });
+  }
+  syncSettingsPanelInputs();
+}
+
+function handleSettingsKeyDown(event) {
+  const key = event.key?.toLowerCase();
+  if (!key) return false;
+  if (key === 'escape') {
+    if (settingsPanelVisible) {
+      hideSettingsPanel();
+      return true;
+    }
+    return false;
+  }
+  if (!SETTINGS_KEYS.has(key)) return false;
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+    return false;
+  }
+  settingsPressedKeys.add(key);
+  if (settingsPressedKeys.size === SETTINGS_KEYS.size && !settingsComboLatched) {
+    toggleSettingsPanel();
+    settingsComboLatched = true;
+    return true;
+  }
+  return false;
+}
+
+function handleSettingsKeyUp(event) {
+  const key = event.key?.toLowerCase();
+  if (!key) return;
+  if (SETTINGS_KEYS.has(key)) {
+    settingsPressedKeys.delete(key);
+    if (settingsPressedKeys.size === 0) settingsComboLatched = false;
+  } else {
+    settingsPressedKeys.clear();
+    settingsComboLatched = false;
+  }
 }
 
 function ensureHudElements() {
@@ -1740,7 +2178,11 @@ function attemptColonMoveTo(tileIdx) {
   }
   const currentIdx = colonPositions[pIdx];
   const distance = hexDistanceBetween(currentIdx, tileIdx);
-  if (!Number.isFinite(distance) || distance > 2 || distance > colonMoveRemaining[pIdx]) {
+  if (
+    !Number.isFinite(distance)
+    || distance > gameSettings.colonStepsPerTurn
+    || distance > colonMoveRemaining[pIdx]
+  ) {
     return true;
   }
   if (distance === 0) {
@@ -1975,6 +2417,19 @@ function unregisterAmenagementForPlayer(player, key, colorIdx = null) {
   renderGameHud();
 }
 
+function amenagementCostValue() {
+  const value = Number.isFinite(gameSettings.amenagementCost)
+    ? gameSettings.amenagementCost
+    : DEFAULT_GAME_SETTINGS.amenagementCost;
+  return Math.max(0, value);
+}
+
+function chargeAmenagementPlacement(player) {
+  const cost = amenagementCostValue();
+  if (cost <= 0) return true;
+  return spendPoints(player, cost, 'amenagement');
+}
+
 function registerBuildingForPlayer(player, cardId) {
   if (!isValidPlayer(player) || !cardId) return;
   const idx = playerIndex(player);
@@ -2017,7 +2472,7 @@ function resetGameDataForNewBoard() {
   }
   svg?.__state?.renderInfluenceZones?.();
   colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
-  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
+  colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
   colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
   selectedColonPlayer = null;
   updateColonMarkersPositions();
@@ -2044,9 +2499,9 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
   const nextIdx = (currentIdx + 1) % PLAYER_COUNT;
   if (nextIdx === 0) turnState.turnNumber += 1;
   turnState.activePlayer = PLAYER_IDS[nextIdx];
-  colonMoveRemaining[currentIdx] = 2;
+  colonMoveRemaining[currentIdx] = gameSettings.colonStepsPerTurn;
   colonPlacementUsed[currentIdx] = false;
-  colonMoveRemaining[nextIdx] = 2;
+  colonMoveRemaining[nextIdx] = gameSettings.colonStepsPerTurn;
   colonPlacementUsed[nextIdx] = false;
   selectedColonPlayer = null;
   updateColonMarkersPositions();
@@ -2706,6 +3161,10 @@ function generateAndRender() {
       const owner = dominantPlayerForJunction(entry);
       if (!isValidPlayer(owner)) continue;
       if (!playerHasInfluenceForEntry(owner, entry)) continue;
+      if (!chargeAmenagementPlacement(owner)) {
+        debugLog('amenagement-cost-unpaid', { key, player: owner });
+        continue;
+      }
       const colorIdx = dominantColorForJunction(entry);
       overlayByJunction.set(key, owner);
       registerAmenagementForPlayer(owner, key, colorIdx);
@@ -2717,16 +3176,20 @@ function generateAndRender() {
   function assignAmenagementOwner(key, player) {
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
-    if (!playerHasInfluenceForEntry(player, entry)) return;
-    const previousOwner = overlayByJunction.get(key) ?? null;
-    if (previousOwner === player) return;
-    const previousColor = amenagementColorByKey.get(key);
-    const colorIdx = dominantColorForJunction(entry);
-    if (isValidPlayer(previousOwner) && previousOwner !== player) {
-      unregisterAmenagementForPlayer(previousOwner, key, previousColor);
-    }
-    overlayByJunction.set(key, player);
-    registerAmenagementForPlayer(player, key, colorIdx);
+  if (!playerHasInfluenceForEntry(player, entry)) return;
+  const previousOwner = overlayByJunction.get(key) ?? null;
+  if (previousOwner === player) return;
+  const previousColor = amenagementColorByKey.get(key);
+  const colorIdx = dominantColorForJunction(entry);
+  if (!chargeAmenagementPlacement(player)) {
+    debugLog('amenagement-cost-unpaid', { key, player });
+    return;
+  }
+  if (isValidPlayer(previousOwner) && previousOwner !== player) {
+    unregisterAmenagementForPlayer(previousOwner, key, previousColor);
+  }
+  overlayByJunction.set(key, player);
+  registerAmenagementForPlayer(player, key, colorIdx);
     renderJunctionOverlays();
   }
 
@@ -2773,12 +3236,20 @@ function generateAndRender() {
     return entries;
   }
 
-  function playerHasInfluenceForEntry(player, targetEntry, maxDistance = 2) {
+  function playerHasInfluenceForEntry(player, targetEntry, maxDistance = gameSettings.influenceRadius) {
     if (!isValidPlayer(player) || !targetEntry) return false;
     const sources = getInfluenceEntriesForPlayer(player);
     if (!Array.isArray(sources) || sources.length === 0) return false;
+    const limit = Math.max(
+      0,
+      Number.isFinite(maxDistance)
+        ? maxDistance
+        : (Number.isFinite(gameSettings.influenceRadius)
+          ? gameSettings.influenceRadius
+          : DEFAULT_GAME_SETTINGS.influenceRadius),
+    );
     for (let i = 0; i < sources.length; i++) {
-      if (distanceBetweenJunctionEntries(sources[i], targetEntry) <= maxDistance) return true;
+      if (distanceBetweenJunctionEntries(sources[i], targetEntry) <= limit) return true;
     }
     return false;
   }
@@ -2847,7 +3318,11 @@ function generateAndRender() {
     }
 
     if (!findCastleKeyForPlayer(player)) {
-      if (!spendPoints(player, 5, 'castle')) return;
+      const castleCost = Math.max(
+        0,
+        Number.isFinite(gameSettings.castleCost) ? gameSettings.castleCost : DEFAULT_GAME_SETTINGS.castleCost,
+      );
+      if (castleCost > 0 && !spendPoints(player, castleCost, 'castle')) return;
       castleByJunction.set(key, player);
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
@@ -2860,7 +3335,11 @@ function generateAndRender() {
       debugLog('outpost-placement-invalid', { key, player });
       return;
     }
-    if (!spendPoints(player, 3, 'outpost')) return;
+    const outpostCost = Math.max(
+      0,
+      Number.isFinite(gameSettings.outpostCost) ? gameSettings.outpostCost : DEFAULT_GAME_SETTINGS.outpostCost,
+    );
+    if (outpostCost > 0 && !spendPoints(player, outpostCost, 'outpost')) return;
     outpostByJunction.set(key, player);
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
@@ -2973,6 +3452,10 @@ function generateAndRender() {
     const layer = svg.__influenceLayer ?? svg.querySelector('#influence-zones');
     if (!layer) return;
     layer.innerHTML = '';
+    const radiusSetting = Number.isFinite(gameSettings.influenceRadius)
+      ? gameSettings.influenceRadius
+      : DEFAULT_GAME_SETTINGS.influenceRadius;
+    const radiusLimit = Math.max(0, radiusSetting);
     const influencedTilesByPlayer = new Map();
     const seeds = [];
     castleByJunction.forEach((player, key) => {
@@ -2999,25 +3482,112 @@ function generateAndRender() {
           const baseTileIdx = tilesAround[t];
           const dist = hexDistanceBetweenCached(tileIdx, baseTileIdx);
           if (Number.isFinite(dist) && dist < best) best = dist;
-          if (best <= 2) break;
+          if (best <= radiusLimit) break;
         }
-        if (best <= 2) tileSet.add(tileIdx);
+        if (best <= radiusLimit) tileSet.add(tileIdx);
       }
     });
 
     influencedTilesByPlayer.forEach((tileSet, player) => {
       const idx = playerIndex(player);
-      if (idx === -1) return;
+      if (idx === -1 || !tileSet || tileSet.size === 0) return;
+      const boundaryMap = new Map();
+      const outlineRadius = Math.max(size - 0.35, size * 0.72);
+      const canonicalEdgeKey = (a, b) => {
+        const ax = a.x.toFixed(3);
+        const ay = a.y.toFixed(3);
+        const bx = b.x.toFixed(3);
+        const by = b.y.toFixed(3);
+        return ax < bx || (ax === bx && ay <= by)
+          ? `${ax},${ay}|${bx},${by}`
+          : `${bx},${by}|${ax},${ay}`;
+      };
       tileSet.forEach((tileIdx) => {
         const tile = tiles[tileIdx];
         if (!tile) return;
         const center = axialToPixel(tile.q, tile.r, size);
-        const outline = createHexOutlineElement(center.x, center.y, size - 0.2, { class: 'influence-outline' });
-        const baseColor = colonColorForIndex(idx);
-        outline.setAttribute('fill', colorWithAlpha(baseColor, 0.12));
-        outline.setAttribute('stroke', colorWithAlpha(baseColor, 0.6));
-        outline.setAttribute('stroke-width', (size * 0.12).toFixed(3));
-        layer.appendChild(outline);
+        const verts = hexVerticesAt(center.x, center.y, outlineRadius);
+        for (let i = 0; i < 6; i++) {
+          const a = verts[i];
+          const b = verts[(i + 1) % 6];
+          const key = canonicalEdgeKey(a, b);
+          if (boundaryMap.has(key)) boundaryMap.delete(key);
+          else boundaryMap.set(key, { start: { x: a.x, y: a.y }, end: { x: b.x, y: b.y } });
+        }
+      });
+      if (boundaryMap.size === 0) return;
+
+      const segments = Array.from(boundaryMap.values());
+      const EPSILON = 1e-3;
+      const pointsEqual = (a, b) => Math.abs(a.x - b.x) <= EPSILON && Math.abs(a.y - b.y) <= EPSILON;
+
+      const loops = [];
+      const used = new Set();
+      const findNextSegment = (current) => {
+        for (let i = 0; i < segments.length; i++) {
+          if (used.has(i)) continue;
+          const seg = segments[i];
+          if (pointsEqual(seg.start, current)) {
+            used.add(i);
+            return { start: seg.start, end: seg.end };
+          }
+          if (pointsEqual(seg.end, current)) {
+            used.add(i);
+            return { start: seg.end, end: seg.start };
+          }
+        }
+        return null;
+      };
+
+      for (let i = 0; i < segments.length; i++) {
+        if (used.has(i)) continue;
+        used.add(i);
+        const seg = segments[i];
+        const loop = [seg.start, seg.end];
+        let cursor = seg.end;
+        let guard = 0;
+        while (!pointsEqual(cursor, loop[0]) && guard < segments.length * 2) {
+          const next = findNextSegment(cursor);
+          if (!next) break;
+          loop.push(next.end);
+          cursor = next.end;
+          guard += 1;
+        }
+        if (pointsEqual(cursor, loop[0])) {
+          loops.push(loop);
+        }
+      }
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const baseColor = colonColorForIndex(idx);
+
+      loops.forEach((loop) => {
+        if (!Array.isArray(loop) || loop.length < 3) return;
+        const simplified = [];
+        loop.forEach((point) => {
+          if (simplified.length === 0 || !pointsEqual(simplified[simplified.length - 1], point)) {
+            simplified.push(point);
+          }
+        });
+        if (simplified.length >= 2 && pointsEqual(simplified[0], simplified[simplified.length - 1])) {
+          simplified.pop();
+        }
+        if (simplified.length < 3) return;
+        let d = '';
+        simplified.forEach((point, index) => {
+          const cmd = index === 0 ? 'M' : 'L';
+          d += `${cmd} ${point.x.toFixed(3)} ${point.y.toFixed(3)} `;
+        });
+        d += 'Z';
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('class', 'influence-outline');
+        path.setAttribute('d', d.trim());
+        path.setAttribute('fill', colorWithAlpha(baseColor, 0.08));
+        path.setAttribute('stroke', colorWithAlpha(baseColor, 0.65));
+        path.setAttribute('stroke-width', (size * 0.18).toFixed(3));
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-linecap', 'round');
+        layer.appendChild(path);
       });
     });
   }
@@ -3243,10 +3813,15 @@ function neighborPlacementCount(tileIdx) {
 }
 
 function pointsForNeighborCount(count) {
-  if (count <= 0) return 0;
-  if (count <= 2) return 1;
-  if (count <= 4) return 2;
-  return 4;
+  if (!Number.isFinite(count) || count <= 0) {
+    return 0;
+  }
+  const table = Array.isArray(gameSettings.neighborPoints) && gameSettings.neighborPoints.length
+    ? gameSettings.neighborPoints
+    : DEFAULT_GAME_SETTINGS.neighborPoints;
+  const idx = Math.min(table.length - 1, Math.max(0, Math.floor(count)));
+  const value = table[idx];
+  return Number.isFinite(value) ? value : 0;
 }
 
 function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, options = {}) {
@@ -3453,7 +4028,9 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
       const isColonTile = colonPositions[pIdx] === tileIdx;
       const colonFreeAvailable = isColonTile && !colonPlacementUsed[pIdx];
       const placedThisTurn = turnState.tilesPlacedByPlayer[pIdx] ?? 0;
-      const limit = 1;
+      const limit = Math.max(0, Number.isFinite(gameSettings.tilePlacementsPerTurn)
+        ? gameSettings.tilePlacementsPerTurn
+        : DEFAULT_GAME_SETTINGS.tilePlacementsPerTurn);
       if (!colonFreeAvailable && placedThisTurn >= limit) {
         debugLog('tile-limit-reached', { player, tileIdx, limit });
         renderPlacementPreview(null);
@@ -3992,6 +4569,8 @@ function bindUI() {
     }
   });
 
+  document.addEventListener('keydown', handleSettingsKeyDown);
+  document.addEventListener('keyup', handleSettingsKeyUp);
   document.addEventListener('keydown', handleStatsKeyDown);
   document.addEventListener('keyup', handleStatsKeyUp);
 }
