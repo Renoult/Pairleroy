@@ -15,6 +15,13 @@ const NEIGHBOR_DIRS = [
 ];
 const DEBUG_AUTOFILL = true;
 
+// Layout constants shared between main.js and render.js
+const SQUARE_GRID_COLS = 6;
+const SQUARE_GRID_ROWS = 6;
+const SQUARE_CELL_FACTOR = 2.4;
+const SQUARE_GAP_FACTOR = 0.35;
+const SQUARE_MARGIN_FACTOR = 6;
+
 function debugLog(...args) {
   if (!DEBUG_AUTOFILL) return;
   console.log('[auto-fill]', ...args);
@@ -283,19 +290,7 @@ function quotasHamiltonCap(total, weights, caps) {
   return base;
 }
 
-/**
- * Assigne des combinaisons de couleurs aux tuiles selon les quotas Hamilton
- * 
- * Algorithme de répartition en 3 phases :
- * 1. Monochromatiques (3 unités par tuile) - priorité haute
- * 2. Bicolores majeures (2+1 unités par tuile) - priorité moyenne  
- * 3. Répartition des unités restantes entre bicolores mineures et tricolores
- * 
- * @param {number[]} types - Types de tuiles (1=mono, 2=bi, 3=tri)
- * @param {number[]} colorUnitTargets - Quotas d'unités par couleur (somme = 3N)
- * @param {function} rng - Générateur de nombres aléatoires
- * @returns {Array} Combinaisons assignées aux tuiles
- */
+
 function assignTileCombos(types, colorUnitTargets, rng) {
   // Phase 0: Compter les types de tuiles
   const N = types.length;
@@ -681,7 +676,22 @@ const PLAYER_SHAPES = {
 function buildSVG({ width, height, size, tiles, combos, colors }) {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `${-width / 2} ${-height / 2} ${width} ${height}`);
+
+  const hexWidth = Math.sqrt(3) * size * (2 * RADIUS + 1);
+  const hexHeight = 1.5 * size * (2 * RADIUS) + 2 * size;
+  const margin = size * SQUARE_MARGIN_FACTOR;
+  const gridCols = SQUARE_GRID_COLS;
+  const gridRows = SQUARE_GRID_ROWS;
+  const cellSize = size * SQUARE_CELL_FACTOR;
+  const gap = cellSize * SQUARE_GAP_FACTOR;
+  const squareWidth = gridCols * cellSize + (gridCols - 1) * gap;
+  const squareHeight = gridRows * cellSize + (gridRows - 1) * gap;
+  const totalWidth = hexWidth + margin + squareWidth;
+  const totalHeight = Math.max(hexHeight, squareHeight);
+  const hexTranslateX = -totalWidth / 2 + hexWidth / 2;
+  const squareTranslateX = totalWidth / 2 - squareWidth / 2;
+
+  svg.setAttribute('viewBox', `${-totalWidth / 2} ${-totalHeight / 2} ${totalWidth} ${totalHeight}`);
   svg.setAttribute('aria-label', 'Grille hexagonale');
   const viewport = document.createElementNS(svgNS, 'g');
   viewport.setAttribute('id', 'viewport');
@@ -700,6 +710,9 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   castleLayer.setAttribute('id', 'junction-castles');
   const colonsLayer = document.createElementNS(svgNS, 'g');
   colonsLayer.setAttribute('id', 'colons');
+  const hexLayer = document.createElementNS(svgNS, 'g');
+  hexLayer.setAttribute('id', 'hex-layer');
+  hexLayer.setAttribute('transform', `translate(${hexTranslateX.toFixed(3)} 0)`);
 
   tiles.forEach((t, idx) => {
     const { x, y } = axialToPixel(t.q, t.r, size);
@@ -773,7 +786,7 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     const hitArea = createHexOutlineElement(center.x, center.y, size, { class: 'hit-area' });
     g.appendChild(hitArea);
     const outline = createHexOutlineElement(center.x, center.y, size, { class: 'outline' });
-    g.appendChild(outline);
+      g.appendChild(outline);
     gridG.appendChild(g);
   });
 
@@ -781,26 +794,39 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   squareGrid.setAttribute('id', 'square-grid');
   squareGrid.setAttribute('aria-hidden', 'true');
   squareGrid.style.pointerEvents = 'none';
-  const gridCols = 4;
-  const gridRows = 4;
-  const cellSize = size * 5;
-  const gap = size * 5;
-  const totalWidth = gridCols * cellSize + (gridCols - 1) * gap;
-  const totalHeight = gridRows * cellSize + (gridRows - 1) * gap;
-  const baseX = -totalWidth / 2;
-  const baseY = -totalHeight / 2;
+  const squareValueLayer = document.createElementNS(svgNS, 'g');
+  squareValueLayer.setAttribute('id', 'square-values');
+  squareValueLayer.style.pointerEvents = 'none';
+  const squarePlayersLayer = document.createElementNS(svgNS, 'g');
+  squarePlayersLayer.setAttribute('id', 'square-players');
+  squarePlayersLayer.style.pointerEvents = 'none';
+  const squareMarketLayer = document.createElementNS(svgNS, 'g');
+  squareMarketLayer.setAttribute('id', 'square-market');
+
+  const baseX = -squareWidth / 2;
+  const baseY = -squareHeight / 2;
 
   const squareCells = [];
   for (let row = 0; row < gridRows; row++) {
     for (let col = 0; col < gridCols; col++) {
       const posX = baseX + col * (cellSize + gap);
       const posY = baseY + row * (cellSize + gap);
+      const isBorder = row === 0 || row === gridRows - 1 || col === 0 || col === gridCols - 1;
+      const isCorner = isBorder && ((row === 0 || row === gridRows - 1) && (col === 0 || col === gridCols - 1));
+      const isMarket = row >= 1 && row <= gridRows - 2 && col >= 1 && col <= gridCols - 2;
       squareCells.push({
         index: row * gridCols + col + 1,
         centerX: posX + cellSize / 2,
         centerY: posY + cellSize / 2,
+        row,
+        col,
+        isBorder,
+        isCorner,
+        isMarket,
+        value: null,
+        size: cellSize,
       });
-      if (row === 0 || row === gridRows - 1 || col === 0 || col === gridCols - 1) {
+      if (isBorder && !isCorner) {
         const rect = document.createElementNS(svgNS, 'rect');
         rect.setAttribute('x', posX.toFixed(3));
         rect.setAttribute('y', posY.toFixed(3));
@@ -810,6 +836,62 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
         rect.setAttribute('ry', (cellSize * 0.22).toFixed(3));
         squareGrid.appendChild(rect);
       }
+    }
+  }
+
+  const getCell = (row, col) => squareCells[row * gridCols + col];
+  const squareTrack = [];
+  let trackValue = 1;
+  const pushTrackCell = (cell) => {
+    if (!cell || !cell.isBorder || cell.isCorner) return;
+    cell.value = trackValue++;
+    squareTrack.push(cell);
+  };
+  if (gridRows > 0 && gridCols > 0) {
+    for (let col = 0; col < gridCols; col++) pushTrackCell(getCell(0, col));
+    for (let row = 1; row < gridRows - 1; row++) pushTrackCell(getCell(row, gridCols - 1));
+    for (let col = gridCols - 1; col >= 0; col--) pushTrackCell(getCell(gridRows - 1, col));
+    for (let row = gridRows - 2; row >= 1; row--) pushTrackCell(getCell(row, 0));
+  }
+  squareTrack.forEach((cell) => {
+    const label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('class', 'square-value');
+    label.setAttribute('x', cell.centerX.toFixed(3));
+    label.setAttribute('y', cell.centerY.toFixed(3));
+    label.textContent = String(cell.value);
+    squareValueLayer.appendChild(label);
+  });
+
+  const marketCells = [];
+  const marketRowStart = Math.max(0, Math.floor((gridRows - 4) / 2));
+  const marketColStart = Math.max(0, Math.floor((gridCols - 4) / 2));
+  const marketSize = Math.min(4, gridRows - marketRowStart, gridCols - marketColStart);
+  for (let localRow = 0; localRow < marketSize; localRow++) {
+    for (let localCol = 0; localCol < marketSize; localCol++) {
+      const row = marketRowStart + localRow;
+      const col = marketColStart + localCol;
+      const cell = getCell(row, col);
+      if (!cell || !cell.isMarket) continue;
+      const padding = cellSize * 0.12;
+      const slot = document.createElementNS(svgNS, 'rect');
+      slot.setAttribute('class', 'market-slot');
+      slot.setAttribute('x', (cell.centerX - cellSize / 2 + padding).toFixed(3));
+      slot.setAttribute('y', (cell.centerY - cellSize / 2 + padding).toFixed(3));
+      slot.setAttribute('width', (cellSize - padding * 2).toFixed(3));
+      slot.setAttribute('height', (cellSize - padding * 2).toFixed(3));
+      slot.setAttribute('rx', (cellSize * 0.12).toFixed(3));
+      slot.setAttribute('ry', (cellSize * 0.12).toFixed(3));
+      slot.dataset.slot = String(marketCells.length);
+      squareMarketLayer.appendChild(slot);
+      marketCells.push({
+        index: marketCells.length,
+        row,
+        col,
+        centerX: cell.centerX,
+        centerY: cell.centerY,
+        size: cellSize - padding * 2,
+        slotElement: slot,
+      });
     }
   }
 
@@ -833,20 +915,37 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   squareIndicator.appendChild(indicatorCrest);
   squareIndicator.style.display = 'none';
 
-  viewport.appendChild(gridG);
-  viewport.appendChild(squareGrid);
-  viewport.appendChild(squareIndicator);
-  viewport.appendChild(overlaysG);
-  viewport.appendChild(previewG);
-  viewport.appendChild(colonsLayer);
-  viewport.appendChild(junctionsG);
-  viewport.appendChild(junctionOverlaysG);
-  viewport.appendChild(castleLayer);
+  const squareLayer = document.createElementNS(svgNS, 'g');
+  squareLayer.setAttribute('id', 'square-layer');
+  squareLayer.setAttribute('transform', `translate(${squareTranslateX.toFixed(3)} 0)`);
+  squareLayer.style.pointerEvents = 'none';
+
+  squareLayer.appendChild(squareGrid);
+  squareLayer.appendChild(squareMarketLayer);
+  squareLayer.appendChild(squareValueLayer);
+  squareLayer.appendChild(squarePlayersLayer);
+  squareLayer.appendChild(squareIndicator);
+
+  hexLayer.appendChild(gridG);
+  hexLayer.appendChild(overlaysG);
+  hexLayer.appendChild(previewG);
+  hexLayer.appendChild(colonsLayer);
+  hexLayer.appendChild(junctionsG);
+  hexLayer.appendChild(junctionOverlaysG);
+  hexLayer.appendChild(castleLayer);
+
+  viewport.appendChild(hexLayer);
+  viewport.appendChild(squareLayer);
   svg.appendChild(viewport);
   svg.__squareGrid = {
     cells: squareCells,
+    track: squareTrack,
+    marketCells,
     indicator: squareIndicator,
     crest: indicatorCrest,
+    playersLayer: squarePlayersLayer,
+    marketLayer: squareMarketLayer,
+    cellSize,
   };
   svg.__colonsLayer = colonsLayer;
   svg.__castleLayer = castleLayer;
@@ -898,45 +997,23 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ORIENTED_INDEX_FOR_TRIANGLE = [4, 5, 0, 1, 2, 3];
 
-/**
- * Crée un élément SVG avec le namespace approprié
- * @param {string} tagName - Nom de la balise SVG
- * @returns {Element} Élément SVG créé
- */
+
 function createSVGElement(tagName) {
   return document.createElementNS(SVG_NS, tagName);
 }
 
-/**
- * Crée un path pour un triangle formé par le centre et deux points
- * @param {{x: number, y: number}} center - Point central
- * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - Deuxième point
- * @returns {string} Path SVG du triangle
- */
+
 function createTrianglePath(center, a, b) {
   return `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`;
 }
 
-/**
- * Crée un path pour un outline hexagonal arrondi
- * @param {number} x - Coordonnée x du centre
- * @param {number} y - Coordonnée y du centre
- * @param {number} radius - Rayon de l'hexagone
- * @param {number} cornerRadius - Rayon d'arrondi (défaut: 0.18)
- * @returns {string} Path SVG de l'hexagone arrondi
- */
+
 function createHexOutlinePath(x, y, radius, cornerRadius = 0.18) {
   // Délègue à la fonction roundedHexPathAt de core.js
   return roundedHexPathAt(x, y, radius, cornerRadius);
 }
 
-/**
- * Crée un élément SVG avec des attributs
- * @param {string} tagName - Nom de la balise SVG
- * @param {Object} attributes - Attributs à définir
- * @returns {Element} Élément SVG créé avec attributs
- */
+
 function createSVGElementWithAttributes(tagName, attributes = {}) {
   const element = createSVGElement(tagName);
   Object.entries(attributes).forEach(([key, value]) => {
@@ -945,14 +1022,7 @@ function createSVGElementWithAttributes(tagName, attributes = {}) {
   return element;
 }
 
-/**
- * Crée un path de triangle SVG avec un centre et deux points
- * @param {{x: number, y: number}} center - Point central
- * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - Deuxième point
- * @param {Object} attributes - Attributs supplémentaires
- * @returns {Element} Élément path SVG
- */
+
 function createTrianglePathElement(center, a, b, attributes = {}) {
   const path = createSVGElement('path');
   path.setAttribute('d', createTrianglePath(center, a, b));
@@ -962,14 +1032,7 @@ function createTrianglePathElement(center, a, b, attributes = {}) {
   return path;
 }
 
-/**
- * Crée un outline hexagonal SVG
- * @param {number} x - Coordonnée x du centre
- * @param {number} y - Coordonnée y du centre
- * @param {number} radius - Rayon de l'hexagone
- * @param {Object} attributes - Attributs supplémentaires
- * @returns {Element} Élément path SVG
- */
+
 function createHexOutlineElement(x, y, radius, attributes = {}) {
   const path = createSVGElement('path');
   path.setAttribute('d', createHexOutlinePath(x, y, radius));
@@ -1174,7 +1237,7 @@ function renderColonMarkers() {
   layer.innerHTML = '';
   colonMarkers = new Map();
   const { size } = svg.__state;
-  const radius = size * 0.35;
+  const radius = size * 0.3;
   PLAYER_IDS.forEach((player) => {
     const idx = playerIndex(player);
     if (idx === -1) return;
@@ -1200,6 +1263,30 @@ function updateColonMarkersPositions() {
   const svg = getBoardSvg();
   if (!svg?.__state) return;
   const { size } = svg.__state;
+  const offsets = new Map();
+  const occupancy = new Map();
+  colonPositions.forEach((tileIdx, idx) => {
+    if (!Number.isInteger(tileIdx)) return;
+    const player = PLAYER_IDS[idx];
+    const arr = occupancy.get(tileIdx) ?? [];
+    arr.push(player);
+    occupancy.set(tileIdx, arr);
+  });
+  occupancy.forEach((playersOnTile) => {
+    playersOnTile.sort((a, b) => a - b);
+    const count = playersOnTile.length;
+    const radius = count === 1 ? 0 : size * 0.45;
+    const angleOffset = count === 1 ? 0 : -Math.PI / 2;
+    playersOnTile.forEach((player, index) => {
+      const angle = count === 1
+        ? 0
+        : angleOffset + (2 * Math.PI * index) / count;
+      offsets.set(player, {
+        dx: radius * Math.cos(angle),
+        dy: radius * Math.sin(angle),
+      });
+    });
+  });
   colonMarkers.forEach((marker, player) => {
     const idx = playerIndex(player);
     if (idx === -1) {
@@ -1213,7 +1300,8 @@ function updateColonMarkersPositions() {
       return;
     }
     const { x, y } = axialToPixel(tile.q, tile.r, size);
-    marker.setAttribute('transform', `translate(${x.toFixed(3)} ${y.toFixed(3)})`);
+    const offset = offsets.get(player) ?? { dx: 0, dy: 0 };
+    marker.setAttribute('transform', `translate(${(x + offset.dx).toFixed(3)} ${(y + offset.dy).toFixed(3)})`);
     marker.style.display = 'block';
     marker.classList.toggle('colon-marker--active', player === turnState.activePlayer);
     marker.classList.toggle('colon-marker--selected', player === selectedColonPlayer);
@@ -1562,6 +1650,7 @@ function renderGameHud() {
     const activeIdx = playerIndex(activePlayer);
     const scoreValue = activeIdx !== -1 ? playerScores[activeIdx] || 0 : 0;
     svg.__state.updateSquareIndicator(activePlayer, scoreValue);
+    svg.__state.updateSquarePlayers?.();
   }
   updateColonMarkersPositions();
   if (svg?.__state?.renderCastleOverlays) svg.__state.renderCastleOverlays();
@@ -1607,15 +1696,23 @@ function assert100(array, label) {
 function layoutSize(container) {
   const W = container.clientWidth;
   const H = container.clientHeight;
-  const estW = Math.sqrt(3) * (2 * RADIUS + 1);
-  const estH = 1.5 * (2 * RADIUS) + 2;
-  const sizeByW = W / estW;
-  const sizeByH = H / estH;
+  const hexWidthFactor = Math.sqrt(3) * (2 * RADIUS + 1);
+  const hexHeightFactor = 1.5 * (2 * RADIUS) + 2;
+  const squareWidthFactor = SQUARE_CELL_FACTOR * (SQUARE_GRID_COLS + (SQUARE_GRID_COLS - 1) * SQUARE_GAP_FACTOR);
+  const squareHeightFactor = SQUARE_CELL_FACTOR * (SQUARE_GRID_ROWS + (SQUARE_GRID_ROWS - 1) * SQUARE_GAP_FACTOR);
+  const totalWidthFactor = hexWidthFactor + SQUARE_MARGIN_FACTOR + squareWidthFactor;
+  const totalHeightFactor = Math.max(hexHeightFactor, squareHeightFactor);
+  const sizeByW = W / totalWidthFactor;
+  const sizeByH = H / totalHeightFactor;
   const base = Math.min(sizeByW, sizeByH);
   const sizeRaw = Math.floor(base) - 2;
   const size = Math.max(12, Number.isFinite(sizeRaw) ? sizeRaw : 12);
-  const width = Math.sqrt(3) * size * (2 * RADIUS + 1);
-  const height = 1.5 * size * (2 * RADIUS) + 2 * size;
+  const hexWidth = hexWidthFactor * size;
+  const hexHeight = hexHeightFactor * size;
+  const squareWidth = squareWidthFactor * size;
+  const squareHeight = squareHeightFactor * size;
+  const width = hexWidth + size * SQUARE_MARGIN_FACTOR + squareWidth;
+  const height = Math.max(hexHeight, squareHeight);
   return { width, height, size };
 }
 
@@ -1738,11 +1835,45 @@ function generateAndRender() {
   const castleByJunction = new Map();
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
+  const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
+    ? squareGridMeta.track
+    : squareCells;
   const squareIndicator = squareGridMeta?.indicator ?? null;
   const squareIndicatorCrest = squareGridMeta?.crest ?? null;
+  const squarePlayersLayer = squareGridMeta?.playersLayer ?? null;
+  const squareMarketLayer = squareGridMeta?.marketLayer ?? null;
+  const squareCellSize = squareGridMeta?.cellSize ?? (squareTrack[0]?.size ?? size * SQUARE_CELL_FACTOR);
+  const squarePlayerMarkers = squarePlayersLayer ? new Map() : null;
+  const squareMarketCells = Array.isArray(squareGridMeta?.marketCells) ? squareGridMeta.marketCells : [];
+  if (squarePlayersLayer && squarePlayerMarkers) {
+    squarePlayersLayer.innerHTML = '';
+    PLAYER_IDS.forEach((player, idx) => {
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      marker.setAttribute('class', 'square-player-marker');
+      marker.dataset.player = String(player);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', (squareCellSize * 0.18).toFixed(3));
+      circle.setAttribute('cx', '0');
+      circle.setAttribute('cy', '0');
+      circle.setAttribute('fill', colonColorForIndex(idx));
+      circle.setAttribute('stroke', '#ffffff');
+      circle.setAttribute('stroke-width', (squareCellSize * 0.05).toFixed(3));
+      marker.appendChild(circle);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', 'square-player-marker-label');
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'central');
+      label.setAttribute('font-size', (squareCellSize * 0.18).toFixed(3));
+      label.textContent = String(player);
+      marker.appendChild(label);
+      marker.style.display = 'none';
+      squarePlayersLayer.appendChild(marker);
+      squarePlayerMarkers.set(player, marker);
+    });
+  }
 
   function updateSquareIndicator(player, score = 0) {
-    if (!squareIndicator || squareCells.length === 0) {
+    if (!squareIndicator || squareTrack.length === 0) {
       if (squareIndicator) squareIndicator.style.display = 'none';
       if (squareIndicatorCrest) {
         squareIndicatorCrest.removeAttribute('href');
@@ -1758,9 +1889,13 @@ function generateAndRender() {
       }
       return;
     }
-    const normalized = ((score % 16) + 16) % 16;
-    const targetIndex = normalized === 0 ? 16 : normalized;
-    const target = squareCells.find((cell) => cell.index === targetIndex);
+    const trackLength = squareTrack.length;
+    if (trackLength === 0) {
+      squareIndicator.style.display = 'none';
+      return;
+    }
+    const normalized = ((score % trackLength) + trackLength) % trackLength;
+    const target = squareTrack[normalized];
     if (!target) {
       squareIndicator.style.display = 'none';
       return;
@@ -1777,6 +1912,52 @@ function generateAndRender() {
         squareIndicatorCrest.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
       }
     }
+  }
+
+  function updateSquarePlayers() {
+    if (!squarePlayersLayer || !squarePlayerMarkers || squareTrack.length === 0) return;
+    squarePlayerMarkers.forEach((marker) => {
+      marker.style.display = 'none';
+      marker.classList.remove('square-player-marker--active');
+    });
+    const occupancy = new Map();
+    PLAYER_IDS.forEach((player) => {
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const marker = squarePlayerMarkers.get(player);
+      if (!marker) return;
+      const trackLength = squareTrack.length;
+      if (trackLength === 0) {
+        marker.style.display = 'none';
+        return;
+      }
+      const score = playerScores[idx] || 0;
+      const normalized = ((score % trackLength) + trackLength) % trackLength;
+      const cell = squareTrack[normalized];
+      if (!cell) {
+        marker.style.display = 'none';
+        return;
+      }
+      const entry = occupancy.get(normalized) ?? { players: [], cell };
+      entry.players.push(player);
+      occupancy.set(normalized, entry);
+    });
+    occupancy.forEach(({ players, cell }) => {
+      players.sort((a, b) => a - b);
+      const count = players.length;
+      const radius = count === 1 ? 0 : squareCellSize * 0.32;
+      const angleOffset = count === 1 ? 0 : -Math.PI / 2;
+      players.forEach((player, index) => {
+        const marker = squarePlayerMarkers.get(player);
+        if (!marker) return;
+        const angle = count === 1 ? 0 : angleOffset + (2 * Math.PI * index) / count;
+        const dx = radius * Math.cos(angle);
+        const dy = radius * Math.sin(angle);
+        marker.setAttribute('transform', `translate(${(cell.centerX + dx).toFixed(3)} ${(cell.centerY + dy).toFixed(3)})`);
+        marker.style.display = 'block';
+        marker.classList.toggle('square-player-marker--active', player === turnState.activePlayer);
+      });
+    });
   }
 
   function dominantColorForJunction(entry) {
@@ -2470,10 +2651,14 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     setSelectedPalette,
    renderPalette: renderPaletteUI,
    autoState,
-   squareCells,
+    squareCells,
+    squareTrack,
     squareIndicator,
     squareIndicatorCrest,
     updateSquareIndicator,
+    updateSquarePlayers,
+    marketCells: squareMarketCells,
+    marketLayer: squareMarketLayer,
   };
   svg.__state = svgState;
 
@@ -2483,6 +2668,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   const activeIdxForIndicator = playerIndex(activePlayerForIndicator);
   const initialScore = activeIdxForIndicator !== -1 ? playerScores[activeIdxForIndicator] || 0 : 0;
   updateSquareIndicator(activePlayerForIndicator, initialScore);
+  updateSquarePlayers();
 
   regenerateAndRenderPalette();
 

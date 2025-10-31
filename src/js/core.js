@@ -14,6 +14,13 @@ const NEIGHBOR_DIRS = [
 ];
 const DEBUG_AUTOFILL = true;
 
+// Layout constants shared between main.js and render.js
+const SQUARE_GRID_COLS = 6;
+const SQUARE_GRID_ROWS = 6;
+const SQUARE_CELL_FACTOR = 2.4;
+const SQUARE_GAP_FACTOR = 0.35;
+const SQUARE_MARGIN_FACTOR = 6;
+
 function debugLog(...args) {
   if (!DEBUG_AUTOFILL) return;
   console.log('[auto-fill]', ...args);

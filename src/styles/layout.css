@@ -172,6 +172,51 @@ main {
   stroke-width: 1.2;
 }
 
+#square-market {
+  pointer-events: auto;
+}
+
+.market-slot {
+  fill: color-mix(in srgb, var(--panel) 60%, rgba(0, 0, 0, 0.08) 40%);
+  stroke: rgba(62, 50, 44, 0.2);
+  stroke-width: 1;
+  pointer-events: auto;
+}
+
+#square-values {
+  pointer-events: none;
+}
+
+.square-value {
+  fill: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  opacity: 0.85;
+}
+
+.square-player-marker {
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.square-player-marker circle {
+  opacity: 0.88;
+}
+
+.square-player-marker-label {
+  fill: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.square-player-marker--active circle {
+  opacity: 1;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+
 #square-indicator {
   pointer-events: none;
 }

@@ -192,7 +192,7 @@ function renderColonMarkers() {
   layer.innerHTML = '';
   colonMarkers = new Map();
   const { size } = svg.__state;
-  const radius = size * 0.35;
+  const radius = size * 0.3;
   PLAYER_IDS.forEach((player) => {
     const idx = playerIndex(player);
     if (idx === -1) return;
@@ -218,6 +218,30 @@ function updateColonMarkersPositions() {
   const svg = getBoardSvg();
   if (!svg?.__state) return;
   const { size } = svg.__state;
+  const offsets = new Map();
+  const occupancy = new Map();
+  colonPositions.forEach((tileIdx, idx) => {
+    if (!Number.isInteger(tileIdx)) return;
+    const player = PLAYER_IDS[idx];
+    const arr = occupancy.get(tileIdx) ?? [];
+    arr.push(player);
+    occupancy.set(tileIdx, arr);
+  });
+  occupancy.forEach((playersOnTile) => {
+    playersOnTile.sort((a, b) => a - b);
+    const count = playersOnTile.length;
+    const radius = count === 1 ? 0 : size * 0.45;
+    const angleOffset = count === 1 ? 0 : -Math.PI / 2;
+    playersOnTile.forEach((player, index) => {
+      const angle = count === 1
+        ? 0
+        : angleOffset + (2 * Math.PI * index) / count;
+      offsets.set(player, {
+        dx: radius * Math.cos(angle),
+        dy: radius * Math.sin(angle),
+      });
+    });
+  });
   colonMarkers.forEach((marker, player) => {
     const idx = playerIndex(player);
     if (idx === -1) {
@@ -231,7 +255,8 @@ function updateColonMarkersPositions() {
       return;
     }
     const { x, y } = axialToPixel(tile.q, tile.r, size);
-    marker.setAttribute('transform', `translate(${x.toFixed(3)} ${y.toFixed(3)})`);
+    const offset = offsets.get(player) ?? { dx: 0, dy: 0 };
+    marker.setAttribute('transform', `translate(${(x + offset.dx).toFixed(3)} ${(y + offset.dy).toFixed(3)})`);
     marker.style.display = 'block';
     marker.classList.toggle('colon-marker--active', player === turnState.activePlayer);
     marker.classList.toggle('colon-marker--selected', player === selectedColonPlayer);
@@ -580,6 +605,7 @@ function renderGameHud() {
     const activeIdx = playerIndex(activePlayer);
     const scoreValue = activeIdx !== -1 ? playerScores[activeIdx] || 0 : 0;
     svg.__state.updateSquareIndicator(activePlayer, scoreValue);
+    svg.__state.updateSquarePlayers?.();
   }
   updateColonMarkersPositions();
   if (svg?.__state?.renderCastleOverlays) svg.__state.renderCastleOverlays();
@@ -625,15 +651,23 @@ function assert100(array, label) {
 function layoutSize(container) {
   const W = container.clientWidth;
   const H = container.clientHeight;
-  const estW = Math.sqrt(3) * (2 * RADIUS + 1);
-  const estH = 1.5 * (2 * RADIUS) + 2;
-  const sizeByW = W / estW;
-  const sizeByH = H / estH;
+  const hexWidthFactor = Math.sqrt(3) * (2 * RADIUS + 1);
+  const hexHeightFactor = 1.5 * (2 * RADIUS) + 2;
+  const squareWidthFactor = SQUARE_CELL_FACTOR * (SQUARE_GRID_COLS + (SQUARE_GRID_COLS - 1) * SQUARE_GAP_FACTOR);
+  const squareHeightFactor = SQUARE_CELL_FACTOR * (SQUARE_GRID_ROWS + (SQUARE_GRID_ROWS - 1) * SQUARE_GAP_FACTOR);
+  const totalWidthFactor = hexWidthFactor + SQUARE_MARGIN_FACTOR + squareWidthFactor;
+  const totalHeightFactor = Math.max(hexHeightFactor, squareHeightFactor);
+  const sizeByW = W / totalWidthFactor;
+  const sizeByH = H / totalHeightFactor;
   const base = Math.min(sizeByW, sizeByH);
   const sizeRaw = Math.floor(base) - 2;
   const size = Math.max(12, Number.isFinite(sizeRaw) ? sizeRaw : 12);
-  const width = Math.sqrt(3) * size * (2 * RADIUS + 1);
-  const height = 1.5 * size * (2 * RADIUS) + 2 * size;
+  const hexWidth = hexWidthFactor * size;
+  const hexHeight = hexHeightFactor * size;
+  const squareWidth = squareWidthFactor * size;
+  const squareHeight = squareHeightFactor * size;
+  const width = hexWidth + size * SQUARE_MARGIN_FACTOR + squareWidth;
+  const height = Math.max(hexHeight, squareHeight);
   return { width, height, size };
 }
 
@@ -756,11 +790,45 @@ function generateAndRender() {
   const castleByJunction = new Map();
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
+  const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
+    ? squareGridMeta.track
+    : squareCells;
   const squareIndicator = squareGridMeta?.indicator ?? null;
   const squareIndicatorCrest = squareGridMeta?.crest ?? null;
+  const squarePlayersLayer = squareGridMeta?.playersLayer ?? null;
+  const squareMarketLayer = squareGridMeta?.marketLayer ?? null;
+  const squareCellSize = squareGridMeta?.cellSize ?? (squareTrack[0]?.size ?? size * SQUARE_CELL_FACTOR);
+  const squarePlayerMarkers = squarePlayersLayer ? new Map() : null;
+  const squareMarketCells = Array.isArray(squareGridMeta?.marketCells) ? squareGridMeta.marketCells : [];
+  if (squarePlayersLayer && squarePlayerMarkers) {
+    squarePlayersLayer.innerHTML = '';
+    PLAYER_IDS.forEach((player, idx) => {
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      marker.setAttribute('class', 'square-player-marker');
+      marker.dataset.player = String(player);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', (squareCellSize * 0.18).toFixed(3));
+      circle.setAttribute('cx', '0');
+      circle.setAttribute('cy', '0');
+      circle.setAttribute('fill', colonColorForIndex(idx));
+      circle.setAttribute('stroke', '#ffffff');
+      circle.setAttribute('stroke-width', (squareCellSize * 0.05).toFixed(3));
+      marker.appendChild(circle);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', 'square-player-marker-label');
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'central');
+      label.setAttribute('font-size', (squareCellSize * 0.18).toFixed(3));
+      label.textContent = String(player);
+      marker.appendChild(label);
+      marker.style.display = 'none';
+      squarePlayersLayer.appendChild(marker);
+      squarePlayerMarkers.set(player, marker);
+    });
+  }
 
   function updateSquareIndicator(player, score = 0) {
-    if (!squareIndicator || squareCells.length === 0) {
+    if (!squareIndicator || squareTrack.length === 0) {
       if (squareIndicator) squareIndicator.style.display = 'none';
       if (squareIndicatorCrest) {
         squareIndicatorCrest.removeAttribute('href');
@@ -776,9 +844,13 @@ function generateAndRender() {
       }
       return;
     }
-    const normalized = ((score % 16) + 16) % 16;
-    const targetIndex = normalized === 0 ? 16 : normalized;
-    const target = squareCells.find((cell) => cell.index === targetIndex);
+    const trackLength = squareTrack.length;
+    if (trackLength === 0) {
+      squareIndicator.style.display = 'none';
+      return;
+    }
+    const normalized = ((score % trackLength) + trackLength) % trackLength;
+    const target = squareTrack[normalized];
     if (!target) {
       squareIndicator.style.display = 'none';
       return;
@@ -795,6 +867,52 @@ function generateAndRender() {
         squareIndicatorCrest.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
       }
     }
+  }
+
+  function updateSquarePlayers() {
+    if (!squarePlayersLayer || !squarePlayerMarkers || squareTrack.length === 0) return;
+    squarePlayerMarkers.forEach((marker) => {
+      marker.style.display = 'none';
+      marker.classList.remove('square-player-marker--active');
+    });
+    const occupancy = new Map();
+    PLAYER_IDS.forEach((player) => {
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const marker = squarePlayerMarkers.get(player);
+      if (!marker) return;
+      const trackLength = squareTrack.length;
+      if (trackLength === 0) {
+        marker.style.display = 'none';
+        return;
+      }
+      const score = playerScores[idx] || 0;
+      const normalized = ((score % trackLength) + trackLength) % trackLength;
+      const cell = squareTrack[normalized];
+      if (!cell) {
+        marker.style.display = 'none';
+        return;
+      }
+      const entry = occupancy.get(normalized) ?? { players: [], cell };
+      entry.players.push(player);
+      occupancy.set(normalized, entry);
+    });
+    occupancy.forEach(({ players, cell }) => {
+      players.sort((a, b) => a - b);
+      const count = players.length;
+      const radius = count === 1 ? 0 : squareCellSize * 0.32;
+      const angleOffset = count === 1 ? 0 : -Math.PI / 2;
+      players.forEach((player, index) => {
+        const marker = squarePlayerMarkers.get(player);
+        if (!marker) return;
+        const angle = count === 1 ? 0 : angleOffset + (2 * Math.PI * index) / count;
+        const dx = radius * Math.cos(angle);
+        const dy = radius * Math.sin(angle);
+        marker.setAttribute('transform', `translate(${(cell.centerX + dx).toFixed(3)} ${(cell.centerY + dy).toFixed(3)})`);
+        marker.style.display = 'block';
+        marker.classList.toggle('square-player-marker--active', player === turnState.activePlayer);
+      });
+    });
   }
 
   function dominantColorForJunction(entry) {
@@ -1488,10 +1606,14 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     setSelectedPalette,
    renderPalette: renderPaletteUI,
    autoState,
-   squareCells,
+    squareCells,
+    squareTrack,
     squareIndicator,
     squareIndicatorCrest,
     updateSquareIndicator,
+    updateSquarePlayers,
+    marketCells: squareMarketCells,
+    marketLayer: squareMarketLayer,
   };
   svg.__state = svgState;
 
@@ -1501,6 +1623,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   const activeIdxForIndicator = playerIndex(activePlayerForIndicator);
   const initialScore = activeIdxForIndicator !== -1 ? playerScores[activeIdxForIndicator] || 0 : 0;
   updateSquareIndicator(activePlayerForIndicator, initialScore);
+  updateSquarePlayers();
 
   regenerateAndRenderPalette();
 

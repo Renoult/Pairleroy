@@ -67,11 +67,9 @@ function readSources(fileList) {
 }
 
 function minifyJS(content) {
-  let output = content.replace(/\/\/.*$/gm, '');
-  output = output.replace(/\/\*[\s\S]*?\*\//g, '');
-  output = output.replace(/\s+/g, ' ');
-  output = output.replace(/\s*([{};,()=+\-*/<>%])\s*/g, '$1');
-  output = output.replace(/\n+/g, '\n');
+  let output = content.replace(/\/\*[\s\S]*?\*\//g, '');
+  output = output.replace(/[ \t]+\n/g, '\n');
+  output = output.replace(/\n{3,}/g, '\n\n');
   return output.trim();
 }
 
