@@ -117,6 +117,7 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   const squareTranslateX = totalWidth / 2 - squareWidth / 2;
 
   svg.setAttribute('viewBox', `${-totalWidth / 2} ${-totalHeight / 2} ${totalWidth} ${totalHeight}`);
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
   svg.setAttribute('aria-label', 'Grille hexagonale');
   const viewport = document.createElementNS(svgNS, 'g');
   viewport.setAttribute('id', 'viewport');
