@@ -1,27 +1,28 @@
 #!/usr/bin/env node
 /**
- * Build script avancé: concatène et minifie les fichiers JS/CSS.
+ * Build script: concatenates the JS/CSS sources and optionally minifies them.
  * Options:
- *   --dev : build de développement (sans minification)
- *   --prod : build de production (avec minification)
- *   --analyze : affiche des stats détaillées
+ *   --dev (default)  : readable output without minification
+ *   --prod           : minified output
+ *   --analyze        : report bundle stats without rewriting files
  */
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { performance } from 'perf_hooks';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+const distDir = path.join(rootDir, 'dist');
 
-// Parse des arguments
 const isProd = process.argv.includes('--prod');
 const isAnalyze = process.argv.includes('--analyze');
 const isDev = !isProd && !isAnalyze;
 
-// Timestamps et versioning
-const now = new Date();
-const timestamp = now.toISOString().replace(/[:.]/g, '-');
-const version = '1.1.3';
+const buildVersion = '1.2.0';
+const timestamp = new Date().toISOString();
 
 const jsOrder = [
   'src/js/core.js',
@@ -38,192 +39,156 @@ const cssOrder = [
   'src/styles/overlays.css',
 ];
 
-function getFileSize(bytes) {
-  return `${(bytes / 1024).toFixed(2)}K`;
+function prepareDistDir() {
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+    return;
+  }
+
+  for (const fileName of ['app.js', 'styles.css']) {
+    const target = path.join(distDir, fileName);
+    if (fs.existsSync(target)) {
+      fs.unlinkSync(target);
+    }
+  }
+}
+
+function readSources(fileList) {
+  return fileList.map((relPath) => {
+    const absPath = path.join(rootDir, relPath);
+    if (!fs.existsSync(absPath)) {
+      throw new Error(`Missing source file: ${relPath}`);
+    }
+    return {
+      relPath,
+      content: fs.readFileSync(absPath, 'utf8'),
+    };
+  });
 }
 
 function minifyJS(content) {
-  // Suppression des commentaires de ligne
-  let minified = content.replace(/\/\/.*$/gm, '');
-  
-  // Suppression des commentaires de bloc multilignes
-  minified = minified.replace(/\/\*[\s\S]*?\*\//g, '');
-  
-  // Suppression des espaces en début/fin de ligne
-  minified = minified.split('\n').map(line => line.trim()).join('\n');
-  
-  // Suppression des lignes vides multiples
-  minified = minified.replace(/\n\s*\n\s*\n/g, '\n\n');
-  
-  // Suppression des espaces superflus (sauf dans les chaînes)
-  minified = minified.replace(/\s+/g, ' ');
-  
-  // Suppression des espaces autour des opérateurs
-  minified = minified.replace(/\s*([{};,()=+\-*/<>%])\s*/g, '$1');
-  
-  return minified.trim();
+  let output = content.replace(/\/\/.*$/gm, '');
+  output = output.replace(/\/\*[\s\S]*?\*\//g, '');
+  output = output.replace(/\s+/g, ' ');
+  output = output.replace(/\s*([{};,()=+\-*/<>%])\s*/g, '$1');
+  output = output.replace(/\n+/g, '\n');
+  return output.trim();
 }
 
 function minifyCSS(content) {
-  // Suppression des commentaires
-  let minified = content.replace(/\/\*[\s\S]*?\*\//g, '');
-  
-  // Suppression des espaces en début/fin de ligne
-  minified = minified.split('\n').map(line => line.trim()).join('\n');
-  
-  // Suppression des lignes vides multiples
-  minified = minified.replace(/\n\s*\n\s*\n/g, '\n\n');
-  
-  // Suppression des espaces superflus
-  minified = minified.replace(/\s+/g, ' ');
-  
-  // Suppression des espaces autour des двоеточия
-  minified = minified.replace(/\s*:\s*/g, ':');
-  
-  // Suppression des espaces autour des points-virgules
-  minified = minified.replace(/\s*;\s*/g, ';');
-  
-  // Suppression des espaces autour des accolades
-  minified = minified.replace(/\s*{\s*/g, '{');
-  minified = minified.replace(/\s*}\s*/g, '}');
-  
-  return minified.trim();
+  let output = content.replace(/\/\*[\s\S]*?\*\//g, '');
+  output = output.replace(/\s+/g, ' ');
+  output = output.replace(/\s*([{}:;,>~+()])\s*/g, '$1');
+  output = output.replace(/\s*{\s*/g, '{');
+  output = output.replace(/\s*}\s*/g, '}');
+  output = output.replace(/;\}/g, '}');
+  return output.trim();
 }
 
-function concatFiles(order) {
-  const originalContent = order
-    .map((relPath) => {
-      const abs = path.join(root, relPath);
-      if (!fs.existsSync(abs)) throw new Error(`Fichier manquant: ${relPath}`);
-      return `// ----- ${relPath} -----\n${fs.readFileSync(abs, 'utf8').trim()}\n`;
-    })
+function concatJS() {
+  const sources = readSources(jsOrder);
+  const decorated = sources
+    .map(({ relPath, content }) => `// ----- ${relPath} -----\n${content.trim()}\n`)
     .join('\n');
 
-  let finalContent;
-  let originalSize;
-  let finalSize;
+  const originalSize = Buffer.byteLength(decorated, 'utf8');
+  const finalContent = isProd ? minifyJS(decorated) : decorated;
+  const finalSize = Buffer.byteLength(finalContent, 'utf8');
 
-  if (isProd) {
-    originalSize = Buffer.byteLength(originalContent, 'utf8');
-    finalContent = minifyJS(originalContent);
-    finalSize = Buffer.byteLength(finalContent, 'utf8');
-  } else {
-    finalContent = originalContent;
-    originalSize = finalSize = Buffer.byteLength(originalContent, 'utf8');
+  if (!isAnalyze) {
+    fs.writeFileSync(path.join(distDir, 'app.js'), finalContent, 'utf8');
   }
 
-  fs.writeFileSync(path.join(root, 'app.js'), finalContent, 'utf8');
-  
-  return {
-    name: 'app.js',
-    originalSize,
-    finalSize,
-    ratio: isProd ? ((1 - finalSize / originalSize) * 100).toFixed(1) : '0'
-  };
+  return { name: 'app.js', originalSize, finalSize };
 }
 
-function concatCSS(order) {
-  const originalContent = order
-    .map((relPath) => {
-      const abs = path.join(root, relPath);
-      if (!fs.existsSync(abs)) throw new Error(`Fichier manquant: ${relPath}`);
-      return `/* ----- ${relPath} ----- */\n${fs.readFileSync(abs, 'utf8').trim()}\n`;
-    })
+function concatCSS() {
+  const sources = readSources(cssOrder);
+  const decorated = sources
+    .map(({ relPath, content }) => `/* ----- ${relPath} ----- */\n${content.trim()}\n`)
     .join('\n\n');
 
-  let finalContent;
-  let originalSize;
-  let finalSize;
+  const originalSize = Buffer.byteLength(decorated, 'utf8');
+  const finalContent = isProd ? minifyCSS(decorated) : decorated;
+  const finalSize = Buffer.byteLength(finalContent, 'utf8');
 
-  if (isProd) {
-    originalSize = Buffer.byteLength(originalContent, 'utf8');
-    finalContent = minifyCSS(originalContent);
-    finalSize = Buffer.byteLength(finalContent, 'utf8');
-  } else {
-    finalContent = originalContent;
-    originalSize = finalSize = Buffer.byteLength(originalContent, 'utf8');
+  if (!isAnalyze) {
+    fs.writeFileSync(path.join(distDir, 'styles.css'), finalContent, 'utf8');
   }
 
-  fs.writeFileSync(path.join(root, 'styles.css'), finalContent, 'utf8');
-  
-  return {
-    name: 'styles.css',
-    originalSize,
-    finalSize,
-    ratio: isProd ? ((1 - finalSize / originalSize) * 100).toFixed(1) : '0'
-  };
+  return { name: 'styles.css', originalSize, finalSize };
 }
 
-function displayBuildHeader() {
-  console.log('\n═══════════════════════════════════════════════════════════');
-  console.log(`     BUILD ${isProd ? 'PRODUCTION' : isAnalyze ? 'ANALYSE' : 'DÉVELOPPEMENT'} - Pairleroy v${version}`);
-  console.log(`     Timestamp: ${timestamp}`);
-  console.log('═══════════════════════════════════════════════════════════\n');
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(2)} KB`;
 }
 
-function displayResults(results, buildTime) {
-  console.log('\n┌─────────────────────────────────────────────────────────┐');
-  console.log('│                    RÉSULTATS DU BUILD                  │');
-  console.log('├─────────────────────────────────────────────────────────┤');
-  console.log(`│ ${'Fichier'.padEnd(12)} | ${'Avant'.padEnd(10)} | ${'Après'.padEnd(10)} | ${'Gain'.padEnd(8)} │`);
-  console.log('├─────────────────────────────────────────────────────────┤');
-  
-  results.forEach(result => {
-    const name = result.name.padEnd(12);
-    const before = getFileSize(result.originalSize).padEnd(10);
-    const after = getFileSize(result.finalSize).padEnd(10);
-    const gain = isProd ? `${result.ratio}%`.padEnd(8) : '0%'.padEnd(8);
-    console.log(`│ ${name} | ${before} | ${after} | ${gain} │`);
-  });
-  
-  const totalOriginal = results.reduce((sum, r) => sum + r.originalSize, 0);
-  const totalFinal = results.reduce((sum, r) => sum + r.finalSize, 0);
-  const totalRatio = isProd ? ((1 - totalFinal / totalOriginal) * 100).toFixed(1) : '0';
-  
-  console.log('├─────────────────────────────────────────────────────────┤');
-  const totalName = 'TOTAL'.padEnd(12);
-  const totalBefore = getFileSize(totalOriginal).padEnd(10);
-  const totalAfter = getFileSize(totalFinal).padEnd(10);
-  const totalGain = isProd ? `${totalRatio}%`.padEnd(8) : '0%'.padEnd(8);
-  console.log(`│ ${totalName} | ${totalBefore} | ${totalAfter} | ${totalGain} │`);
-  console.log('├─────────────────────────────────────────────────────────┤');
-  console.log(`│ Temps de build: ${buildTime.toFixed(2)}ms                              │`);
-  console.log('└─────────────────────────────────────────────────────────┘\n');
+function logHeader(modeLabel) {
+  console.log('');
+  console.log('===============================================');
+  console.log(` Pairleroy build (${modeLabel}) - v${buildVersion}`);
+  console.log(` Timestamp: ${timestamp}`);
+  console.log('===============================================');
+}
 
-  if (isAnalyze) {
-    console.log('📊 ANALYSE DÉTAILLÉE:');
-    console.log('  • Mode de build:', isProd ? 'Production (minifié)' : 'Développement (non minifié)');
-    console.log('  • Fichiers JS traités:', jsOrder.length);
-    console.log('  • Fichiers CSS traités:', cssOrder.length);
-    console.log('  • Version:', version);
-    console.log('  • Timestamp:', timestamp);
-    console.log('');
+function logResults(results, buildTimeMs) {
+  console.log('');
+  console.log('File                 Original      Output        Delta');
+  console.log('-------------------------------------------------------');
+
+  let totalOriginal = 0;
+  let totalFinal = 0;
+
+  for (const { name, originalSize, finalSize } of results) {
+    totalOriginal += originalSize;
+    totalFinal += finalSize;
+
+    const delta = originalSize === 0
+      ? 0
+      : ((1 - finalSize / originalSize) * 100);
+
+    console.log(
+      `${name.padEnd(20)} ${formatSize(originalSize).padEnd(12)} ${formatSize(finalSize).padEnd(12)} ${delta.toFixed(1).padStart(6)}%`,
+    );
   }
 
-  if (isProd && Number(totalRatio) >= 15) {
-    console.log('✅ Excellente optimisation ! Gains significatifs obtenus.');
-  } else if (isProd && Number(totalRatio) >= 10) {
-    console.log('✅ Bonne optimisation. Des gains intéressants obtenus.');
-  } else if (isProd) {
-    console.log('⚠️  Optimisation modérée. Potentiel d\'amélioration.');
+  const totalDelta = totalOriginal === 0
+    ? 0
+    : ((1 - totalFinal / totalOriginal) * 100);
+
+  console.log('-------------------------------------------------------');
+  console.log(
+    `${'TOTAL'.padEnd(20)} ${formatSize(totalOriginal).padEnd(12)} ${formatSize(totalFinal).padEnd(12)} ${totalDelta.toFixed(1).padStart(6)}%`,
+  );
+  console.log(`Build time: ${buildTimeMs.toFixed(2)} ms`);
+  console.log('');
+}
+
+function main() {
+  const mode = isProd ? 'production' : isAnalyze ? 'analysis' : 'development';
+
+  try {
+    const start = performance.now();
+
+    if (!isAnalyze) {
+      prepareDistDir();
+    }
+
+    logHeader(mode);
+    const jsResult = concatJS();
+    const cssResult = concatCSS();
+
+    const elapsed = performance.now() - start;
+    logResults([jsResult, cssResult], elapsed);
+
+    if (!isAnalyze) {
+      console.log(`Build completed (${mode})`);
+    }
+  } catch (error) {
+    console.error('[build] error:', error.message);
+    process.exit(1);
   }
 }
 
-try {
-  const startTime = performance.now();
-  
-  displayBuildHeader();
-  
-  const jsResult = concatFiles(jsOrder);
-  const cssResult = concatCSS(cssOrder);
-  
-  const buildTime = performance.now() - startTime;
-  
-  displayResults([jsResult, cssResult], buildTime);
-  
-  console.log(`Build ${isProd ? 'production' : 'développement'} terminé avec succès !\n`);
-  
-} catch (err) {
-  console.error('[build] erreur:', err.message);
-  process.exit(1);
-}
+main();

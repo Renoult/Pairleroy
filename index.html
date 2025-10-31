@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pairleroy - Generateur de grille hexagonale</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dist/styles.css" />
   </head>
   <body>
     <header class="topbar">
@@ -51,16 +51,9 @@
     </header>
 
     <main>
-      <div class="boards-container">
-        <div id="hex-container" class="board-container">
-          <div id="hex-surface" class="board-surface">
-            <!-- SVG inline injected by app.js -->
-          </div>
-        </div>
-        <div id="square-container" class="board-container">
-          <div id="square-surface" class="board-surface">
-            <!-- Square grid SVG will be injected here -->
-          </div>
+      <div id="board-container" class="board-container">
+        <div id="board-surface" class="board-surface">
+          <!-- SVG inline injected by app.js -->
         </div>
       </div>
       <aside id="palette" aria-label="Palette de tuiles">
@@ -68,6 +61,6 @@
       </aside>
     </main>
 
-    <script src="app.js"></script>
+    <script src="dist/app.js"></script>
   </body>
 </html>

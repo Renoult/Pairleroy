@@ -1,52 +1,53 @@
-# Pairleroy — Générateur de grille hexagonale
+# Pairleroy – Generateur de grilles hexagonales
 
-Petit outil web permettant de générer et manipuler une grille hexagonale de 127 tuiles pour le jeu Pairleroy. L'application tourne entièrement dans le navigateur et peut être ouverte directement via `index.html`.
+Pairleroy est un outil web autonome qui aide a generer et manipuler une grille de 127 tuiles pour le jeu du meme nom. L'application est 100% front-end et fonctionne directement depuis un navigateur moderne.
 
-## Contenu
+## Organisation du depot
 
-- `src/` contient le code organisé en modules :
-  - `src/js/core.js` — math hexagonal, RNG, quotas.
-  - `src/js/palette.js` — logique de palette (rotations, miniatures).
-  - `src/js/render.js` — fonctions DOM/SVG pour dessiner la grille.
-  - `src/js/main.js` — orchestration : lecture des réglages, génération, auto-remplissage, événements.
-  - `src/styles/` — feuilles de style séparées (`base`, `controls`, `layout`, `overlays`).
-- `scripts/build.js` recolle les fichiers `src/` dans `app.js` et `styles.css` pour que `index.html` reste autonome.
-- `docs/` accueillera la documentation additionnelle (commentaires, captures, etc.).
+- `src/` – code source organise par modules JavaScript (`core`, `palette`, `render`, `utils`, `main`) et feuilles de style (`base`, `controls`, `layout`, `overlays`).
+- `dist/` – bundle de production genere par le script de build (`dist/app.js`, `dist/styles.css`). Ces fichiers sont commits pour permettre une utilisation immediate.
+- `scripts/` – outils d'automatisation, notamment `scripts/build.js`.
+- `tools/` – ressources annexes (benchmark de performance, scenarios de tests manuels).
+- `docs/` – documentation fonctionnelle, analyses et rapports (les documents d'optimisation ont ete regroupes dans `docs/optimisation/`).
+- `crests/` – SVG des blasons utilises par l'interface.
+- `index.html` – point d'entree de l'application; il charge les bundles depuis `dist/`.
 
-## Utilisation
+## Lancer l'application
 
-1. Ouvrir `index.html` dans un navigateur moderne.
-2. Ajuster les pourcentages mono / bi / tri et la répartition des couleurs.
-3. Cliquer sur **Générer** pour créer une nouvelle grille ou maintenir le bouton pour déclencher le remplissage automatique pas à pas.
-4. Sélectionner un joueur (1–6) pour les marqueurs de jonction.
-5. Cliquer sur une tuile de la palette puis sur la grille pour la placer, clic droit pour effacer.
-6. Raccourcis : `R` pivote la tuile sélectionnée, `1…6` change de joueur, clic prolongé sur « Générer » auto-remplit.
+### Utilisation rapide
+1. Cloner le depot (ou telecharger l'archive).
+2. Ouvrir `index.html` dans un navigateur (Chrome, Firefox, Edge, Brave recents).
+3. Les assets charges depuis `dist/` permettent une utilisation sans commande supplementaire.
 
-## Construire les fichiers plats
-
-Le site final reste constitué de `app.js` et `styles.css` à la racine. Pour les régénérer après modification des sources :
-
+### Developpement
 ```bash
-npm install   # rien à installer, mais garde la commande pour cohérence
-npm run build
+npm install          # installe les dependances (svgo uniquement pour le moment)
+npm run build        # build de developpement, sorties lisibles
+npm run build:prod   # build de production minifie dans dist/
+npm run build:analyze# calcule les tailles sans re-ecrire les fichiers
+npm run clean        # supprime le contenu de dist/
 ```
 
-La commande concatène les fichiers dans l'ordre indiqué dans `scripts/build.js`.
+> Remarque : le build script concatene simplement les sources dans l'ordre defini dans `scripts/build.js`. Aucun transpileur n'est requis a ce stade.
 
-## Ligne directrice pour les commentaires
+## Scripts npm
 
-- Les commentaires servent à expliquer le *pourquoi* (algorithmes, contraintes de jeu) plutôt que le *comment*.
-- Un court bloc en tête de chaque fichier décrit son rôle.
-- Les fonctions complexes reçoivent un commentaire « docstring » indiquant prérequis, valeurs de retour et subtilités.
-- Lors d'une modification, vérifier que le commentaire associé reste exact (sinon le mettre à jour ou le supprimer). Une checklist simple figure dans `docs/COMMENTS.md`.
+- `build` : `node ./scripts/build.js`
+- `build:dev` : alias de `build`
+- `build:prod` : `node ./scripts/build.js --prod`
+- `build:analyze` : `node ./scripts/build.js --analyze`
+- `clean` : supprime le dossier `dist/`
+- `optimize:svg` : `node ./scripts/optimize-svg.js`
 
-## Roadmap (idées)
+## Tests et benchmarks
 
-1. Export (PNG / JSON) de la grille générée.
-2. Mode mobile (layout responsive, gestes tactiles).
-3. Tests unitaires de la logique d'auto-remplissage.
-4. Historique / annulation des placements manuels.
+- `tools/benchmark/performance_benchmark.js` contient un utilitaire basique pour sonder les performances de generation.
+- `tools/manual-tests/test_performance.html` sert de scenario manuel pour les validations visuelles.
+
+## Documentation
+
+Les differents rapports d'optimisation, analyses techniques et notes sont accessibles dans `docs/`. Les documents de synthese lies aux optimisations ont ete regroupes dans `docs/optimisation/` pour clarifier la racine du depot.
 
 ## Licence
 
-Projet privé / usage interne Pairleroy (à ajuster selon vos besoins).
+Licence interne Pairleroy. Adapter selon vos besoins avant diffusion publique.
