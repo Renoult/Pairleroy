@@ -719,6 +719,10 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   junctionsG.setAttribute('id', 'junctions');
   const junctionOverlaysG = document.createElementNS(svgNS, 'g');
   junctionOverlaysG.setAttribute('id', 'junction-overlays');
+  const influenceLayer = document.createElementNS(svgNS, 'g');
+  influenceLayer.setAttribute('id', 'influence-zones');
+  const outpostLayer = document.createElementNS(svgNS, 'g');
+  outpostLayer.setAttribute('id', 'junction-outposts');
   const castleLayer = document.createElementNS(svgNS, 'g');
   castleLayer.setAttribute('id', 'junction-castles');
   const colonsLayer = document.createElementNS(svgNS, 'g');
@@ -904,9 +908,14 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
         centerY: cell.centerY,
         size: cellSize - padding * 2,
         slotElement: slot,
+        padding,
       });
     }
   }
+
+  const squareMarketCardsLayer = document.createElementNS(svgNS, 'g');
+  squareMarketCardsLayer.setAttribute('id', 'square-market-cards');
+  squareMarketLayer.appendChild(squareMarketCardsLayer);
 
   const squareIndicator = document.createElementNS(svgNS, 'g');
   squareIndicator.setAttribute('id', 'square-indicator');
@@ -945,6 +954,8 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   hexLayer.appendChild(colonsLayer);
   hexLayer.appendChild(junctionsG);
   hexLayer.appendChild(junctionOverlaysG);
+  hexLayer.appendChild(influenceLayer);
+  hexLayer.appendChild(outpostLayer);
   hexLayer.appendChild(castleLayer);
 
   viewport.appendChild(hexLayer);
@@ -958,9 +969,12 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     crest: indicatorCrest,
     playersLayer: squarePlayersLayer,
     marketLayer: squareMarketLayer,
+    marketCardsLayer: squareMarketCardsLayer,
     cellSize,
   };
   svg.__colonsLayer = colonsLayer;
+  svg.__influenceLayer = influenceLayer;
+  svg.__outpostLayer = outpostLayer;
   svg.__castleLayer = castleLayer;
   return svg;
 }
@@ -1000,6 +1014,224 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
     g.setAttribute('data-idx', String(idx));
     PLAYER_SHAPES[player].draw(g, x, y, r);
     overlaysG.appendChild(g);
+  }
+}
+
+// ----- src/js/market.js -----
+// Fichier: src/js/market.js
+// Description: Définitions de base pour les bâtiments et contrats du marché central.
+
+const MARKET_SLOT_COUNT = 16;
+
+const MARKET_CARD_TYPES = Object.freeze({
+  BUILDING: 'building',
+  CONTRACT: 'contract',
+});
+
+const RESOURCE_TYPES = Object.freeze({
+  WOOD: 'wood',
+  BREAD: 'bread',
+  FABRIC: 'fabric',
+  LABOR: 'labor',
+});
+
+const MARKET_CARD_DEFINITIONS = [
+  {
+    id: 'building-lumber-yard',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Scierie Royale',
+    icon: 'building-lumber-yard',
+    cost: { [RESOURCE_TYPES.WOOD]: 2, points: 4 },
+    reward: { points: 3, crowns: 1 },
+    tags: ['production', 'wood'],
+    description: 'Réduit de 1 le coût en bois des futurs bâtiments.',
+  },
+  {
+    id: 'building-bakery',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Boulangerie du Château',
+    icon: 'building-bakery',
+    cost: { [RESOURCE_TYPES.BREAD]: 3, [RESOURCE_TYPES.LABOR]: 1 },
+    reward: { points: 5 },
+    tags: ['production', 'bread'],
+    description: 'À chaque fin de tour, gagnez 1 pain si vous contrôlez un aménagement adjacent.',
+  },
+  {
+    id: 'building-weaver',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Atelier de Tissage',
+    icon: 'building-weaver',
+    cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 2 },
+    reward: { points: 6, crowns: 1 },
+    tags: ['fabric', 'craft'],
+    description: 'Accorde +2 points par contrat textile à la fin de la partie.',
+  },
+  {
+    id: 'building-garrison',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Garnison Frontalière',
+    icon: 'building-garrison',
+    cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, points: 6 },
+    reward: { points: 8 },
+    tags: ['military'],
+    description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
+  },
+  {
+    id: 'contract-harvest',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Charte des Récoltes',
+    icon: 'contract-harvest',
+    cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1 },
+    reward: { points: 6 },
+    tags: ['set'],
+    description: 'Score +2 points supplémentaires si vous contrôlez 3 tuiles vertes.',
+  },
+  {
+    id: 'contract-armory',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Contrat de l’Arsenal',
+    icon: 'contract-armory',
+    cost: { [RESOURCE_TYPES.FABRIC]: 1, [RESOURCE_TYPES.LABOR]: 2 },
+    reward: { points: 7, crowns: 1 },
+    tags: ['military', 'fabric'],
+    description: 'Débloque l’achat de châteaux à 15 points au lieu de 20.',
+  },
+  {
+    id: 'contract-guild',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Concession de Guilde',
+    icon: 'contract-guild',
+    cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.FABRIC]: 1 },
+    reward: { points: 5, influence: 1 },
+    tags: ['guild'],
+    description: 'Étend votre zone d’influence de 1 autour de votre château.',
+  },
+  {
+    id: 'contract-trade-road',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Route Marchande',
+    icon: 'contract-trade-road',
+    cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
+    reward: { points: 4, crowns: 1 },
+    tags: ['trade'],
+    description: 'À la fin de la partie, +3 points si vous contrôlez la plus longue chaîne orthogonale.',
+  },
+  {
+    id: 'building-observatory',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Observatoire Royal',
+    icon: 'building-observatory',
+    cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 5 },
+    reward: { points: 7, crowns: 1 },
+    tags: ['science'],
+    description: 'Révèle deux tuiles du sachet supplémentaire à chaque préparation de tour.',
+  },
+  {
+    id: 'building-harbor',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Port Fluvial',
+    icon: 'building-harbor',
+    cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.BREAD]: 1, points: 3 },
+    reward: { points: 6, influence: 1 },
+    tags: ['trade', 'water'],
+    description: 'Autorise un échange bois ↔ tissu par tour sans coût additionnel.',
+  },
+  {
+    id: 'building-guildhall',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Hôtel de Guilde',
+    icon: 'building-guildhall',
+    cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 1, points: 4 },
+    reward: { points: 7, crowns: 1 },
+    tags: ['guild'],
+    description: 'Chaque contrat accompli rapporte 1 point supplémentaire.',
+  },
+  {
+    id: 'building-granary',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Grand Grenier',
+    icon: 'building-granary',
+    cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.WOOD]: 1 },
+    reward: { points: 4, stock: { [RESOURCE_TYPES.BREAD]: 2 } },
+    tags: ['storage'],
+    description: 'Augmente votre réserve maximale de pain de 2 unités.',
+  },
+  {
+    id: 'contract-expedition',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Expédition Lointaine',
+    icon: 'contract-expedition',
+    cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, [RESOURCE_TYPES.LABOR]: 1 },
+    reward: { points: 8 },
+    tags: ['exploration'],
+    description: 'Octroie un déplacement gratuit de colon après achat.',
+  },
+  {
+    id: 'contract-cathedral',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Chantier de Cathédrale',
+    icon: 'contract-cathedral',
+    cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.FABRIC]: 2, points: 4 },
+    reward: { points: 10 },
+    tags: ['prestige'],
+    description: 'Ajoute 1 couronne si vous possédez au moins deux bâtiments religieux.',
+  },
+  {
+    id: 'contract-tradepost',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Comptoir Érigé',
+    icon: 'contract-tradepost',
+    cost: { [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
+    reward: { points: 5, crowns: 1 },
+    tags: ['trade'],
+    description: 'Réduit de 1 le coût en tissu de vos prochains contrats.',
+  },
+  {
+    id: 'contract-artisans',
+    type: MARKET_CARD_TYPES.CONTRACT,
+    name: 'Charte des Artisans',
+    icon: 'contract-artisans',
+    cost: { [RESOURCE_TYPES.LABOR]: 3 },
+    reward: { points: 6 },
+    tags: ['guild'],
+    description: 'Permet de convertir 1 main-d’œuvre en 1 pain à chaque tour.',
+  },
+];
+
+function getMarketCardDefinition(cardId) {
+  return MARKET_CARD_DEFINITIONS.find((card) => card.id === cardId) ?? null;
+}
+
+function createInitialMarketDeck(definitions = MARKET_CARD_DEFINITIONS) {
+  return definitions.map((card) => ({ ...card }));
+}
+
+function createEmptyMarketSlots() {
+  return Array.from({ length: MARKET_SLOT_COUNT }, () => null);
+}
+
+function createInitialMarketState() {
+  return {
+    deck: createInitialMarketDeck(),
+    drawPile: [],
+    discardPile: [],
+    slots: createEmptyMarketSlots(),
+    revealedThisTurn: new Set(),
+  };
+}
+
+function seedMarketSlotsFromDeck(state) {
+  if (!state || !Array.isArray(state.deck) || !Array.isArray(state.slots)) return;
+  for (let slotIdx = 0; slotIdx < state.slots.length; slotIdx++) {
+    const definition = state.deck[slotIdx] ?? null;
+    if (!definition) {
+      state.slots[slotIdx] = null;
+      continue;
+    }
+    state.slots[slotIdx] = {
+      id: definition.id,
+      status: 'available',
+    };
   }
 }
 
@@ -1133,6 +1365,25 @@ const PLAYER_COLON_COLORS = [
 const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
 const DEFAULT_COLOR_LABELS = ['Couleur 1', 'Couleur 2', 'Couleur 3', 'Couleur 4'];
 
+const RESOURCE_LABELS = {
+  [RESOURCE_TYPES.WOOD]: 'Bois',
+  [RESOURCE_TYPES.BREAD]: 'Pain',
+  [RESOURCE_TYPES.FABRIC]: 'Tissu',
+  [RESOURCE_TYPES.LABOR]: 'Main-d’œuvre',
+};
+
+const RESOURCE_ORDER = [
+  RESOURCE_TYPES.WOOD,
+  RESOURCE_TYPES.BREAD,
+  RESOURCE_TYPES.FABRIC,
+  RESOURCE_TYPES.LABOR,
+];
+
+const MARKET_TYPE_LABELS = {
+  [MARKET_CARD_TYPES.BUILDING]: 'Bâtiment',
+  [MARKET_CARD_TYPES.CONTRACT]: 'Contrat',
+};
+
 let activeColors = DEFAULT_COLOR_HEX.slice();
 if (typeof window !== 'undefined') {
   window.__pairleroyActiveColors = activeColors.slice();
@@ -1149,11 +1400,24 @@ let colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
 let selectedColonPlayer = null;
 let colonMarkers = new Map();
 
+function createEmptyResourceStock() {
+  return {
+    [RESOURCE_TYPES.WOOD]: 0,
+    [RESOURCE_TYPES.BREAD]: 0,
+    [RESOURCE_TYPES.FABRIC]: 0,
+    [RESOURCE_TYPES.LABOR]: 0,
+  };
+}
+
 function createEmptyPlayerResource() {
   return {
     tileColors: new Map(),
     amenagements: new Set(),
     amenagementColors: new Map(),
+    stock: createEmptyResourceStock(),
+    buildings: new Set(),
+    contracts: new Set(),
+    crowns: 0,
   };
 }
 
@@ -1166,10 +1430,24 @@ const turnState = {
   turnNumber: 1,
 };
 
+let marketState = createInitialMarketState();
+let hoveredMarketSlot = null;
+const influenceMap = new Map();
+
 const hudElements = {
   scoreboard: null,
   turnIndicator: null,
   endTurnButton: null,
+};
+
+const marketDetailElements = {
+  container: null,
+  type: null,
+  slot: null,
+  name: null,
+  cost: null,
+  reward: null,
+  description: null,
 };
 
 const amenagementColorByKey = new Map();
@@ -1192,6 +1470,7 @@ function resetTurnCounters() {
   colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
   selectedColonPlayer = null;
   updateColonMarkersPositions();
+  influenceMap.clear();
 }
 
 function ensureHudElements() {
@@ -1211,6 +1490,22 @@ function awardPoints(player, delta, source = 'generic') {
   playerScores[idx] = (playerScores[idx] || 0) + delta;
   debugLog('awardPoints', { player, delta, source, next: playerScores[idx] });
   renderGameHud();
+}
+
+function getPlayerScore(player) {
+  const idx = playerIndex(player);
+  return idx !== -1 ? playerScores[idx] || 0 : 0;
+}
+
+function spendPoints(player, cost, reason = 'spend') {
+  if (!isValidPlayer(player) || !Number.isFinite(cost) || cost <= 0) return false;
+  const current = getPlayerScore(player);
+  if (current < cost) {
+    debugLog('insufficient-points', { player, cost, current, reason });
+    return false;
+  }
+  awardPoints(player, -cost, reason);
+  return true;
 }
 
 function adjustResourceColorTally(player, colorIdx, delta) {
@@ -1241,8 +1536,52 @@ function adjustPlayerTileResources(player, combo, delta) {
   }
 }
 
+function ensureMarketDetailElements() {
+  if (!marketDetailElements.container) {
+    marketDetailElements.container = document.getElementById('market-details');
+    marketDetailElements.type = document.getElementById('market-details-type');
+    marketDetailElements.slot = document.getElementById('market-details-slot');
+    marketDetailElements.name = document.getElementById('market-details-name');
+    marketDetailElements.cost = document.getElementById('market-details-cost');
+    marketDetailElements.reward = document.getElementById('market-details-reward');
+    marketDetailElements.description = document.getElementById('market-details-description');
+  }
+  return marketDetailElements;
+}
+
+function adjustPlayerResourceStock(player, resourceType, delta) {
+  if (!isValidPlayer(player) || !resourceType || !Number.isFinite(delta) || delta === 0) return;
+  const idx = playerIndex(player);
+  const record = playerResources[idx];
+  if (!record || !record.stock || !(resourceType in record.stock)) return;
+  const current = record.stock[resourceType] || 0;
+  const next = current + delta;
+  record.stock[resourceType] = next >= 0 ? next : 0;
+}
+
+function adjustPlayerCrowns(player, delta) {
+  if (!isValidPlayer(player) || !Number.isFinite(delta) || delta === 0) return;
+  const idx = playerIndex(player);
+  const record = playerResources[idx];
+  if (!record) return;
+  const current = record.crowns || 0;
+  const next = current + delta;
+  record.crowns = next >= 0 ? next : 0;
+}
+
 function colonColorForIndex(idx) {
   return PLAYER_COLON_COLORS[idx % PLAYER_COLON_COLORS.length];
+}
+
+function colorWithAlpha(hex, alpha = 0.2) {
+  if (typeof hex !== 'string') return `rgba(0,0,0,${alpha})`;
+  const value = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (value.length !== 6) return `rgba(0,0,0,${alpha})`;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  if (![r, g, b].every((n) => Number.isFinite(n))) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function getBoardSvg() {
@@ -1258,6 +1597,17 @@ function hexDistanceBetween(idxA, idxB) {
   const dr = tileA.r - tileB.r;
   const ds = tileA.s - tileB.s;
   return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
+}
+
+function hexDistanceBetweenCached(idxA, idxB) {
+  const a = Math.min(idxA, idxB);
+  const b = Math.max(idxA, idxB);
+  const key = `${a},${b}`;
+  const cached = influenceMap.get(key);
+  if (cached !== undefined) return cached;
+  const dist = hexDistanceBetween(a, b);
+  influenceMap.set(key, dist);
+  return dist;
 }
 
 function handleColonMarkerClick(event) {
@@ -1625,25 +1975,54 @@ function unregisterAmenagementForPlayer(player, key, colorIdx = null) {
   renderGameHud();
 }
 
+function registerBuildingForPlayer(player, cardId) {
+  if (!isValidPlayer(player) || !cardId) return;
+  const idx = playerIndex(player);
+  const record = playerResources[idx];
+  if (!record) return;
+  record.buildings.add(cardId);
+  renderGameHud();
+}
+
+function registerContractForPlayer(player, cardId) {
+  if (!isValidPlayer(player) || !cardId) return;
+  const idx = playerIndex(player);
+  const record = playerResources[idx];
+  if (!record) return;
+  record.contracts.add(cardId);
+  renderGameHud();
+}
+
 function resetGameDataForNewBoard() {
   playerScores = Array.from({ length: PLAYER_COUNT }, () => 0);
   playerResources = Array.from({ length: PLAYER_COUNT }, () => createEmptyPlayerResource());
+  marketState = createInitialMarketState();
+  seedMarketSlotsFromDeck(marketState);
+  hoveredMarketSlot = null;
+  influenceMap.clear();
   resetTurnCounters();
   turnState.turnNumber = 1;
   turnState.activePlayer = PLAYER_IDS[0];
   amenagementColorByKey.clear();
   const svg = getBoardSvg();
   const castleMap = svg?.__state?.castleByJunction ?? null;
+  const outpostMap = svg?.__state?.outpostByJunction ?? null;
   if (castleMap) {
     castleMap.clear();
     svg?.__state?.renderCastleOverlays?.();
   }
+  if (outpostMap) {
+    outpostMap.clear();
+    svg?.__state?.renderOutpostOverlays?.();
+  }
+  svg?.__state?.renderInfluenceZones?.();
   colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
   colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => 2);
   colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
   selectedColonPlayer = null;
   updateColonMarkersPositions();
   renderGameHud();
+  updateMarketDetailPanel(null);
 }
 
 function setActivePlayer(player, { advanceTurn = false } = {}) {
@@ -1721,6 +2100,254 @@ function renderGameHud() {
   }
   updateColonMarkersPositions();
   if (svg?.__state?.renderCastleOverlays) svg.__state.renderCastleOverlays();
+  renderMarketDisplay();
+}
+
+function renderMarketDisplay() {
+  const svg = getBoardSvg();
+  const state = svg?.__state ?? null;
+  const layer = state?.marketCardsLayer ?? null;
+  const cells = state?.marketCells ?? null;
+  if (!layer || !Array.isArray(cells)) return;
+  ensureMarketDetailElements();
+  layer.innerHTML = '';
+  const badgeYOffset = -0.24;
+  const nameYOffset = 0.09;
+  const costYOffset = 0.36;
+  const nameLineGap = 0.24;
+  const costLineGap = 0.2;
+  const svgNS = 'http://www.w3.org/2000/svg';
+
+  cells.forEach((cell, idx) => {
+    const slotState = marketState?.slots?.[idx] ?? null;
+    const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+    const group = document.createElementNS(svgNS, 'g');
+    group.setAttribute('class', 'market-card');
+    if (hoveredMarketSlot === idx) group.classList.add('market-card--active');
+    group.dataset.slot = String(idx);
+    group.setAttribute('transform', `translate(${cell.centerX.toFixed(3)} ${cell.centerY.toFixed(3)})`);
+    group.setAttribute('tabindex', '0');
+    const badge = document.createElementNS(svgNS, 'text');
+    badge.setAttribute('class', 'market-card__badge');
+    badge.setAttribute('text-anchor', 'middle');
+    badge.setAttribute('dominant-baseline', 'central');
+    badge.setAttribute('y', (cell.size * badgeYOffset).toFixed(3));
+    const badgeText = (() => {
+      if (!def) return '?';
+      return def.type === MARKET_CARD_TYPES.BUILDING ? 'Bât' : 'Ctr';
+    })();
+    badge.textContent = badgeText;
+    group.appendChild(badge);
+    const labelLines = def ? wrapMarketLabel(def.name, { maxChars: 10, maxLines: 1 }) : ['Libre'];
+    const label = createMultilineSvgText({
+      svgNS,
+      className: 'market-card__label',
+      lines: labelLines,
+      startOffset: nameYOffset,
+      lineGap: nameLineGap,
+      cellSize: cell.size,
+    });
+    group.appendChild(label);
+    const costLines = def ? formatMarketCostLines(def.cost, { maxLines: 2, maxChars: 12 }) : [''];
+    const cost = createMultilineSvgText({
+      svgNS,
+      className: 'market-card__cost',
+      lines: costLines,
+      startOffset: costYOffset,
+      lineGap: costLineGap,
+      cellSize: cell.size,
+    });
+    group.appendChild(cost);
+    group.addEventListener('mouseenter', () => setHoveredMarketSlot(idx, group));
+    group.addEventListener('focus', () => setHoveredMarketSlot(idx, group));
+    group.addEventListener('mouseleave', () => {
+      if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+      else group.classList.remove('market-card--active');
+    });
+    group.addEventListener('blur', () => {
+      if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+      else group.classList.remove('market-card--active');
+    });
+    group.addEventListener('click', handleMarketCardClick);
+    layer.appendChild(group);
+  });
+  if (!Number.isInteger(hoveredMarketSlot)) updateMarketDetailPanel(null);
+}
+
+function createMultilineSvgText({ svgNS, className, lines, startOffset, lineGap, cellSize }) {
+  const textEl = document.createElementNS(svgNS, 'text');
+  textEl.setAttribute('class', className);
+  textEl.setAttribute('text-anchor', 'middle');
+  textEl.setAttribute('dominant-baseline', 'central');
+  const effectiveLines = Array.isArray(lines)
+    ? lines.filter((line) => typeof line === 'string' && line.trim().length)
+    : [];
+  if (effectiveLines.length === 0) effectiveLines.push('');
+  let first = true;
+  const lineDy = cellSize * lineGap;
+  const baseY = cellSize * startOffset;
+  effectiveLines.forEach((line) => {
+    const span = document.createElementNS(svgNS, 'tspan');
+    span.setAttribute('x', '0');
+    if (first) {
+      span.setAttribute('y', baseY.toFixed(3));
+      first = false;
+    } else {
+      span.setAttribute('dy', lineDy.toFixed(3));
+    }
+    span.textContent = line;
+    textEl.appendChild(span);
+  });
+  return textEl;
+}
+
+function wrapMarketLabel(text, { maxChars = 12, maxLines = 2 } = {}) {
+  if (typeof text !== 'string' || !text.trim()) return [''];
+  const words = text.trim().split(/\s+/);
+  const lines = [];
+  let current = '';
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxChars) {
+      current = next;
+    } else {
+      if (current) lines.push(current);
+      current = word.length > maxChars ? word.slice(0, maxChars) : word;
+    }
+  });
+  if (current) lines.push(current);
+  if (lines.length > maxLines) {
+    const trimmed = lines.slice(0, maxLines);
+    const lastIdx = trimmed.length - 1;
+    const last = trimmed[lastIdx];
+    const ellipsis = '...';
+    trimmed[lastIdx] = last.length >= maxChars
+      ? `${last.slice(0, Math.max(0, maxChars - ellipsis.length))}${ellipsis}`
+      : `${last}${ellipsis}`;
+    return trimmed;
+  }
+  return lines;
+}
+
+function formatMarketCostLines(cost, { maxLines = 2, maxChars = 12 } = {}) {
+  if (!cost) return [''];
+  const parts = [];
+  RESOURCE_ORDER.forEach((resource) => {
+    const amount = cost[resource];
+    if (Number.isFinite(amount) && amount > 0) {
+      parts.push(`${amount} ${RESOURCE_LABELS[resource] || resource}`);
+    }
+  });
+  if (Number.isFinite(cost.points) && cost.points > 0) {
+    parts.push(`${cost.points} PV`);
+  }
+  if (Number.isFinite(cost.crowns) && cost.crowns > 0) {
+    parts.push(`${cost.crowns} Cour.`);
+  }
+  if (parts.length === 0) return [''];
+  const trimmed = parts.map((part) => trimMarketLine(part, maxChars));
+  if (trimmed.length <= maxLines) return trimmed;
+  const limited = trimmed.slice(0, maxLines);
+  limited[maxLines - 1] = trimMarketLine(`${limited[maxLines - 1]} ...`, maxChars);
+  return limited;
+}
+
+function trimMarketLine(text, maxChars) {
+  const clean = (text ?? '').toString().trim();
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, Math.max(0, maxChars - 3))}...`;
+}
+
+function handleMarketCardClick(event) {
+  const target = event.currentTarget;
+  const slotIdx = Number(target?.dataset?.slot ?? -1);
+  const slotState = Number.isInteger(slotIdx) && slotIdx >= 0 ? marketState?.slots?.[slotIdx] ?? null : null;
+  debugLog('market-slot-click', { slot: slotIdx, card: slotState });
+}
+
+function setHoveredMarketSlot(slotIdx, element = null) {
+  if (slotIdx != null && (!Number.isInteger(slotIdx) || slotIdx < 0)) return;
+  hoveredMarketSlot = slotIdx;
+  applyMarketCardActiveClass(element);
+  updateMarketDetailPanel(slotIdx);
+}
+
+function resetHoveredMarketSlot() {
+  hoveredMarketSlot = null;
+  applyMarketCardActiveClass(null);
+  updateMarketDetailPanel(null);
+}
+
+function applyMarketCardActiveClass(element) {
+  const svg = getBoardSvg();
+  const layer = svg?.__state?.marketCardsLayer ?? null;
+  if (!layer) return;
+  layer.querySelectorAll('.market-card--active').forEach((node) => node.classList.remove('market-card--active'));
+  if (element) element.classList.add('market-card--active');
+}
+
+function updateMarketDetailPanel(slotIdx) {
+  const elements = ensureMarketDetailElements();
+  if (!elements.container) return;
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) {
+    elements.type.textContent = 'Marche';
+    elements.slot.textContent = '';
+    elements.name.textContent = 'Survolez une carte';
+    elements.cost.textContent = '--';
+    elements.reward.textContent = '--';
+    elements.description.textContent = 'Passez la souris sur une carte du marche pour voir son effet.';
+    return;
+  }
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+  if (!def) {
+    updateMarketDetailPanel(null);
+    return;
+  }
+  elements.type.textContent = MARKET_TYPE_LABELS[def.type] || 'Marche';
+  elements.slot.textContent = 'Case ' + String(slotIdx + 1).padStart(2, '0');
+  elements.name.textContent = def.name || 'Carte inconnue';
+  elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
+  elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
+  elements.description.textContent = def.description || '--';
+}
+
+function summarizeMarketCost(cost) {
+  if (!cost) return '';
+  const parts = [];
+  RESOURCE_ORDER.forEach((resource) => {
+    const amount = cost[resource];
+    if (Number.isFinite(amount) && amount > 0) {
+      parts.push(`${amount} ${RESOURCE_LABELS[resource] || resource}`);
+    }
+  });
+  if (Number.isFinite(cost.points) && cost.points > 0) parts.push(`${cost.points} PV`);
+  if (Number.isFinite(cost.crowns) && cost.crowns > 0) parts.push(`${cost.crowns} Couronnes`);
+  return parts.join(', ');
+}
+
+function summarizeMarketReward(reward) {
+  if (!reward || typeof reward !== 'object') return '';
+  const parts = [];
+  if (Number.isFinite(reward.points) && reward.points !== 0) {
+    parts.push(`${reward.points > 0 ? '+' : ''}${reward.points} PV`);
+  }
+  if (Number.isFinite(reward.crowns) && reward.crowns !== 0) {
+    parts.push(`${reward.crowns > 0 ? '+' : ''}${reward.crowns} Couronnes`);
+  }
+  if (Number.isFinite(reward.influence) && reward.influence !== 0) {
+    parts.push(`${reward.influence > 0 ? '+' : ''}${reward.influence} Influence`);
+  }
+  if (reward.stock && typeof reward.stock === 'object') {
+    RESOURCE_ORDER.forEach((resource) => {
+      const amount = reward.stock[resource];
+      if (Number.isFinite(amount) && amount !== 0) {
+        const label = RESOURCE_LABELS[resource] || resource;
+        parts.push(`${amount > 0 ? '+' : ''}${amount} ${label}`);
+      }
+    });
+  }
+  return parts.join(', ');
 }
 
 
@@ -1873,6 +2500,7 @@ function generateAndRender() {
     }
     state.renderJunctionOverlays?.();
     state.renderCastleOverlays?.();
+    state.renderOutpostOverlays?.();
     updateClearButtonState();
     updateColonMarkersPositions();
     serializeConfigToURL(cfg);
@@ -1891,6 +2519,7 @@ function generateAndRender() {
   const junctionMap = computeJunctionMap(tiles, size);
   const overlayByJunction = new Map();
   const castleByJunction = new Map();
+  const outpostByJunction = new Map();
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
   const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
@@ -1900,6 +2529,8 @@ function generateAndRender() {
   const squareIndicatorCrest = squareGridMeta?.crest ?? null;
   const squarePlayersLayer = squareGridMeta?.playersLayer ?? null;
   const squareMarketLayer = squareGridMeta?.marketLayer ?? null;
+  const squareMarketCardsLayer = squareGridMeta?.marketCardsLayer ?? null;
+  const influenceLayer = svg.__influenceLayer ?? null;
   const squareCellSize = squareGridMeta?.cellSize ?? (squareTrack[0]?.size ?? size * SQUARE_CELL_FACTOR);
   const squarePlayerMarkers = squarePlayersLayer ? new Map() : null;
   const squareMarketCells = Array.isArray(squareGridMeta?.marketCells) ? squareGridMeta.marketCells : [];
@@ -2040,9 +2671,53 @@ function generateAndRender() {
     return best;
   }
 
+  function dominantPlayerForJunction(entry) {
+    if (!entry) return null;
+    const counts = new Map();
+    const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
+    tilesAround.forEach((tileIdx) => {
+      const placement = placements[tileIdx];
+      const owner = placement?.player;
+      if (!isValidPlayer(owner)) return;
+      counts.set(owner, (counts.get(owner) || 0) + 1);
+    });
+    let leader = null;
+    let leaderCount = 0;
+    let tie = false;
+    counts.forEach((count, player) => {
+      if (count > leaderCount) {
+        leader = player;
+        leaderCount = count;
+        tie = false;
+      } else if (count === leaderCount) {
+        tie = true;
+      }
+    });
+    if (tie || leaderCount <= 0) return null;
+    return leader;
+  }
+
+  function evaluateAmenagementsAround(tileIdx) {
+    if (!Number.isInteger(tileIdx)) return;
+    let changed = false;
+    for (const [key, entry] of junctionMap.entries()) {
+      if (!entry || !Array.isArray(entry.tiles) || !entry.tiles.includes(tileIdx)) continue;
+      if (!isJunctionReady(entry) || overlayByJunction.has(key)) continue;
+      const owner = dominantPlayerForJunction(entry);
+      if (!isValidPlayer(owner)) continue;
+      if (!playerHasInfluenceForEntry(owner, entry)) continue;
+      const colorIdx = dominantColorForJunction(entry);
+      overlayByJunction.set(key, owner);
+      registerAmenagementForPlayer(owner, key, colorIdx);
+      changed = true;
+    }
+    if (changed) renderJunctionOverlays();
+  }
+
   function assignAmenagementOwner(key, player) {
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
+    if (!playerHasInfluenceForEntry(player, entry)) return;
     const previousOwner = overlayByJunction.get(key) ?? null;
     if (previousOwner === player) return;
     const previousColor = amenagementColorByKey.get(key);
@@ -2068,14 +2743,128 @@ function generateAndRender() {
     renderJunctionOverlays();
   }
 
+  function findCastleKeyForPlayer(player) {
+    for (const [castleKey, owner] of castleByJunction.entries()) {
+      if (owner === player) return castleKey;
+    }
+    return null;
+  }
+
+  function getOutpostKeysForPlayer(player) {
+    const keys = [];
+    outpostByJunction.forEach((owner, outpostKey) => {
+      if (owner === player) keys.push(outpostKey);
+    });
+    return keys;
+  }
+
+  function getInfluenceEntriesForPlayer(player) {
+    const entries = [];
+    const castleKey = findCastleKeyForPlayer(player);
+    if (castleKey) {
+      const entry = junctionMap.get(castleKey);
+      if (entry) entries.push(entry);
+    }
+    outpostByJunction.forEach((owner, outpostKey) => {
+      if (owner !== player) return;
+      const entry = junctionMap.get(outpostKey);
+      if (entry) entries.push(entry);
+    });
+    return entries;
+  }
+
+  function playerHasInfluenceForEntry(player, targetEntry, maxDistance = 2) {
+    if (!isValidPlayer(player) || !targetEntry) return false;
+    const sources = getInfluenceEntriesForPlayer(player);
+    if (!Array.isArray(sources) || sources.length === 0) return false;
+    for (let i = 0; i < sources.length; i++) {
+      if (distanceBetweenJunctionEntries(sources[i], targetEntry) <= maxDistance) return true;
+    }
+    return false;
+  }
+
+  function cleanupAmenagementsForPlayer(player) {
+    if (!isValidPlayer(player)) return;
+    const toRemove = [];
+    overlayByJunction.forEach((owner, key) => {
+      if (owner !== player) return;
+      const entry = junctionMap.get(key);
+      if (!entry || !playerHasInfluenceForEntry(player, entry)) {
+        const colorIdx = amenagementColorByKey.get(key);
+        toRemove.push({ key, colorIdx });
+      }
+    });
+    toRemove.forEach(({ key, colorIdx }) => {
+      unregisterAmenagementForPlayer(player, key, colorIdx);
+      overlayByJunction.delete(key);
+    });
+  }
+
+  function distanceBetweenJunctionEntries(entryA, entryB) {
+    if (!entryA || !entryB) return Infinity;
+    const tilesA = Array.isArray(entryA.tiles) ? entryA.tiles : [];
+    const tilesB = Array.isArray(entryB.tiles) ? entryB.tiles : [];
+    let best = Infinity;
+    for (let i = 0; i < tilesA.length; i++) {
+      for (let j = 0; j < tilesB.length; j++) {
+        const dist = hexDistanceBetweenCached(tilesA[i], tilesB[j]);
+        if (Number.isFinite(dist) && dist < best) best = dist;
+      }
+    }
+    return best;
+  }
+
+  function isOutpostPlacementValid(player, targetEntry) {
+    if (!targetEntry) return false;
+    return playerHasInfluenceForEntry(player, targetEntry);
+  }
+
   function toggleCastleAtJunction(key, player) {
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
     if (!isJunctionReady(entry)) return;
-    const current = castleByJunction.get(key) ?? null;
-    if (current === player) castleByJunction.delete(key);
-    else castleByJunction.set(key, player);
-    renderCastleOverlays();
+    const idx = playerIndex(player);
+    if (idx === -1) return;
+
+    const currentCastleOwner = castleByJunction.get(key) ?? null;
+    if (currentCastleOwner != null) {
+      if (currentCastleOwner !== player) return;
+      castleByJunction.delete(key);
+      cleanupAmenagementsForPlayer(player);
+      renderJunctionOverlays();
+      refreshStatsModal();
+      return;
+    }
+
+    const currentOutpostOwner = outpostByJunction.get(key) ?? null;
+    if (currentOutpostOwner != null) {
+      if (currentOutpostOwner !== player) return;
+      outpostByJunction.delete(key);
+      cleanupAmenagementsForPlayer(player);
+      renderJunctionOverlays();
+      refreshStatsModal();
+      return;
+    }
+
+    if (!findCastleKeyForPlayer(player)) {
+      if (!spendPoints(player, 5, 'castle')) return;
+      castleByJunction.set(key, player);
+      const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
+      tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
+      renderJunctionOverlays();
+      refreshStatsModal();
+      return;
+    }
+
+    if (!isOutpostPlacementValid(player, entry)) {
+      debugLog('outpost-placement-invalid', { key, player });
+      return;
+    }
+    if (!spendPoints(player, 3, 'outpost')) return;
+    outpostByJunction.set(key, player);
+    const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
+    tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
+    renderJunctionOverlays();
     refreshStatsModal();
   }
 
@@ -2118,12 +2907,96 @@ function generateAndRender() {
       marker.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         castleByJunction.delete(key);
-        renderCastleOverlays();
+      cleanupAmenagementsForPlayer(player);
+      renderJunctionOverlays();
         refreshStatsModal();
       });
       marker.classList.toggle('castle-marker--active', player === turnState.activePlayer);
       layer.appendChild(marker);
     }
+    renderInfluenceZones();
+  }
+
+  function renderOutpostOverlays() {
+    const layer = svg.__outpostLayer ?? svg.querySelector('#junction-outposts');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const radius = size * 0.32;
+    for (const [key, player] of outpostByJunction.entries()) {
+      const entry = junctionMap.get(key);
+      if (!entry || !isJunctionReady(entry) || !isValidPlayer(player)) {
+        outpostByJunction.delete(key);
+        continue;
+      }
+      const pIdx = playerIndex(player);
+      if (pIdx === -1) {
+        outpostByJunction.delete(key);
+        continue;
+      }
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      marker.setAttribute('class', 'outpost-marker');
+      marker.dataset.key = key;
+      marker.dataset.player = String(player);
+      marker.setAttribute('transform', `translate(${entry.x.toFixed(3)} ${entry.y.toFixed(3)})`);
+      const body = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      body.setAttribute('r', radius.toFixed(3));
+      body.setAttribute('cx', '0');
+      body.setAttribute('cy', '0');
+      body.setAttribute('fill', colonColorForIndex(pIdx));
+      body.setAttribute('stroke', '#ffffff');
+      body.setAttribute('stroke-width', (size * 0.06).toFixed(3));
+      marker.appendChild(body);
+      const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      core.setAttribute('r', (radius * 0.45).toFixed(3));
+      core.setAttribute('cx', '0');
+      core.setAttribute('cy', '0');
+      core.setAttribute('fill', '#2d2a26');
+      marker.appendChild(core);
+      marker.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCastleAtJunction(key, currentPlayer());
+      });
+      marker.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        outpostByJunction.delete(key);
+      cleanupAmenagementsForPlayer(player);
+      renderJunctionOverlays();
+        refreshStatsModal();
+      });
+      layer.appendChild(marker);
+    }
+    renderInfluenceZones();
+  }
+
+  function renderInfluenceZones() {
+    const layer = svg.__influenceLayer ?? svg.querySelector('#influence-zones');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const radius = size * 2.9;
+    const seeds = [];
+    castleByJunction.forEach((player, key) => {
+      const entry = junctionMap.get(key);
+      if (entry && isValidPlayer(player)) seeds.push({ player, entry });
+    });
+    outpostByJunction.forEach((player, key) => {
+      const entry = junctionMap.get(key);
+      if (entry && isValidPlayer(player)) seeds.push({ player, entry });
+    });
+    seeds.forEach(({ player, entry }) => {
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const zone = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      zone.setAttribute('class', 'influence-zone');
+      zone.setAttribute('cx', entry.x.toFixed(3));
+      zone.setAttribute('cy', entry.y.toFixed(3));
+      zone.setAttribute('r', radius.toFixed(3));
+      const baseColor = colonColorForIndex(idx);
+      zone.setAttribute('fill', colorWithAlpha(baseColor, 0.16));
+      zone.setAttribute('stroke', colorWithAlpha(baseColor, 0.45));
+      zone.setAttribute('stroke-width', (size * 0.18).toFixed(3));
+      layer.appendChild(zone);
+    });
   }
 
   gridSideColors = new Array(tiles.length).fill(null);
@@ -2226,6 +3099,7 @@ function generateAndRender() {
       });
       g.appendChild(ng);
     }
+    renderOutpostOverlays();
     renderCastleOverlays();
     renderJunctionCircles();
     refreshStatsModal();
@@ -2384,6 +3258,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     }
     renderGameHud();
   }
+  evaluateAmenagementsAround(tileIdx);
   refreshStatsModal();
   return true;
 }
@@ -2686,6 +3561,8 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     renderJunctionOverlays,
     castleByJunction,
     renderCastleOverlays,
+    outpostByJunction,
+    renderOutpostOverlays,
     toggleCastleAtJunction,
     junctionMap,
     tiles,
@@ -2723,10 +3600,15 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     updateSquarePlayers,
     marketCells: squareMarketCells,
     marketLayer: squareMarketLayer,
+    marketCardsLayer: squareMarketCardsLayer,
+    influenceLayer,
+    renderInfluenceZones,
+    renderMarketDisplay,
   };
   svg.__state = svgState;
 
   renderColonMarkers();
+  renderMarketDisplay();
 
   const activePlayerForIndicator = turnState.activePlayer;
   const activeIdxForIndicator = playerIndex(activePlayerForIndicator);

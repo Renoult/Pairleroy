@@ -97,6 +97,22 @@
       <aside id="palette" aria-label="Palette de tuiles">
         <div id="palette-items"></div>
       </aside>
+      <aside id="market-details" aria-live="polite" aria-label="Détails du marché">
+        <div class="market-details__header">
+          <span class="market-details__type" id="market-details-type">Marché</span>
+          <span class="market-details__slot" id="market-details-slot"></span>
+        </div>
+        <h2 class="market-details__name" id="market-details-name">Survolez une carte</h2>
+        <dl class="market-details__stats">
+          <dt>Coût</dt>
+          <dd id="market-details-cost">—</dd>
+          <dt>Récompense</dt>
+          <dd id="market-details-reward">—</dd>
+        </dl>
+        <p class="market-details__description" id="market-details-description">
+          Passez la souris sur une carte du marché pour voir son effet.
+        </p>
+      </aside>
     </main>
 
     <script src="dist/app.js"></script>

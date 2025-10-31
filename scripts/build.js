@@ -28,6 +28,7 @@ const jsOrder = [
   'src/js/core.js',
   'src/js/palette.js',
   'src/js/render.js',
+  'src/js/market.js',
   'src/js/utils.js',
   'src/js/main.js',
 ];

@@ -132,6 +132,10 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   junctionsG.setAttribute('id', 'junctions');
   const junctionOverlaysG = document.createElementNS(svgNS, 'g');
   junctionOverlaysG.setAttribute('id', 'junction-overlays');
+  const influenceLayer = document.createElementNS(svgNS, 'g');
+  influenceLayer.setAttribute('id', 'influence-zones');
+  const outpostLayer = document.createElementNS(svgNS, 'g');
+  outpostLayer.setAttribute('id', 'junction-outposts');
   const castleLayer = document.createElementNS(svgNS, 'g');
   castleLayer.setAttribute('id', 'junction-castles');
   const colonsLayer = document.createElementNS(svgNS, 'g');
@@ -317,9 +321,14 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
         centerY: cell.centerY,
         size: cellSize - padding * 2,
         slotElement: slot,
+        padding,
       });
     }
   }
+
+  const squareMarketCardsLayer = document.createElementNS(svgNS, 'g');
+  squareMarketCardsLayer.setAttribute('id', 'square-market-cards');
+  squareMarketLayer.appendChild(squareMarketCardsLayer);
 
   const squareIndicator = document.createElementNS(svgNS, 'g');
   squareIndicator.setAttribute('id', 'square-indicator');
@@ -358,6 +367,8 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
   hexLayer.appendChild(colonsLayer);
   hexLayer.appendChild(junctionsG);
   hexLayer.appendChild(junctionOverlaysG);
+  hexLayer.appendChild(influenceLayer);
+  hexLayer.appendChild(outpostLayer);
   hexLayer.appendChild(castleLayer);
 
   viewport.appendChild(hexLayer);
@@ -371,9 +382,12 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
     crest: indicatorCrest,
     playersLayer: squarePlayersLayer,
     marketLayer: squareMarketLayer,
+    marketCardsLayer: squareMarketCardsLayer,
     cellSize,
   };
   svg.__colonsLayer = colonsLayer;
+  svg.__influenceLayer = influenceLayer;
+  svg.__outpostLayer = outpostLayer;
   svg.__castleLayer = castleLayer;
   return svg;
 }
@@ -415,3 +429,5 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
     overlaysG.appendChild(g);
   }
 }
+
+
