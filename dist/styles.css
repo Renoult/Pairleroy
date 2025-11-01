@@ -565,11 +565,30 @@ main {
   stroke-opacity: 0.35;
 }
 
-.influence-outline {
+svg g#influence-zones {
+  pointer-events: none;
+}
+
+.influence-fill {
   pointer-events: none;
   mix-blend-mode: multiply;
-  fill-opacity: 0.1;
-  stroke-opacity: 0.7;
+  fill-opacity: 0.18;
+  transition: opacity 0.15s ease;
+}
+
+.influence-outline {
+  pointer-events: none;
+  mix-blend-mode: normal;
+  fill: none;
+  stroke-opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.influence-outline-shadow {
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  fill: none;
+  stroke-opacity: 0.35;
   transition: opacity 0.15s ease;
 }
 

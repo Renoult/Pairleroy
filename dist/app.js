@@ -1402,6 +1402,7 @@ const DEFAULT_GAME_SETTINGS = Object.freeze({
   outpostCost: 3,
   amenagementCost: 0,
   influenceRadius: 1,
+  requireCastleAdjacencyForCastles: true,
 });
 
 const gameSettings = {
@@ -1412,6 +1413,7 @@ const gameSettings = {
   outpostCost: DEFAULT_GAME_SETTINGS.outpostCost,
   amenagementCost: DEFAULT_GAME_SETTINGS.amenagementCost,
   influenceRadius: DEFAULT_GAME_SETTINGS.influenceRadius,
+  requireCastleAdjacencyForCastles: DEFAULT_GAME_SETTINGS.requireCastleAdjacencyForCastles,
 };
 
 if (typeof window !== 'undefined') {
@@ -1508,6 +1510,7 @@ function snapshotGameSettings() {
     outpostCost: gameSettings.outpostCost,
     amenagementCost: gameSettings.amenagementCost,
     influenceRadius: gameSettings.influenceRadius,
+    requireCastleAdjacencyForCastles: gameSettings.requireCastleAdjacencyForCastles,
   };
 }
 
@@ -1548,6 +1551,9 @@ function applyGameSettingsDiff(previous) {
   }
 
   const svg = getBoardSvg();
+  if (gameSettings.requireCastleAdjacencyForCastles !== previous.requireCastleAdjacencyForCastles) {
+    svg?.__state?.renderJunctionOverlays?.();
+  }
   svg?.__state?.renderInfluenceZones?.();
   renderGameHud();
 }
@@ -1628,6 +1634,14 @@ function updateGameSettings(changes = {}) {
     }
   }
 
+  if (Object.prototype.hasOwnProperty.call(changes, 'requireCastleAdjacencyForCastles')) {
+    const next = Boolean(changes.requireCastleAdjacencyForCastles);
+    if (next !== gameSettings.requireCastleAdjacencyForCastles) {
+      gameSettings.requireCastleAdjacencyForCastles = next;
+      changed = true;
+    }
+  }
+
   if (changes.neighborPoint && Number.isInteger(changes.neighborPoint.index)) {
     const desiredLen = DEFAULT_GAME_SETTINGS.neighborPoints.length;
     const idx = Math.min(desiredLen - 1, Math.max(0, changes.neighborPoint.index));
@@ -1685,6 +1699,27 @@ function createNumberSettingControl(container, { label, setting, min, max, step 
   return input;
 }
 
+function createToggleSettingControl(container, { label, setting, dataset = {} }) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'settings-panel__control settings-panel__control--toggle';
+  const text = document.createElement('span');
+  text.className = 'settings-panel__label';
+  text.textContent = label;
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.className = 'settings-panel__input settings-panel__input--checkbox';
+  input.dataset.setting = setting;
+  input.dataset.type = 'boolean';
+  Object.entries(dataset).forEach(([key, value]) => {
+    input.dataset[key] = String(value);
+  });
+  input.addEventListener('change', handleGameSettingInput);
+  wrapper.appendChild(text);
+  wrapper.appendChild(input);
+  container.appendChild(wrapper);
+  return input;
+}
+
 function ensureSettingsPanel() {
   if (settingsPanelElements) return settingsPanelElements;
 
@@ -1735,6 +1770,7 @@ function ensureSettingsPanel() {
   const turnGrid = createSection('Tours');
   const influenceGrid = createSection('Influence');
   const costGrid = createSection('Co\u00fbts');
+  const restrictionsGrid = createSection('Restrictions');
   const neighborGrid = createSection('Points par voisins');
 
   const inputs = {
@@ -1773,6 +1809,10 @@ function ensureSettingsPanel() {
       setting: 'amenagementCost',
       min: 0,
       max: 50,
+    }),
+    requireCastleAdjacencyForCastles: createToggleSettingControl(restrictionsGrid, {
+      label: 'Ch\u00e2teau adjacent au colon',
+      setting: 'requireCastleAdjacencyForCastles',
     }),
   };
 
@@ -1830,6 +1870,9 @@ function syncSettingsPanelInputs() {
   if (elements.inputs.amenagementCost) {
     elements.inputs.amenagementCost.value = String(gameSettings.amenagementCost);
   }
+  if (elements.inputs.requireCastleAdjacencyForCastles) {
+    elements.inputs.requireCastleAdjacencyForCastles.checked = Boolean(gameSettings.requireCastleAdjacencyForCastles);
+  }
   elements.neighborInputs.forEach((input, idx) => {
     if (input) {
       input.value = String(table[Math.min(table.length - 1, idx)] ?? 0);
@@ -1868,6 +1911,8 @@ function handleGameSettingInput(event) {
     const index = Number(target.dataset.index);
     const value = Number(target.value);
     updateGameSettings({ neighborPoint: { index, value } });
+  } else if (target.dataset.type === 'boolean' || target.type === 'checkbox') {
+    updateGameSettings({ [setting]: target.checked });
   } else {
     const value = Number(target.value);
     updateGameSettings({ [setting]: value });
@@ -3290,6 +3335,18 @@ function generateAndRender() {
     return playerHasInfluenceForEntry(player, targetEntry);
   }
 
+  function isCastlePlacementValid(player, targetEntry) {
+    if (!targetEntry) return false;
+    if (!gameSettings.requireCastleAdjacencyForCastles) return true;
+    const idx = playerIndex(player);
+    if (idx === -1) return false;
+    const colonTileIdx = colonPositions[idx];
+    if (!Number.isInteger(colonTileIdx)) return false;
+    const tilesAround = Array.isArray(targetEntry.tiles) ? targetEntry.tiles : [];
+    if (tilesAround.length === 0) return false;
+    return tilesAround.some((tileIdx) => tileIdx === colonTileIdx);
+  }
+
   function toggleCastleAtJunction(key, player) {
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
@@ -3317,7 +3374,13 @@ function generateAndRender() {
       return;
     }
 
-    if (!findCastleKeyForPlayer(player)) {
+    const existingCastleKey = findCastleKeyForPlayer(player);
+
+    if (!existingCastleKey) {
+      if (!isCastlePlacementValid(player, entry)) {
+        debugLog('castle-adjacency-blocked', { key, player });
+        return;
+      }
       const castleCost = Math.max(
         0,
         Number.isFinite(gameSettings.castleCost) ? gameSettings.castleCost : DEFAULT_GAME_SETTINGS.castleCost,
@@ -3491,13 +3554,14 @@ function generateAndRender() {
     influencedTilesByPlayer.forEach((tileSet, player) => {
       const idx = playerIndex(player);
       if (idx === -1 || !tileSet || tileSet.size === 0) return;
-      const boundaryMap = new Map();
       const outlineRadius = Math.max(size - 0.35, size * 0.72);
+      const boundaryMap = new Map();
+      const quantize = (value) => Math.round(value * 1000) / 1000;
       const canonicalEdgeKey = (a, b) => {
-        const ax = a.x.toFixed(3);
-        const ay = a.y.toFixed(3);
-        const bx = b.x.toFixed(3);
-        const by = b.y.toFixed(3);
+        const ax = quantize(a.x);
+        const ay = quantize(a.y);
+        const bx = quantize(b.x);
+        const by = quantize(b.y);
         return ax < bx || (ax === bx && ay <= by)
           ? `${ax},${ay}|${bx},${by}`
           : `${bx},${by}|${ax},${ay}`;
@@ -3508,17 +3572,24 @@ function generateAndRender() {
         const center = axialToPixel(tile.q, tile.r, size);
         const verts = hexVerticesAt(center.x, center.y, outlineRadius);
         for (let i = 0; i < 6; i++) {
-          const a = verts[i];
-          const b = verts[(i + 1) % 6];
-          const key = canonicalEdgeKey(a, b);
+          const neighborIdx = Array.isArray(tileNeighbors[tileIdx]) ? tileNeighbors[tileIdx][i] : -1;
+          if (neighborIdx !== -1 && tileSet.has(neighborIdx)) continue;
+          const start = {
+            x: quantize(verts[i].x),
+            y: quantize(verts[i].y),
+          };
+          const end = {
+            x: quantize(verts[(i + 1) % 6].x),
+            y: quantize(verts[(i + 1) % 6].y),
+          };
+          const key = canonicalEdgeKey(start, end);
           if (boundaryMap.has(key)) boundaryMap.delete(key);
-          else boundaryMap.set(key, { start: { x: a.x, y: a.y }, end: { x: b.x, y: b.y } });
+          else boundaryMap.set(key, { start, end });
         }
       });
       if (boundaryMap.size === 0) return;
-
       const segments = Array.from(boundaryMap.values());
-      const EPSILON = 1e-3;
+      const EPSILON = 1e-2;
       const pointsEqual = (a, b) => Math.abs(a.x - b.x) <= EPSILON && Math.abs(a.y - b.y) <= EPSILON;
 
       const loops = [];
@@ -3566,28 +3637,45 @@ function generateAndRender() {
         const simplified = [];
         loop.forEach((point) => {
           if (simplified.length === 0 || !pointsEqual(simplified[simplified.length - 1], point)) {
-            simplified.push(point);
+            simplified.push({ x: point.x, y: point.y });
           }
         });
         if (simplified.length >= 2 && pointsEqual(simplified[0], simplified[simplified.length - 1])) {
           simplified.pop();
         }
         if (simplified.length < 3) return;
-        let d = '';
+        let pathData = '';
         simplified.forEach((point, index) => {
           const cmd = index === 0 ? 'M' : 'L';
-          d += `${cmd} ${point.x.toFixed(3)} ${point.y.toFixed(3)} `;
+          pathData += `${cmd} ${point.x.toFixed(3)} ${point.y.toFixed(3)} `;
         });
-        d += 'Z';
-        const path = document.createElementNS(svgNS, 'path');
-        path.setAttribute('class', 'influence-outline');
-        path.setAttribute('d', d.trim());
-        path.setAttribute('fill', colorWithAlpha(baseColor, 0.08));
-        path.setAttribute('stroke', colorWithAlpha(baseColor, 0.65));
-        path.setAttribute('stroke-width', (size * 0.18).toFixed(3));
-        path.setAttribute('stroke-linejoin', 'round');
-        path.setAttribute('stroke-linecap', 'round');
-        layer.appendChild(path);
+        pathData += 'Z';
+        const trimmed = pathData.trim();
+        const fillPath = document.createElementNS(svgNS, 'path');
+        fillPath.setAttribute('class', 'influence-fill');
+        fillPath.setAttribute('d', trimmed);
+        fillPath.setAttribute('fill', colorWithAlpha(baseColor, 0.18));
+        layer.appendChild(fillPath);
+
+        const shadowPath = document.createElementNS(svgNS, 'path');
+        shadowPath.setAttribute('class', 'influence-outline-shadow');
+        shadowPath.setAttribute('d', trimmed);
+        shadowPath.setAttribute('fill', 'none');
+        shadowPath.setAttribute('stroke', colorWithAlpha('#000000', 0.3));
+        shadowPath.setAttribute('stroke-width', (size * 0.24).toFixed(3));
+        shadowPath.setAttribute('stroke-linejoin', 'round');
+        shadowPath.setAttribute('stroke-linecap', 'round');
+        layer.appendChild(shadowPath);
+
+        const outlinePath = document.createElementNS(svgNS, 'path');
+        outlinePath.setAttribute('class', 'influence-outline');
+        outlinePath.setAttribute('d', trimmed);
+        outlinePath.setAttribute('fill', 'none');
+        outlinePath.setAttribute('stroke', colorWithAlpha(baseColor, 0.7));
+        outlinePath.setAttribute('stroke-width', (size * 0.16).toFixed(3));
+        outlinePath.setAttribute('stroke-linejoin', 'round');
+        outlinePath.setAttribute('stroke-linecap', 'round');
+        layer.appendChild(outlinePath);
       });
     });
   }
