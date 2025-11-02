@@ -1871,20 +1871,113 @@ function generateAndRender() {
     return leader;
   }
 
-  function evaluateAmenagementsAround(tileIdx) {
+  const INFLUENCE_DISTANCE_EPSILON = 1e-6;
+
+  function influenceTypePriority(type) {
+    if (type === 'castle') return 0;
+    if (type === 'outpost') return 1;
+    return 2;
+  }
+
+  function nearestInfluenceForEntry(player, targetEntry) {
+    if (!isValidPlayer(player) || !targetEntry) return null;
+    let best = null;
+    const consider = (sourceEntry, type) => {
+      if (!sourceEntry) return;
+      const dist = distanceBetweenJunctionEntries(sourceEntry, targetEntry);
+      if (!Number.isFinite(dist)) return;
+      if (
+        !best
+        || dist < best.distance - INFLUENCE_DISTANCE_EPSILON
+        || (Math.abs(dist - best.distance) <= INFLUENCE_DISTANCE_EPSILON
+          && influenceTypePriority(type) < influenceTypePriority(best.type))
+      ) {
+        best = { distance: dist, type };
+      }
+    };
+    const castleKey = findCastleKeyForPlayer(player);
+    if (castleKey) {
+      const castleEntry = junctionMap.get(castleKey);
+      consider(castleEntry, 'castle');
+    }
+    outpostByJunction.forEach((owner, outpostKey) => {
+      if (owner !== player) return;
+      const outpostEntry = junctionMap.get(outpostKey);
+      consider(outpostEntry, 'outpost');
+    });
+    return best;
+  }
+
+  function inferAmenagementOwner(entry, placingPlayer = null) {
+    if (!entry) return null;
+    const influenceDetails = [];
+    PLAYER_IDS.forEach((player) => {
+      if (!playerHasInfluenceForEntry(player, entry)) return;
+      const nearest = nearestInfluenceForEntry(player, entry);
+      if (!nearest) return;
+      influenceDetails.push({ player, distance: nearest.distance, type: nearest.type });
+    });
+    const dominant = dominantPlayerForJunction(entry);
+    if (influenceDetails.length === 0) return dominant;
+    const sorted = influenceDetails.slice().sort((a, b) => {
+      const distA = Number.isFinite(a.distance) ? a.distance : Number.POSITIVE_INFINITY;
+      const distB = Number.isFinite(b.distance) ? b.distance : Number.POSITIVE_INFINITY;
+      if (Math.abs(distA - distB) > INFLUENCE_DISTANCE_EPSILON) return distA - distB;
+      const rankDiff = influenceTypePriority(a.type) - influenceTypePriority(b.type);
+      if (rankDiff !== 0) return rankDiff;
+      return a.player - b.player;
+    });
+    const best = sorted[0];
+    if (!best) return dominant;
+    const bestDistance = best.distance;
+    const bestRank = influenceTypePriority(best.type);
+    const bestPlayers = sorted
+      .filter((detail) => (
+        Math.abs(detail.distance - bestDistance) <= INFLUENCE_DISTANCE_EPSILON
+        && influenceTypePriority(detail.type) === bestRank
+      ))
+      .map((detail) => detail.player);
+    if (bestPlayers.length === 1) return bestPlayers[0];
+    const pickNextCandidate = (startPlayer, pool) => {
+      if (!Array.isArray(pool) || pool.length === 0) return null;
+      let idx = isValidPlayer(startPlayer) ? playerIndex(startPlayer) : -1;
+      if (idx === -1) idx = 0;
+      for (let offset = 1; offset <= PLAYER_COUNT; offset++) {
+        const candidate = PLAYER_IDS[(idx + offset) % PLAYER_COUNT];
+        if (pool.includes(candidate)) return candidate;
+      }
+      return null;
+    };
+    const next = pickNextCandidate(placingPlayer, bestPlayers);
+    if (isValidPlayer(next)) return next;
+    bestPlayers.sort((a, b) => a - b);
+    return bestPlayers[0];
+  }
+
+  function evaluateAmenagementsAround(tileIdx, options = {}) {
+    const allowCreation = options.allowCreation !== false;
+    const placingPlayer = options.placingPlayer ?? null;
     if (!Number.isInteger(tileIdx)) return;
     let changed = false;
     for (const [key, entry] of junctionMap.entries()) {
       if (!entry || !Array.isArray(entry.tiles) || !entry.tiles.includes(tileIdx)) continue;
-      if (!isJunctionReady(entry) || overlayByJunction.has(key)) continue;
-      const owner = dominantPlayerForJunction(entry);
+      if (!isJunctionReady(entry)) continue;
+      const owner = inferAmenagementOwner(entry, placingPlayer);
       if (!isValidPlayer(owner)) continue;
       if (!playerHasInfluenceForEntry(owner, entry)) continue;
-      if (!chargeAmenagementPlacement(owner)) {
-        debugLog('amenagement-cost-unpaid', { key, player: owner });
-        continue;
-      }
+      const currentOwner = overlayByJunction.get(key) ?? null;
+      if (currentOwner == null && !allowCreation) continue;
+      if (currentOwner === owner) continue;
       const colorIdx = dominantColorForJunction(entry);
+      if (currentOwner == null) {
+        if (!chargeAmenagementPlacement(owner)) {
+          debugLog('amenagement-cost-unpaid', { key, player: owner });
+          continue;
+        }
+      } else if (isValidPlayer(currentOwner) && currentOwner !== owner) {
+        const previousColor = amenagementColorByKey.get(key);
+        unregisterAmenagementForPlayer(currentOwner, key, previousColor);
+      }
       overlayByJunction.set(key, owner);
       registerAmenagementForPlayer(owner, key, colorIdx);
       changed = true;
@@ -2062,7 +2155,7 @@ function generateAndRender() {
       if (castleCost > 0 && !spendPoints(player, castleCost, 'castle')) return;
       castleByJunction.set(key, player);
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
-      tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
+      tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
       renderJunctionOverlays();
       refreshStatsModal();
       return;
@@ -2079,7 +2172,7 @@ function generateAndRender() {
     if (outpostCost > 0 && !spendPoints(player, outpostCost, 'outpost')) return;
     outpostByJunction.set(key, player);
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
-    tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile));
+    tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
     renderJunctionOverlays();
     refreshStatsModal();
   }
@@ -2618,7 +2711,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     }
     renderGameHud();
   }
-  evaluateAmenagementsAround(tileIdx);
+  evaluateAmenagementsAround(tileIdx, { placingPlayer: player });
   refreshStatsModal();
   return true;
 }
