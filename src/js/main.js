@@ -1,4 +1,4 @@
-// Fichier: src/js/main.js
+﻿// Fichier: src/js/main.js
 // Description: Orchestration de l'application (lecture config, génération de la grille, interactions UI).
 
 
@@ -54,8 +54,8 @@ const RESOURCE_ORDER = [
 ];
 
 const MARKET_TYPE_LABELS = {
-  [MARKET_CARD_TYPES.BUILDING]: 'Bâtiment',
-  [MARKET_CARD_TYPES.CONTRACT]: 'Contrat',
+  [MARKET_CARD_TYPES.BUILDING]: 'Plan urbain',
+  [MARKET_CARD_TYPES.CONTRACT]: 'Accord',
 };
 
 let activeColors = DEFAULT_COLOR_HEX.slice();
@@ -109,6 +109,19 @@ function createEmptyResourceStock() {
   };
 }
 
+function isPointWithinRect(rect, x, y) {
+  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
+  return x >= rect.left && x <= rect.right
+    && y >= rect.top && y <= rect.bottom;
+}
+
+function isPointWithinRectWithPadding(rect, x, y, padding = 0) {
+  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
+  const safePadding = Math.max(0, Number(padding) || 0);
+  return x >= rect.left - safePadding && x <= rect.right + safePadding
+    && y >= rect.top - safePadding && y <= rect.bottom + safePadding;
+}
+
 function createEmptyPlayerResource() {
   return {
     tileColors: new Map(),
@@ -149,6 +162,159 @@ const marketDetailElements = {
   reward: null,
   description: null,
 };
+
+const MARKET_EXIT_GRACE_PX = 56;
+
+let marketDetailsCollapsed = false;
+let marketDetailsVisible = false;
+let marketPointerInside = false;
+let marketRegionMonitorBound = false;
+let marketRectSnapshot = null;
+let lastPointerPosition = null;
+
+function getMarketBounds() {
+  const svg = getBoardSvg();
+  const layer = svg?.__state?.marketLayer ?? svg?.querySelector('#square-market');
+  if (!layer || typeof layer.getBoundingClientRect !== 'function') return null;
+  const rect = layer.getBoundingClientRect();
+  return {
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    bottom: rect.bottom,
+    centerX: rect.left + rect.width / 2,
+  };
+}
+
+function applyMarketDetailsVisibility() {
+  const elements = ensureMarketDetailElements();
+  const container = elements.container;
+  if (!container) return;
+  const shouldShow = marketDetailsVisible && !marketDetailsCollapsed;
+  container.classList.toggle('market-details--hidden', !shouldShow);
+  container.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+}
+
+function setMarketDetailVisibility(visible) {
+  marketDetailsVisible = Boolean(visible);
+  applyMarketDetailsVisibility();
+}
+
+let topbarCollapsed = false;
+let topbarElements = null;
+
+function ensureTopbarControls() {
+  if (topbarElements) return topbarElements;
+  topbarElements = {
+    header: document.getElementById('app-topbar'),
+    toggle: document.getElementById('toggle-topbar'),
+    stats: document.getElementById('open-stats'),
+    settings: document.getElementById('open-settings'),
+    group: document.getElementById('topbar-volet'),
+  };
+  return topbarElements;
+}
+
+function updateTopbarQuickActions() {
+  const elements = ensureTopbarControls();
+  if (elements.stats) {
+    elements.stats.setAttribute('aria-pressed', statsModalVisible ? 'true' : 'false');
+  }
+  if (elements.settings) {
+    elements.settings.setAttribute('aria-pressed', settingsPanelVisible ? 'true' : 'false');
+  }
+}
+
+function setTopbarCollapsed(collapsed) {
+  topbarCollapsed = Boolean(collapsed);
+  const elements = ensureTopbarControls();
+  const { header, toggle } = elements;
+  if (header) header.classList.toggle('topbar--collapsed', topbarCollapsed);
+  if (document.body) document.body.classList.toggle('topbar-collapsed', topbarCollapsed);
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!topbarCollapsed));
+    toggle.setAttribute('aria-label', topbarCollapsed
+      ? 'Deplier la barre superieure'
+      : 'Replier la barre superieure');
+    toggle.textContent = topbarCollapsed ? '▼' : '▲';
+  }
+}
+
+function setMarketDetailsCollapsed(collapsed) {
+  const nextState = Boolean(collapsed);
+  if (marketDetailsCollapsed === nextState) return;
+  const prevRect = getMarketBounds();
+  marketDetailsCollapsed = nextState;
+  if (typeof document !== 'undefined') {
+    document.body?.classList.toggle('market-details-collapsed', marketDetailsCollapsed);
+  }
+  if (marketDetailsCollapsed) {
+    resetHoveredMarketSlot(true);
+    marketRectSnapshot = null;
+    marketPointerInside = false;
+  }
+  applyMarketDetailsVisibility();
+  if (!marketDetailsCollapsed) {
+    if (prevRect) marketRectSnapshot = prevRect;
+    requestAnimationFrame(() => {
+      if (lastPointerPosition) {
+        updatePointerState(lastPointerPosition.x, lastPointerPosition.y);
+      }
+    });
+  }
+}
+
+function updatePointerState(clientX, clientY) {
+  if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
+  lastPointerPosition = { x: clientX, y: clientY };
+  const rect = getMarketBounds();
+  if (!rect) return;
+  const insideCurrent = isPointWithinRect(rect, clientX, clientY);
+  let inside = insideCurrent;
+  if (!inside && marketRectSnapshot) {
+    inside = isPointWithinRectWithPadding(marketRectSnapshot, clientX, clientY, MARKET_EXIT_GRACE_PX);
+  }
+  if (inside) {
+    if (insideCurrent) marketRectSnapshot = rect;
+    if (!marketPointerInside) marketPointerInside = true;
+    if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
+    if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
+  } else {
+    marketPointerInside = false;
+    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+      setMarketDetailsCollapsed(true);
+    }
+  }
+}
+
+function toggleTopbarCollapsed() {
+  setTopbarCollapsed(!topbarCollapsed);
+}
+
+function initTopbarControls() {
+  const elements = ensureTopbarControls();
+  const { toggle, stats, settings } = elements;
+  if (toggle && !toggle.__pairleroyBound) {
+    toggle.__pairleroyBound = true;
+    toggle.addEventListener('click', toggleTopbarCollapsed);
+  }
+  if (stats && !stats.__pairleroyBound) {
+    stats.__pairleroyBound = true;
+    stats.addEventListener('click', () => {
+      if (statsModalVisible) hideStatsModal();
+      else showStatsModal();
+    });
+  }
+  if (settings && !settings.__pairleroyBound) {
+    settings.__pairleroyBound = true;
+    settings.addEventListener('click', () => {
+      if (settingsPanelVisible) hideSettingsPanel();
+      else showSettingsPanel();
+    });
+  }
+  setTopbarCollapsed(topbarCollapsed);
+  updateTopbarQuickActions();
+}
 
 const amenagementColorByKey = new Map();
 
@@ -560,6 +726,7 @@ function showSettingsPanel() {
   elements.panel.classList.add('settings-panel--visible');
   syncSettingsPanelInputs();
   elements.panel.focus({ preventScroll: true });
+  updateTopbarQuickActions();
 }
 
 function hideSettingsPanel() {
@@ -569,6 +736,7 @@ function hideSettingsPanel() {
   settingsPanelVisible = false;
   settingsPressedKeys.clear();
   settingsComboLatched = false;
+  updateTopbarQuickActions();
 }
 
 function toggleSettingsPanel() {
@@ -1280,73 +1448,107 @@ function renderGameHud() {
 function renderMarketDisplay() {
   const svg = getBoardSvg();
   const state = svg?.__state ?? null;
-  const layer = state?.marketCardsLayer ?? null;
+  const cardsLayer = state?.marketCardsLayer ?? null;
   const cells = state?.marketCells ?? null;
-  if (!layer || !Array.isArray(cells)) return;
+  if (!cardsLayer || !Array.isArray(cells)) return;
+  ensureMarketRegionMonitor();
+  const marketLayer = state?.marketLayer ?? null;
+  if (marketLayer && !marketLayer.__pairleroyHoverBound) {
+    marketLayer.__pairleroyHoverBound = true;
+    marketLayer.addEventListener('pointerenter', (event) => {
+      marketPointerInside = true;
+      marketRectSnapshot = getMarketBounds();
+      setMarketDetailsCollapsed(false);
+      if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
+      if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+        updatePointerState(event.clientX, event.clientY);
+      }
+    });
+    marketLayer.addEventListener('pointerleave', (event) => {
+      marketPointerInside = false;
+      if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+        updatePointerState(event.clientX, event.clientY);
+      } else if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+        setMarketDetailsCollapsed(true);
+      }
+    });
+  }
+  if (cardsLayer && !cardsLayer.__pairleroyHoverBound) {
+    cardsLayer.__pairleroyHoverBound = true;
+    const hideDetails = () => {
+      resetHoveredMarketSlot();
+    };
+    cardsLayer.addEventListener('pointerleave', hideDetails);
+    cardsLayer.addEventListener('mouseleave', hideDetails);
+  }
   ensureMarketDetailElements();
-  layer.innerHTML = '';
-  const badgeYOffset = -0.24;
-  const nameYOffset = 0.09;
-  const costYOffset = 0.36;
-  const nameLineGap = 0.24;
-  const costLineGap = 0.2;
+  cardsLayer.innerHTML = '';
+  const costYOffset = -0.12;
+  const rewardYOffset = 0.22;
+  const summaryLineGap = 0.22;
   const svgNS = 'http://www.w3.org/2000/svg';
 
   cells.forEach((cell, idx) => {
     const slotState = marketState?.slots?.[idx] ?? null;
     const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+    const hasCard = Boolean(def);
     const group = document.createElementNS(svgNS, 'g');
     group.setAttribute('class', 'market-card');
     if (hoveredMarketSlot === idx) group.classList.add('market-card--active');
+    if (!hasCard) group.classList.add('market-card--empty');
     group.dataset.slot = String(idx);
     group.setAttribute('transform', `translate(${cell.centerX.toFixed(3)} ${cell.centerY.toFixed(3)})`);
-    group.setAttribute('tabindex', '0');
-    const badge = document.createElementNS(svgNS, 'text');
-    badge.setAttribute('class', 'market-card__badge');
-    badge.setAttribute('text-anchor', 'middle');
-    badge.setAttribute('dominant-baseline', 'central');
-    badge.setAttribute('y', (cell.size * badgeYOffset).toFixed(3));
-    const badgeText = (() => {
-      if (!def) return '?';
-      return def.type === MARKET_CARD_TYPES.BUILDING ? 'Bât' : 'Ctr';
-    })();
-    badge.textContent = badgeText;
-    group.appendChild(badge);
-    const labelLines = def ? wrapMarketLabel(def.name, { maxChars: 10, maxLines: 1 }) : ['Libre'];
-    const label = createMultilineSvgText({
-      svgNS,
-      className: 'market-card__label',
-      lines: labelLines,
-      startOffset: nameYOffset,
-      lineGap: nameLineGap,
-      cellSize: cell.size,
-    });
-    group.appendChild(label);
-    const costLines = def ? formatMarketCostLines(def.cost, { maxLines: 2, maxChars: 12 }) : [''];
+    group.setAttribute('tabindex', hasCard ? '0' : '-1');
+
+    const costLines = hasCard
+      ? [formatMarketCostSummary(def.cost)]
+      : ['Libre'];
+
     const cost = createMultilineSvgText({
       svgNS,
       className: 'market-card__cost',
       lines: costLines,
       startOffset: costYOffset,
-      lineGap: costLineGap,
+      lineGap: summaryLineGap,
       cellSize: cell.size,
     });
     group.appendChild(cost);
-    group.addEventListener('mouseenter', () => setHoveredMarketSlot(idx, group));
-    group.addEventListener('focus', () => setHoveredMarketSlot(idx, group));
-    group.addEventListener('mouseleave', () => {
-      if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
-      else group.classList.remove('market-card--active');
-    });
-    group.addEventListener('blur', () => {
-      if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
-      else group.classList.remove('market-card--active');
-    });
-    group.addEventListener('click', handleMarketCardClick);
-    layer.appendChild(group);
+
+    const rewardLines = hasCard ? [formatMarketRewardSummary(def.reward)] : [];
+    if (rewardLines.length) {
+      const reward = createMultilineSvgText({
+        svgNS,
+        className: 'market-card__reward',
+        lines: rewardLines,
+        startOffset: rewardYOffset,
+        lineGap: summaryLineGap,
+        cellSize: cell.size,
+      });
+      group.appendChild(reward);
+    }
+
+    if (hasCard) {
+      const pointerActivate = () => setHoveredMarketSlot(idx, group, { viaPointer: true });
+      const focusActivate = () => setHoveredMarketSlot(idx, group);
+      group.addEventListener('pointerenter', pointerActivate);
+      group.addEventListener('mouseenter', pointerActivate);
+      group.addEventListener('focus', focusActivate);
+      group.addEventListener('mouseleave', () => {
+        if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+        else group.classList.remove('market-card--active');
+      });
+      group.addEventListener('blur', () => {
+        if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+        else group.classList.remove('market-card--active');
+      });
+      group.addEventListener('click', handleMarketCardClick);
+    }
+
+    cardsLayer.appendChild(group);
   });
   if (!Number.isInteger(hoveredMarketSlot)) updateMarketDetailPanel(null);
 }
+
 
 function createMultilineSvgText({ svgNS, className, lines, startOffset, lineGap, cellSize }) {
   const textEl = document.createElementNS(svgNS, 'text');
@@ -1375,55 +1577,16 @@ function createMultilineSvgText({ svgNS, className, lines, startOffset, lineGap,
   return textEl;
 }
 
-function wrapMarketLabel(text, { maxChars = 12, maxLines = 2 } = {}) {
-  if (typeof text !== 'string' || !text.trim()) return [''];
-  const words = text.trim().split(/\s+/);
-  const lines = [];
-  let current = '';
-  words.forEach((word) => {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
-      current = next;
-    } else {
-      if (current) lines.push(current);
-      current = word.length > maxChars ? word.slice(0, maxChars) : word;
-    }
-  });
-  if (current) lines.push(current);
-  if (lines.length > maxLines) {
-    const trimmed = lines.slice(0, maxLines);
-    const lastIdx = trimmed.length - 1;
-    const last = trimmed[lastIdx];
-    const ellipsis = '...';
-    trimmed[lastIdx] = last.length >= maxChars
-      ? `${last.slice(0, Math.max(0, maxChars - ellipsis.length))}${ellipsis}`
-      : `${last}${ellipsis}`;
-    return trimmed;
-  }
-  return lines;
+function formatMarketCostSummary(cost, maxChars = 22) {
+  const summary = summarizeMarketCost(cost);
+  const text = summary ? `Cout: ${summary}` : 'Cout: --';
+  return trimMarketLine(text, maxChars);
 }
 
-function formatMarketCostLines(cost, { maxLines = 2, maxChars = 12 } = {}) {
-  if (!cost) return [''];
-  const parts = [];
-  RESOURCE_ORDER.forEach((resource) => {
-    const amount = cost[resource];
-    if (Number.isFinite(amount) && amount > 0) {
-      parts.push(`${amount} ${RESOURCE_LABELS[resource] || resource}`);
-    }
-  });
-  if (Number.isFinite(cost.points) && cost.points > 0) {
-    parts.push(`${cost.points} PV`);
-  }
-  if (Number.isFinite(cost.crowns) && cost.crowns > 0) {
-    parts.push(`${cost.crowns} Cour.`);
-  }
-  if (parts.length === 0) return [''];
-  const trimmed = parts.map((part) => trimMarketLine(part, maxChars));
-  if (trimmed.length <= maxLines) return trimmed;
-  const limited = trimmed.slice(0, maxLines);
-  limited[maxLines - 1] = trimMarketLine(`${limited[maxLines - 1]} ...`, maxChars);
-  return limited;
+function formatMarketRewardSummary(reward, maxChars = 22) {
+  const summary = summarizeMarketReward(reward);
+  const text = summary ? `Apport: ${summary}` : 'Apport: --';
+  return trimMarketLine(text, maxChars);
 }
 
 function trimMarketLine(text, maxChars) {
@@ -1432,21 +1595,79 @@ function trimMarketLine(text, maxChars) {
   return `${clean.slice(0, Math.max(0, maxChars - 3))}...`;
 }
 
+function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return null;
+  if (!isValidPlayer(player)) return null;
+  const svg = getBoardSvg();
+  const state = svg?.__state ?? null;
+  const marketCells = Array.isArray(state?.marketCells) ? state.marketCells : null;
+  const track = Array.isArray(state?.squareTrack) ? state.squareTrack : null;
+  if (!marketCells || !track || track.length === 0) return null;
+  const cell = marketCells[slotIdx] ?? null;
+  if (!cell) return null;
+  const playerIdx = playerIndex(player);
+  if (playerIdx === -1) return null;
+  const score = playerScores[playerIdx] || 0;
+  const normalized = ((score % track.length) + track.length) % track.length;
+  const trackCell = track[normalized] ?? null;
+  if (!trackCell) return null;
+  const rowA = Number(trackCell.row ?? 0);
+  const colA = Number(trackCell.col ?? 0);
+  const rowB = Number(cell.row ?? 0);
+  const colB = Number(cell.col ?? 0);
+  const distance = Math.abs(rowA - rowB) + Math.abs(colA - colB);
+  return Number.isFinite(distance) ? distance : null;
+}
+
 function handleMarketCardClick(event) {
   const target = event.currentTarget;
   const slotIdx = Number(target?.dataset?.slot ?? -1);
-  const slotState = Number.isInteger(slotIdx) && slotIdx >= 0 ? marketState?.slots?.[slotIdx] ?? null : null;
-  debugLog('market-slot-click', { slot: slotIdx, card: slotState });
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  if (!slotState) return;
+  const def = getMarketCardDefinition(slotState.id);
+  if (!def) return;
+  const player = turnState.activePlayer;
+  if (!isValidPlayer(player)) return;
+  const playerIdx = playerIndex(player);
+  if (playerIdx === -1) return;
+  const record = playerResources[playerIdx];
+  if (!record) return;
+  if (record.contracts.has(def.id) || record.buildings.has(def.id)) {
+    debugLog('market-already-acquired', { player, card: def.id });
+    return;
+  }
+  const distance = computeMarketDistance(slotIdx, player);
+  const cost = Number.isFinite(distance) && distance > 0 ? distance : 0;
+  if (cost > 0 && !spendPoints(player, cost, 'market-plan')) {
+    debugLog('market-insufficient-pv', { player, card: def.id, cost, distance });
+    return;
+  }
+  marketState.slots[slotIdx] = null;
+  if (Array.isArray(marketState.discardPile)) marketState.discardPile.push(def.id);
+  refillMarketSlot(marketState, slotIdx);
+  hoveredMarketSlot = null;
+  registerContractForPlayer(player, def.id);
+  updateMarketDetailPanel(null);
+  debugLog('market-claimed', { player, card: def.id, cost, distance });
 }
 
-function setHoveredMarketSlot(slotIdx, element = null) {
+function setHoveredMarketSlot(slotIdx, element = null, options = {}) {
   if (slotIdx != null && (!Number.isInteger(slotIdx) || slotIdx < 0)) return;
+  const { viaPointer = false } = options;
+  if (marketDetailsCollapsed && (viaPointer || slotIdx != null)) {
+    setMarketDetailsCollapsed(false);
+  }
+  if (viaPointer) {
+    marketRectSnapshot = getMarketBounds();
+  }
   hoveredMarketSlot = slotIdx;
   applyMarketCardActiveClass(element);
   updateMarketDetailPanel(slotIdx);
 }
 
-function resetHoveredMarketSlot() {
+function resetHoveredMarketSlot(force = false) {
+  if (!force && hoveredMarketSlot == null) return;
   hoveredMarketSlot = null;
   applyMarketCardActiveClass(null);
   updateMarketDetailPanel(null);
@@ -1460,26 +1681,37 @@ function applyMarketCardActiveClass(element) {
   if (element) element.classList.add('market-card--active');
 }
 
+function showMarketDetailsPlaceholder() {
+  const elements = ensureMarketDetailElements();
+  if (!elements.container) return;
+  applyMarketCardActiveClass(null);
+  setMarketDetailVisibility(true);
+  elements.type.textContent = 'Marche';
+  elements.slot.textContent = '';
+  elements.name.textContent = 'Survolez une carte';
+  elements.cost.textContent = '--';
+  elements.reward.textContent = '--';
+  elements.description.textContent = 'Passez la souris sur une carte du marche pour voir son effet.';
+}
+
 function updateMarketDetailPanel(slotIdx) {
   const elements = ensureMarketDetailElements();
   if (!elements.container) return;
   if (!Number.isInteger(slotIdx) || slotIdx < 0) {
-    elements.type.textContent = 'Marche';
-    elements.slot.textContent = '';
-    elements.name.textContent = 'Survolez une carte';
-    elements.cost.textContent = '--';
-    elements.reward.textContent = '--';
-    elements.description.textContent = 'Passez la souris sur une carte du marche pour voir son effet.';
+    showMarketDetailsPlaceholder();
     return;
   }
   const slotState = marketState?.slots?.[slotIdx] ?? null;
   const def = slotState ? getMarketCardDefinition(slotState.id) : null;
   if (!def) {
-    updateMarketDetailPanel(null);
+    showMarketDetailsPlaceholder();
     return;
   }
-  elements.type.textContent = MARKET_TYPE_LABELS[def.type] || 'Marche';
-  elements.slot.textContent = 'Case ' + String(slotIdx + 1).padStart(2, '0');
+  setMarketDetailVisibility(true);
+  elements.type.textContent = MARKET_TYPE_LABELS[def.type] || 'Plan urbain';
+  const distance = computeMarketDistance(slotIdx, turnState.activePlayer);
+  const distanceLabel = Number.isFinite(distance) ? ` - Distance ${distance}` : '';
+  elements.slot.textContent = 'Case ' + String(slotIdx + 1).padStart(2, '0') + distanceLabel;
   elements.name.textContent = def.name || 'Carte inconnue';
   elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
   elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
@@ -3186,6 +3418,7 @@ function showStatsModal() {
   modal.classList.add('visible');
   refreshStatsModal();
   modal.focus({ preventScroll: true });
+  updateTopbarQuickActions();
 }
 
 function hideStatsModal() {
@@ -3193,6 +3426,7 @@ function hideStatsModal() {
   const { modal } = ensureStatsModal();
   modal.classList.remove('visible');
   statsModalVisible = false;
+  updateTopbarQuickActions();
 }
 
 function toggleStatsModal() {
@@ -3285,6 +3519,11 @@ function handleStatsKeyUp(event) {
 }
 
 function bindUI() {
+  initTopbarControls();
+  ensureMarketDetailElements();
+  showMarketDetailsPlaceholder();
+  setMarketDetailsCollapsed(true);
+  ensureMarketRegionMonitor();
   const generateBtn = document.getElementById('generate');
   const clearBtn = document.getElementById('clear');
   let holdPointerId = null;
@@ -3454,5 +3693,32 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 
+
+
+function isPointInsideMarketRegion(clientX, clientY) {
+  const rect = getMarketBounds();
+  if (!rect) return null;
+  return isPointWithinRect(rect, clientX, clientY);
+}
+
+function ensureMarketRegionMonitor() {
+  if (typeof document === 'undefined' || marketRegionMonitorBound) return;
+  const handlePointer = (event) => {
+    if (!event || (typeof event.clientX !== 'number') || (typeof event.clientY !== 'number')) return;
+    updatePointerState(event.clientX, event.clientY);
+  };
+  document.addEventListener('pointermove', handlePointer, true);
+  document.addEventListener('pointerdown', handlePointer, true);
+  window.addEventListener('blur', () => {
+    marketPointerInside = false;
+    marketRectSnapshot = null;
+    lastPointerPosition = null;
+    resetHoveredMarketSlot(true);
+    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+      setMarketDetailsCollapsed(true);
+    }
+  });
+  marketRegionMonitorBound = true;
+}
 
 

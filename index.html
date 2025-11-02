@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="dist/styles.css" />
   </head>
   <body>
-    <header class="topbar">
+    <header id="app-topbar" class="topbar">
       <div class="topbar-controls">
         <div class="field">
           <label>Types de tuiles (%)</label>
@@ -87,6 +87,12 @@
       </div>
       <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
     </header>
+
+    <div id="topbar-volet" class="topbar-volet" role="group" aria-label="Commandes de la barre superieure">
+      <button id="toggle-topbar" type="button" aria-expanded="true" aria-controls="app-topbar" aria-label="Replier la barre superieure">▲</button>
+      <button id="open-stats" type="button" aria-label="Ouvrir les statistiques">STA</button>
+      <button id="open-settings" type="button" aria-label="Afficher les parametres">MOD</button>
+    </div>
 
     <main>
       <div id="board-container" class="board-container">

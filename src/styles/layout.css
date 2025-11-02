@@ -2,56 +2,107 @@
 .topbar {
   background: linear-gradient(180deg, #ffffff, var(--panel));
   border-bottom: 1px solid var(--border);
-  padding: 16px 24px;
+  padding: 12px 20px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
+  gap: 18px;
   box-shadow: var(--shadow-sm);
+  max-height: 460px;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+}
+
+.topbar--collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .topbar-controls {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 16px;
-  min-width: 260px;
+  gap: 12px;
+  min-width: 240px;
 }
 
 .topbar-controls .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
 }
 
 .topbar-controls .field > label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.045em;
   color: var(--text-secondary);
 }
 
 .topbar-controls .row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   width: 100%;
+}
+
+.topbar-volet {
+  position: fixed;
+  top: 8px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  z-index: 1100;
+  backdrop-filter: blur(6px);
+}
+
+.topbar-volet button {
+  border: none;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.topbar-volet button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.topbar-volet button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-xs);
 }
 
 .topbar-controls .row label:not(.color-field) {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   border-radius: 8px;
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
   font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: 0.015em;
 }
 
 .topbar-actions {
@@ -131,6 +182,11 @@ main {
   padding: 16px 24px 24px;
   min-height: 0;
 }
+
+body.topbar-collapsed main {
+  padding-top: 8px;
+}
+
 #board-container {
   flex: 1 1 0%;
   display: flex;
@@ -140,8 +196,13 @@ main {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
-  height: clamp(320px, calc(100vh - 240px), 760px);
-  max-height: calc(100vh - 240px);
+  height: clamp(420px, calc(100vh - 200px), 920px);
+  max-height: calc(100vh - 200px);
+}
+
+body.topbar-collapsed #board-container {
+  height: clamp(520px, calc(100vh - 110px), 1080px);
+  max-height: calc(100vh - 110px);
 }
 
 #board-surface {
@@ -166,8 +227,12 @@ main {
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
   min-height: 0;
-  max-height: calc(100vh - 240px);
+  max-height: calc(100vh - 200px);
   overflow-y: auto;
+}
+
+body.topbar-collapsed #palette {
+  max-height: calc(100vh - 110px);
 }
 
 #market-details {
@@ -183,7 +248,11 @@ main {
   box-shadow: var(--shadow-sm);
   color: var(--text);
   min-height: 0;
-  max-height: calc(100vh - 240px);
+  max-height: calc(100vh - 200px);
+}
+
+body.topbar-collapsed #market-details {
+  max-height: calc(100vh - 110px);
 }
 
 .market-details__header {
@@ -235,6 +304,18 @@ main {
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-secondary);
+}
+
+.market-details--hidden {
+  display: none;
+}
+
+#market-details.market-details--hidden {
+  display: none;
+}
+
+body.market-details-collapsed #market-details {
+  display: none;
 }
 #palette-items { 
   display: flex; 
@@ -303,6 +384,19 @@ main {
   font-size: 7px;
   font-weight: 500;
   letter-spacing: 0.02em;
+}
+
+.market-card__reward {
+  fill: var(--text);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.market-card--empty {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: default;
 }
 
 .outpost-marker {

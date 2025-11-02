@@ -57,44 +57,44 @@ const MARKET_CARD_DEFINITIONS = [
     description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
   },
   {
-    id: 'contract-harvest',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Charte des Récoltes',
-    icon: 'contract-harvest',
+    id: 'building-harvest-hall',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Halle des Recoltes',
+    icon: 'building-harvest-hall',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1 },
     reward: { points: 6 },
-    tags: ['set'],
-    description: 'Score +2 points supplémentaires si vous contrôlez 3 tuiles vertes.',
+    tags: ['agriculture', 'storage'],
+    description: 'Entrepot couvert qui optimise les recoltes. Score +2 PV si vous controlez 3 tuiles vertes.',
   },
   {
-    id: 'contract-armory',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Contrat de l’Arsenal',
-    icon: 'contract-armory',
+    id: 'building-arsenal-annex',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Annexe de l Arsenal',
+    icon: 'building-arsenal-annex',
     cost: { [RESOURCE_TYPES.FABRIC]: 1, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 7, crowns: 1 },
     tags: ['military', 'fabric'],
-    description: 'Débloque l’achat de châteaux à 15 points au lieu de 20.',
+    description: 'Atelier metallurgique qui ravitaille les defenses. Permet d acheter des chateaux a 15 PV au lieu de 20.',
   },
   {
-    id: 'contract-guild',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Concession de Guilde',
-    icon: 'contract-guild',
+    id: 'building-guild-house',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Maison des Guildes',
+    icon: 'building-guild-house',
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.FABRIC]: 1 },
     reward: { points: 5, influence: 1 },
-    tags: ['guild'],
-    description: 'Étend votre zone d’influence de 1 autour de votre château.',
+    tags: ['guild', 'influence'],
+    description: 'Quartier administratif qui coordonne les corporations. Etend votre zone d influence de 1 autour du chateau.',
   },
   {
-    id: 'contract-trade-road',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Route Marchande',
-    icon: 'contract-trade-road',
+    id: 'building-merchant-relay',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Relais Marchand',
+    icon: 'building-merchant-relay',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 4, crowns: 1 },
-    tags: ['trade'],
-    description: 'À la fin de la partie, +3 points si vous contrôlez la plus longue chaîne orthogonale.',
+    tags: ['trade', 'route'],
+    description: 'Halte commerciale qui securise les caravanes. Fin de partie: +3 PV si vous detenez la plus longue chaine orthogonale.',
   },
   {
     id: 'building-observatory',
@@ -137,44 +137,44 @@ const MARKET_CARD_DEFINITIONS = [
     description: 'Augmente votre réserve maximale de pain de 2 unités.',
   },
   {
-    id: 'contract-expedition',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Expédition Lointaine',
-    icon: 'contract-expedition',
+    id: 'building-expedition-hall',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Loge des Explorateurs',
+    icon: 'building-expedition-hall',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 8 },
     tags: ['exploration'],
-    description: 'Octroie un déplacement gratuit de colon après achat.',
+    description: 'Centre de cartographie qui finance des expes. Octroie un deplacement gratuit de colon apres achat.',
   },
   {
-    id: 'contract-cathedral',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Chantier de Cathédrale',
-    icon: 'contract-cathedral',
+    id: 'building-cathedral-works',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Chantier de Cathedrale',
+    icon: 'building-cathedral-works',
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.FABRIC]: 2, points: 4 },
     reward: { points: 10 },
-    tags: ['prestige'],
-    description: 'Ajoute 1 couronne si vous possédez au moins deux bâtiments religieux.',
+    tags: ['prestige', 'faith'],
+    description: 'Grand chantier religieux qui attire les foules. Ajoute 1 couronne si vous possedez au moins deux batiments religieux.',
   },
   {
-    id: 'contract-tradepost',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Comptoir Érigé',
-    icon: 'contract-tradepost',
+    id: 'building-tradepost',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Comptoir Aerige',
+    icon: 'building-tradepost',
     cost: { [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 5, crowns: 1 },
     tags: ['trade'],
-    description: 'Réduit de 1 le coût en tissu de vos prochains contrats.',
+    description: 'Maison des negociants qui traite toute marchandise. Reduit de 1 le cout en tissu de vos futurs projets.',
   },
   {
-    id: 'contract-artisans',
-    type: MARKET_CARD_TYPES.CONTRACT,
-    name: 'Charte des Artisans',
-    icon: 'contract-artisans',
+    id: 'building-artisan-hall',
+    type: MARKET_CARD_TYPES.BUILDING,
+    name: 'Maison des Artisans',
+    icon: 'building-artisan-hall',
     cost: { [RESOURCE_TYPES.LABOR]: 3 },
     reward: { points: 6 },
-    tags: ['guild'],
-    description: 'Permet de convertir 1 main-d’œuvre en 1 pain à chaque tour.',
+    tags: ['guild', 'workshop'],
+    description: 'Atelier collectif qui valorise chaque savoir faire. Permet de convertir 1 main d oeuvre en 1 pain a chaque tour.',
   },
 ];
 
@@ -183,7 +183,20 @@ function getMarketCardDefinition(cardId) {
 }
 
 function createInitialMarketDeck(definitions = MARKET_CARD_DEFINITIONS) {
-  return definitions.map((card) => ({ ...card }));
+  return definitions
+    .filter((card) => card?.type === MARKET_CARD_TYPES.BUILDING)
+    .map((card) => ({ ...card }));
+}
+
+function shuffleArray(source) {
+  const array = Array.isArray(source) ? source : [];
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = array[i];
+    array[i] = array[j];
+    array[j] = tmp;
+  }
+  return array;
 }
 
 function createEmptyMarketSlots() {
@@ -191,26 +204,53 @@ function createEmptyMarketSlots() {
 }
 
 function createInitialMarketState() {
+  const deck = createInitialMarketDeck();
   return {
-    deck: createInitialMarketDeck(),
-    drawPile: [],
+    deck,
+    drawPile: shuffleArray(deck.map((card) => ({ ...card }))),
     discardPile: [],
     slots: createEmptyMarketSlots(),
     revealedThisTurn: new Set(),
   };
 }
 
+function replenishMarketDrawPile(state) {
+  if (!state || !Array.isArray(state.discardPile) || state.discardPile.length === 0) return;
+  const refreshed = state.discardPile
+    .map((cardId) => getMarketCardDefinition(cardId))
+    .filter((card) => card && card.type === MARKET_CARD_TYPES.BUILDING)
+    .map((card) => ({ ...card }));
+  shuffleArray(refreshed);
+  if (!Array.isArray(state.drawPile)) state.drawPile = [];
+  state.drawPile.push(...refreshed);
+  state.discardPile = [];
+}
+
+function drawMarketCard(state) {
+  if (!state) return null;
+  if (!Array.isArray(state.drawPile)) state.drawPile = [];
+  if (state.drawPile.length === 0) replenishMarketDrawPile(state);
+  const next = state.drawPile.shift() ?? null;
+  return next ? { ...next } : null;
+}
+
+function refillMarketSlot(state, slotIdx) {
+  if (!state || !Array.isArray(state.slots)) return;
+  if (!Number.isInteger(slotIdx) || slotIdx < 0 || slotIdx >= state.slots.length) return;
+  const card = drawMarketCard(state);
+  if (card) {
+    state.slots[slotIdx] = {
+      id: card.id,
+      status: 'available',
+    };
+  } else {
+    state.slots[slotIdx] = null;
+  }
+}
+
 function seedMarketSlotsFromDeck(state) {
   if (!state || !Array.isArray(state.deck) || !Array.isArray(state.slots)) return;
   for (let slotIdx = 0; slotIdx < state.slots.length; slotIdx++) {
-    const definition = state.deck[slotIdx] ?? null;
-    if (!definition) {
-      state.slots[slotIdx] = null;
-      continue;
-    }
-    state.slots[slotIdx] = {
-      id: definition.id,
-      status: 'available',
-    };
+    refillMarketSlot(state, slotIdx);
   }
 }
