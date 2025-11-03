@@ -1,5 +1,5 @@
 // Fichier: src/js/market.js
-// Description: Définitions de base pour les bâtiments et contrats du marché central.
+// Description: Definitions de base pour les batiments et contrats du marche central.
 
 const MARKET_SLOT_COUNT = 16;
 
@@ -24,17 +24,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, points: 4 },
     reward: { points: 3, crowns: 1 },
     tags: ['production', 'wood'],
-    description: 'Réduit de 1 le coût en bois des futurs bâtiments.',
+    description: 'R\u00e9duit de 1 le co\u00fbt en bois des futurs b\u00e2timents.',
   },
   {
     id: 'building-bakery',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Boulangerie du Château',
+    name: 'Boulangerie du Ch\u00e2teau',
     icon: 'building-bakery',
     cost: { [RESOURCE_TYPES.BREAD]: 3, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 5 },
     tags: ['production', 'bread'],
-    description: 'À chaque fin de tour, gagnez 1 pain si vous contrôlez un aménagement adjacent.',
+    description: '\u00c0 chaque fin de tour, gagnez 1 pain si vous contr\u00f4lez un am\u00e9nagement adjacent.',
   },
   {
     id: 'building-weaver',
@@ -44,37 +44,37 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 6, crowns: 1 },
     tags: ['fabric', 'craft'],
-    description: 'Accorde +2 points par contrat textile à la fin de la partie.',
+    description: 'Accorde +2 points par contrat textile \u00e0 la fin de la partie.',
   },
   {
     id: 'building-garrison',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Garnison Frontalière',
+    name: 'Garnison Frontali\u00e8re',
     icon: 'building-garrison',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, points: 6 },
     reward: { points: 8 },
     tags: ['military'],
-    description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
+    description: 'Permet un d\u00e9ploiement gratuit d\u2019un colon \u00e0 port\u00e9e 2 d\u00e8s l\u2019achat.',
   },
   {
     id: 'building-harvest-hall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Halle des Recoltes',
+    name: 'Halle des R\u00e9coltes',
     icon: 'building-harvest-hall',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1 },
     reward: { points: 6 },
     tags: ['agriculture', 'storage'],
-    description: 'Entrepot couvert qui optimise les recoltes. Score +2 PV si vous controlez 3 tuiles vertes.',
+    description: 'Entrep\u00f4t couvert qui optimise les r\u00e9coltes. Score +2 PV si vous contr\u00f4lez 3 tuiles vertes.',
   },
   {
     id: 'building-arsenal-annex',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Annexe de l Arsenal',
+    name: 'Annexe de l\u2019Arsenal',
     icon: 'building-arsenal-annex',
     cost: { [RESOURCE_TYPES.FABRIC]: 1, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 7, crowns: 1 },
     tags: ['military', 'fabric'],
-    description: 'Atelier metallurgique qui ravitaille les defenses. Permet d acheter des chateaux a 15 PV au lieu de 20.',
+    description: 'Atelier m\u00e9tallurgique qui ravitaille les d\u00e9fenses. Permet d\u2019acheter des ch\u00e2teaux \u00e0 15 PV au lieu de 20.',
   },
   {
     id: 'building-guild-house',
@@ -84,7 +84,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.FABRIC]: 1 },
     reward: { points: 5, influence: 1 },
     tags: ['guild', 'influence'],
-    description: 'Quartier administratif qui coordonne les corporations. Etend votre zone d influence de 1 autour du chateau.',
+    description: 'Quartier administratif qui coordonne les corporations. \u00c9tend votre zone d\u2019influence de 1 autour du ch\u00e2teau.',
   },
   {
     id: 'building-merchant-relay',
@@ -94,7 +94,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 4, crowns: 1 },
     tags: ['trade', 'route'],
-    description: 'Halte commerciale qui securise les caravanes. Fin de partie: +3 PV si vous detenez la plus longue chaine orthogonale.',
+    description: 'Halte commerciale qui s\u00e9curise les caravanes. Fin de partie : +3 PV si vous d\u00e9tenez la plus longue cha\u00eene orthogonale.',
   },
   {
     id: 'building-observatory',
@@ -104,7 +104,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 5 },
     reward: { points: 7, crowns: 1 },
     tags: ['science'],
-    description: 'Révèle deux tuiles du sachet supplémentaire à chaque préparation de tour.',
+    description: 'R\u00e9v\u00e8le deux tuiles du sachet suppl\u00e9mentaire \u00e0 chaque pr\u00e9paration de tour.',
   },
   {
     id: 'building-harbor',
@@ -114,17 +114,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.BREAD]: 1, points: 3 },
     reward: { points: 6, influence: 1 },
     tags: ['trade', 'water'],
-    description: 'Autorise un échange bois ↔ tissu par tour sans coût additionnel.',
+    description: 'Autorise un \u00e9change bois contre tissu par tour sans co\u00fbt additionnel.',
   },
   {
     id: 'building-guildhall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Hôtel de Guilde',
+    name: 'H\u00f4tel de Guilde',
     icon: 'building-guildhall',
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 1, points: 4 },
     reward: { points: 7, crowns: 1 },
     tags: ['guild'],
-    description: 'Chaque contrat accompli rapporte 1 point supplémentaire.',
+    description: 'Chaque contrat accompli rapporte 1 point suppl\u00e9mentaire.',
   },
   {
     id: 'building-granary',
@@ -134,7 +134,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.WOOD]: 1 },
     reward: { points: 4, stock: { [RESOURCE_TYPES.BREAD]: 2 } },
     tags: ['storage'],
-    description: 'Augmente votre réserve maximale de pain de 2 unités.',
+    description: 'Augmente votre r\u00e9serve maximale de pain de 2 unit\u00e9s.',
   },
   {
     id: 'building-expedition-hall',
@@ -144,17 +144,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 8 },
     tags: ['exploration'],
-    description: 'Centre de cartographie qui finance des expes. Octroie un deplacement gratuit de colon apres achat.',
+    description: 'Centre de cartographie qui finance des expes. Octroie un d\u00e9placement gratuit de colon apr\u00e8s achat.',
   },
   {
     id: 'building-cathedral-works',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Chantier de Cathedrale',
+    name: 'Chantier de Cath\u00e9drale',
     icon: 'building-cathedral-works',
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.FABRIC]: 2, points: 4 },
     reward: { points: 10 },
     tags: ['prestige', 'faith'],
-    description: 'Grand chantier religieux qui attire les foules. Ajoute 1 couronne si vous possedez au moins deux batiments religieux.',
+    description: 'Grand chantier religieux qui attire les foules. Ajoute 1 couronne si vous poss\u00e9dez au moins deux b\u00e2timents religieux.',
   },
   {
     id: 'building-tradepost',
@@ -164,7 +164,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 5, crowns: 1 },
     tags: ['trade'],
-    description: 'Maison des negociants qui traite toute marchandise. Reduit de 1 le cout en tissu de vos futurs projets.',
+    description: 'Maison des n\u00e9gociants qui traite toute marchandise. R\u00e9duit de 1 le co\u00fbt en tissu de vos futurs projets.',
   },
   {
     id: 'building-artisan-hall',
@@ -174,7 +174,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.LABOR]: 3 },
     reward: { points: 6 },
     tags: ['guild', 'workshop'],
-    description: 'Atelier collectif qui valorise chaque savoir faire. Permet de convertir 1 main d oeuvre en 1 pain a chaque tour.',
+    description: 'Atelier collectif qui valorise chaque savoir faire. Permet de convertir 1 main d\u2019\u0153uvre en 1 pain \u00e0 chaque tour.',
   },
 ];
 

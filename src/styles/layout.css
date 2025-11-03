@@ -336,8 +336,8 @@ body.topbar-collapsed #market-details {
 }
 
 #personal-board {
-  flex: 0 0 clamp(240px, 26vw, 320px);
-  width: clamp(240px, 26vw, 320px);
+  flex: 0 0 clamp(300px, 32vw, 420px);
+  width: clamp(300px, 32vw, 420px);
   border: 1px solid var(--border);
   padding: 18px 16px;
   display: flex;
@@ -409,6 +409,7 @@ body.personal-board-collapsed #personal-board,
   display: flex;
   align-items: stretch;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .personal-board__total {
@@ -465,7 +466,8 @@ body.personal-board-collapsed #personal-board,
 }
 
 .personal-board__amenagement-list,
-.personal-board__buildings-list {
+.personal-board__buildings-list,
+.personal-board__contracts-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -502,7 +504,8 @@ body.personal-board-collapsed #personal-board,
   color: var(--text);
 }
 
-.personal-board__building-item {
+.personal-board__building-item,
+.personal-board__contract-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -513,15 +516,73 @@ body.personal-board-collapsed #personal-board,
   box-shadow: var(--shadow-xs);
 }
 
-.personal-board__building-name {
+.personal-board__building-name,
+.personal-board__contract-name {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
-.personal-board__building-meta {
+.personal-board__building-meta,
+.personal-board__contract-meta {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.personal-board__contract-costs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.personal-board__contract-cost {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary);
+}
+
+.personal-board__contract-cost--ok {
+  color: var(--text);
+}
+
+.personal-board__contract-cost--missing {
+  color: var(--accent);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.personal-board__contract-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.personal-board__contract-build {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.personal-board__contract-build:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.personal-board__contract-build:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 .personal-board__empty {
@@ -666,6 +727,38 @@ body.market-details-collapsed #market-details {
   font-size: 7px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.market-card__token {
+  font-weight: 700;
+}
+
+.market-card__token--wood {
+  fill: #8b5a2b;
+}
+
+.market-card__token--bread {
+  fill: #d28c3f;
+}
+
+.market-card__token--fabric {
+  fill: #4f7ad6;
+}
+
+.market-card__token--labor {
+  fill: #8a4fb6;
+}
+
+.market-card__token--points {
+  fill: var(--accent);
+}
+
+.market-card__token--crowns {
+  fill: #d4a72c;
+}
+
+.market-card__token--influence {
+  fill: #2aa9a0;
 }
 
 .market-card--empty {

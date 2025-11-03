@@ -1044,17 +1044,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, points: 4 },
     reward: { points: 3, crowns: 1 },
     tags: ['production', 'wood'],
-    description: 'Réduit de 1 le coût en bois des futurs bâtiments.',
+    description: 'R\u00e9duit de 1 le co\u00fbt en bois des futurs b\u00e2timents.',
   },
   {
     id: 'building-bakery',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Boulangerie du Château',
+    name: 'Boulangerie du Ch\u00e2teau',
     icon: 'building-bakery',
     cost: { [RESOURCE_TYPES.BREAD]: 3, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 5 },
     tags: ['production', 'bread'],
-    description: 'À chaque fin de tour, gagnez 1 pain si vous contrôlez un aménagement adjacent.',
+    description: '\u00c0 chaque fin de tour, gagnez 1 pain si vous contr\u00f4lez un am\u00e9nagement adjacent.',
   },
   {
     id: 'building-weaver',
@@ -1064,37 +1064,37 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 6, crowns: 1 },
     tags: ['fabric', 'craft'],
-    description: 'Accorde +2 points par contrat textile à la fin de la partie.',
+    description: 'Accorde +2 points par contrat textile \u00e0 la fin de la partie.',
   },
   {
     id: 'building-garrison',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Garnison Frontalière',
+    name: 'Garnison Frontali\u00e8re',
     icon: 'building-garrison',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, points: 6 },
     reward: { points: 8 },
     tags: ['military'],
-    description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
+    description: 'Permet un d\u00e9ploiement gratuit d\u2019un colon \u00e0 port\u00e9e 2 d\u00e8s l\u2019achat.',
   },
   {
     id: 'building-harvest-hall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Halle des Recoltes',
+    name: 'Halle des R\u00e9coltes',
     icon: 'building-harvest-hall',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1 },
     reward: { points: 6 },
     tags: ['agriculture', 'storage'],
-    description: 'Entrepot couvert qui optimise les recoltes. Score +2 PV si vous controlez 3 tuiles vertes.',
+    description: 'Entrep\u00f4t couvert qui optimise les r\u00e9coltes. Score +2 PV si vous contr\u00f4lez 3 tuiles vertes.',
   },
   {
     id: 'building-arsenal-annex',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Annexe de l Arsenal',
+    name: 'Annexe de l\u2019Arsenal',
     icon: 'building-arsenal-annex',
     cost: { [RESOURCE_TYPES.FABRIC]: 1, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 7, crowns: 1 },
     tags: ['military', 'fabric'],
-    description: 'Atelier metallurgique qui ravitaille les defenses. Permet d acheter des chateaux a 15 PV au lieu de 20.',
+    description: 'Atelier m\u00e9tallurgique qui ravitaille les d\u00e9fenses. Permet d\u2019acheter des ch\u00e2teaux \u00e0 15 PV au lieu de 20.',
   },
   {
     id: 'building-guild-house',
@@ -1104,7 +1104,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.FABRIC]: 1 },
     reward: { points: 5, influence: 1 },
     tags: ['guild', 'influence'],
-    description: 'Quartier administratif qui coordonne les corporations. Etend votre zone d influence de 1 autour du chateau.',
+    description: 'Quartier administratif qui coordonne les corporations. \u00c9tend votre zone d\u2019influence de 1 autour du ch\u00e2teau.',
   },
   {
     id: 'building-merchant-relay',
@@ -1114,7 +1114,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 4, crowns: 1 },
     tags: ['trade', 'route'],
-    description: 'Halte commerciale qui securise les caravanes. Fin de partie: +3 PV si vous detenez la plus longue chaine orthogonale.',
+    description: 'Halte commerciale qui s\u00e9curise les caravanes. Fin de partie : +3 PV si vous d\u00e9tenez la plus longue cha\u00eene orthogonale.',
   },
   {
     id: 'building-observatory',
@@ -1124,7 +1124,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 5 },
     reward: { points: 7, crowns: 1 },
     tags: ['science'],
-    description: 'Révèle deux tuiles du sachet supplémentaire à chaque préparation de tour.',
+    description: 'R\u00e9v\u00e8le deux tuiles du sachet suppl\u00e9mentaire \u00e0 chaque pr\u00e9paration de tour.',
   },
   {
     id: 'building-harbor',
@@ -1134,17 +1134,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.BREAD]: 1, points: 3 },
     reward: { points: 6, influence: 1 },
     tags: ['trade', 'water'],
-    description: 'Autorise un échange bois ↔ tissu par tour sans coût additionnel.',
+    description: 'Autorise un \u00e9change bois contre tissu par tour sans co\u00fbt additionnel.',
   },
   {
     id: 'building-guildhall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Hôtel de Guilde',
+    name: 'H\u00f4tel de Guilde',
     icon: 'building-guildhall',
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 1, points: 4 },
     reward: { points: 7, crowns: 1 },
     tags: ['guild'],
-    description: 'Chaque contrat accompli rapporte 1 point supplémentaire.',
+    description: 'Chaque contrat accompli rapporte 1 point suppl\u00e9mentaire.',
   },
   {
     id: 'building-granary',
@@ -1154,7 +1154,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.WOOD]: 1 },
     reward: { points: 4, stock: { [RESOURCE_TYPES.BREAD]: 2 } },
     tags: ['storage'],
-    description: 'Augmente votre réserve maximale de pain de 2 unités.',
+    description: 'Augmente votre r\u00e9serve maximale de pain de 2 unit\u00e9s.',
   },
   {
     id: 'building-expedition-hall',
@@ -1164,17 +1164,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 8 },
     tags: ['exploration'],
-    description: 'Centre de cartographie qui finance des expes. Octroie un deplacement gratuit de colon apres achat.',
+    description: 'Centre de cartographie qui finance des expes. Octroie un d\u00e9placement gratuit de colon apr\u00e8s achat.',
   },
   {
     id: 'building-cathedral-works',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Chantier de Cathedrale',
+    name: 'Chantier de Cath\u00e9drale',
     icon: 'building-cathedral-works',
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.FABRIC]: 2, points: 4 },
     reward: { points: 10 },
     tags: ['prestige', 'faith'],
-    description: 'Grand chantier religieux qui attire les foules. Ajoute 1 couronne si vous possedez au moins deux batiments religieux.',
+    description: 'Grand chantier religieux qui attire les foules. Ajoute 1 couronne si vous poss\u00e9dez au moins deux b\u00e2timents religieux.',
   },
   {
     id: 'building-tradepost',
@@ -1184,7 +1184,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 1, points: 3 },
     reward: { points: 5, crowns: 1 },
     tags: ['trade'],
-    description: 'Maison des negociants qui traite toute marchandise. Reduit de 1 le cout en tissu de vos futurs projets.',
+    description: 'Maison des n\u00e9gociants qui traite toute marchandise. R\u00e9duit de 1 le co\u00fbt en tissu de vos futurs projets.',
   },
   {
     id: 'building-artisan-hall',
@@ -1194,7 +1194,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.LABOR]: 3 },
     reward: { points: 6 },
     tags: ['guild', 'workshop'],
-    description: 'Atelier collectif qui valorise chaque savoir faire. Permet de convertir 1 main d oeuvre en 1 pain a chaque tour.',
+    description: 'Atelier collectif qui valorise chaque savoir faire. Permet de convertir 1 main d\u2019\u0153uvre en 1 pain \u00e0 chaque tour.',
   },
 ];
 
@@ -1365,7 +1365,7 @@ function createHexOutlineElement(x, y, radius, attributes = {}) {
 
 // ----- src/js/main.js -----
 // Fichier: src/js/main.js
-// Description: Orchestration de l'application (lecture config, gÃ©nÃ©ration de la grille, interactions UI).
+// Description: Orchestration de l'application (lecture config, generation de la grille, interactions UI).
 
 
 const tiles = generateAxialGrid(RADIUS);
@@ -1403,13 +1403,21 @@ const PLAYER_COLON_COLORS = [
 ];
 
 const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
-const DEFAULT_COLOR_LABELS = ['Couleur 1', 'Couleur 2', 'Couleur 3', 'Couleur 4'];
+const DEFAULT_COLOR_LABELS = ['Main-d\u2019\u0153uvre', 'Tissu', 'Pain', 'Bois'];
+const AMENAGEMENT_RESOURCE_TYPES = [
+  RESOURCE_TYPES.LABOR,
+  RESOURCE_TYPES.FABRIC,
+  RESOURCE_TYPES.BREAD,
+  RESOURCE_TYPES.WOOD,
+];
+const AMENAGEMENT_RESOURCE_LABELS = DEFAULT_COLOR_LABELS.slice();
+const POINTS_PER_CROWN = 16;
 
 const RESOURCE_LABELS = {
   [RESOURCE_TYPES.WOOD]: 'Bois',
   [RESOURCE_TYPES.BREAD]: 'Pain',
   [RESOURCE_TYPES.FABRIC]: 'Tissu',
-  [RESOURCE_TYPES.LABOR]: 'Main-dâ€™Å“uvre',
+  [RESOURCE_TYPES.LABOR]: 'Main-d\u2019\u0153uvre',
 };
 
 const RESOURCE_ORDER = [
@@ -1422,6 +1430,19 @@ const RESOURCE_ORDER = [
 const MARKET_TYPE_LABELS = {
   [MARKET_CARD_TYPES.BUILDING]: 'Plan urbain',
   [MARKET_CARD_TYPES.CONTRACT]: 'Accord',
+};
+
+const MARKET_RESOURCE_TOKEN_CLASS_MAP = {
+  [RESOURCE_TYPES.WOOD]: 'wood',
+  [RESOURCE_TYPES.BREAD]: 'bread',
+  [RESOURCE_TYPES.FABRIC]: 'fabric',
+  [RESOURCE_TYPES.LABOR]: 'labor',
+};
+
+const MARKET_SPECIAL_TOKEN_CLASS_MAP = {
+  points: 'points',
+  crowns: 'crowns',
+  influence: 'influence',
 };
 
 let activeColors = DEFAULT_COLOR_HEX.slice();
@@ -1545,6 +1566,9 @@ const personalBoardElements = {
   buildingsCount: null,
   buildingsList: null,
   buildingsEmpty: null,
+  contractsCount: null,
+  contractsList: null,
+  contractsEmpty: null,
 };
 
 const MARKET_EXIT_GRACE_PX = 56;
@@ -2210,7 +2234,7 @@ function ensureSettingsPanel() {
   closeBtn.type = 'button';
   closeBtn.className = 'settings-panel__close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ã—';
+  closeBtn.textContent = '\u00d7';
   header.appendChild(title);
   header.appendChild(closeBtn);
 
@@ -2450,11 +2474,30 @@ function ensureHudElements() {
   bindEndTurnButton(hudElements.collapsedEndTurnButton);
 }
 
+function crownsFromScore(score) {
+  if (!Number.isFinite(score)) return 0;
+  if (score <= 0) return 0;
+  return Math.floor(score / POINTS_PER_CROWN);
+}
+
 function awardPoints(player, delta, source = 'generic') {
   if (!isValidPlayer(player) || !Number.isFinite(delta) || delta === 0) return;
   const idx = playerIndex(player);
-  playerScores[idx] = (playerScores[idx] || 0) + delta;
-  debugLog('awardPoints', { player, delta, source, next: playerScores[idx] });
+  if (idx === -1) return;
+  const previousScore = playerScores[idx] || 0;
+  const nextScore = previousScore + delta;
+  playerScores[idx] = nextScore;
+  const prevCrownsFromScore = crownsFromScore(previousScore);
+  const nextCrownsFromScore = crownsFromScore(nextScore);
+  const crownDelta = nextCrownsFromScore - prevCrownsFromScore;
+  if (crownDelta !== 0) adjustPlayerCrowns(player, crownDelta);
+  debugLog('awardPoints', {
+    player,
+    delta,
+    source,
+    next: playerScores[idx],
+    crownDelta,
+  });
   renderGameHud();
 }
 
@@ -2605,6 +2648,29 @@ function ensurePersonalBoardElements() {
   amenagementSection.appendChild(amenagementEmpty);
   container.appendChild(amenagementSection);
 
+  const contractsSection = document.createElement('section');
+  contractsSection.className = 'personal-board__section personal-board__section--contracts';
+
+  const contractsTitle = document.createElement('div');
+  contractsTitle.className = 'personal-board__section-title';
+  contractsTitle.textContent = 'Contrats';
+
+  const contractsCount = document.createElement('div');
+  contractsCount.className = 'personal-board__section-count';
+  contractsCount.textContent = 'Aucun contrat conclu';
+
+  const contractsList = document.createElement('ul');
+  contractsList.className = 'personal-board__contracts-list';
+
+  const contractsEmpty = document.createElement('div');
+  contractsEmpty.className = 'personal-board__empty';
+  contractsEmpty.textContent = 'Aucun contrat conclu.';
+
+  contractsSection.appendChild(contractsTitle);
+  contractsSection.appendChild(contractsCount);
+  contractsSection.appendChild(contractsList);
+  contractsSection.appendChild(contractsEmpty);
+
   const buildingsSection = document.createElement('section');
   buildingsSection.className = 'personal-board__section personal-board__section--buildings';
 
@@ -2627,6 +2693,7 @@ function ensurePersonalBoardElements() {
   buildingsSection.appendChild(buildingsCount);
   buildingsSection.appendChild(buildingsList);
   buildingsSection.appendChild(buildingsEmpty);
+  container.appendChild(contractsSection);
   container.appendChild(buildingsSection);
 
   personalBoardElements.container = container;
@@ -2641,9 +2708,13 @@ function ensurePersonalBoardElements() {
   personalBoardElements.buildingsCount = buildingsCount;
   personalBoardElements.buildingsList = buildingsList;
   personalBoardElements.buildingsEmpty = buildingsEmpty;
+  personalBoardElements.contractsCount = contractsCount;
+  personalBoardElements.contractsList = contractsList;
+  personalBoardElements.contractsEmpty = contractsEmpty;
 
   amenagementEmpty.hidden = true;
   buildingsEmpty.hidden = true;
+  contractsEmpty.hidden = true;
 
   return personalBoardElements;
 }
@@ -2715,7 +2786,7 @@ function renderPersonalBoard() {
         chip.title = colorHex;
         const name = document.createElement('span');
         name.className = 'personal-board__amenagement-name';
-        name.textContent = colorLabelForIndex(colorIdx) || `Couleur ${colorIdx + 1}`;
+        name.textContent = colorLabelForIndex(colorIdx);
         const countNode = document.createElement('span');
         countNode.className = 'personal-board__amenagement-count';
         countNode.textContent = String(count);
@@ -2770,6 +2841,73 @@ function renderPersonalBoard() {
     } else if (elements.buildingsEmpty) {
       elements.buildingsEmpty.textContent = 'Aucun batiment construit.';
       elements.buildingsEmpty.hidden = false;
+    }
+  }
+
+  const contracts = record?.contracts ? Array.from(record.contracts) : [];
+  const contractsTotal = contracts.length;
+  if (elements.contractsCount) {
+    if (contractsTotal > 0) {
+      const suffix = contractsTotal > 1 ? 's' : '';
+      const adjective = contractsTotal > 1 ? 'conclus' : 'conclu';
+      elements.contractsCount.textContent = `${contractsTotal} contrat${suffix} ${adjective}`;
+    } else {
+      elements.contractsCount.textContent = 'Aucun contrat conclu';
+    }
+  }
+
+  const amenagementStock = record ? computeAmenagementResourceStock(record) : null;
+  const contractsList = elements.contractsList;
+  if (contractsList) {
+    contractsList.innerHTML = '';
+    if (contractsTotal > 0) {
+      const sortedContracts = contracts.slice().sort((a, b) => {
+        const defA = getMarketCardDefinition(a);
+        const defB = getMarketCardDefinition(b);
+        const nameA = defA?.name || a;
+        const nameB = defB?.name || b;
+        return nameA.localeCompare(nameB, 'fr');
+      });
+      sortedContracts.forEach((cardId) => {
+        const def = getMarketCardDefinition(cardId);
+        const item = document.createElement('li');
+        item.className = 'personal-board__contract-item';
+        const name = document.createElement('span');
+        name.className = 'personal-board__contract-name';
+        name.textContent = def?.name || cardId;
+        item.appendChild(name);
+        const rewardText = summarizeMarketReward(def?.reward);
+        const details = rewardText || def?.description || '';
+        if (details) {
+          const meta = document.createElement('span');
+          meta.className = 'personal-board__contract-meta';
+          meta.textContent = details;
+          item.appendChild(meta);
+        }
+        const costBreakdown = createContractCostBreakdown(def?.cost, amenagementStock);
+        if (costBreakdown) item.appendChild(costBreakdown);
+        const buildStatus = evaluateContractBuildAvailability(activePlayer, record, def, amenagementStock);
+        const actions = document.createElement('div');
+        actions.className = 'personal-board__contract-actions';
+        const buildBtn = document.createElement('button');
+        buildBtn.type = 'button';
+        buildBtn.className = 'personal-board__contract-build';
+        buildBtn.textContent = 'Construire';
+        buildBtn.disabled = !buildStatus.canBuild;
+        buildBtn.title = buildStatus.canBuild
+          ? 'Construire ce b\u00e2timent'
+          : buildStatus.reason || 'Conditions non remplies';
+        if (buildStatus.canBuild) {
+          buildBtn.addEventListener('click', () => attemptBuildFromContract(cardId));
+        }
+        actions.appendChild(buildBtn);
+        item.appendChild(actions);
+        contractsList.appendChild(item);
+      });
+      if (elements.contractsEmpty) elements.contractsEmpty.hidden = true;
+    } else if (elements.contractsEmpty) {
+      elements.contractsEmpty.textContent = 'Aucun contrat conclu.';
+      elements.contractsEmpty.hidden = false;
     }
   }
 }
@@ -3108,10 +3246,16 @@ function idealTextColor(rgb) {
 }
 
 function colorLabelForIndex(idx) {
+  const fallback = AMENAGEMENT_RESOURCE_LABELS[idx] || DEFAULT_COLOR_LABELS[idx] || `C${idx + 1}`;
   const percentInput = document.getElementById(`pct-c${idx + 1}`);
-  const label = percentInput?.parentElement?.getAttribute('title');
-  const trimmed = label ? label.trim() : '';
-  return trimmed || DEFAULT_COLOR_LABELS[idx] || `C${idx + 1}`;
+  if (!percentInput) return fallback;
+  const parent = percentInput.parentElement;
+  const label = parent?.getAttribute('title')?.trim();
+  if (!label || /^couleur\s*\d*/i.test(label)) {
+    parent?.setAttribute?.('title', fallback);
+    return fallback;
+  }
+  return label;
 }
 
 let cachedColorValues = ['', '', '', ''];
@@ -3537,44 +3681,229 @@ function createMultilineSvgText({ svgNS, className, lines, startOffset, lineGap,
   textEl.setAttribute('class', className);
   textEl.setAttribute('text-anchor', 'middle');
   textEl.setAttribute('dominant-baseline', 'central');
+  const normalizeLine = (line) => {
+    if (Array.isArray(line)) {
+      return line.map((token) => (typeof token === 'object' && token !== null ? token : { text: token }));
+    }
+    return [{ text: line }];
+  };
+  const lineHasContent = (line) => {
+    if (Array.isArray(line)) {
+      return line.some((token) => {
+        const value = typeof token === 'object' && token !== null ? token.text : token;
+        return String(value ?? '').trim().length > 0;
+      });
+    }
+    return String(line ?? '').trim().length > 0;
+  };
   const effectiveLines = Array.isArray(lines)
-    ? lines.filter((line) => typeof line === 'string' && line.trim().length)
+    ? lines.filter((line) => lineHasContent(line)).map((line) => normalizeLine(line))
     : [];
-  if (effectiveLines.length === 0) effectiveLines.push('');
-  let first = true;
+  if (effectiveLines.length === 0) effectiveLines.push(normalizeLine(''));
   const lineDy = cellSize * lineGap;
   const baseY = cellSize * startOffset;
-  effectiveLines.forEach((line) => {
-    const span = document.createElementNS(svgNS, 'tspan');
-    span.setAttribute('x', '0');
-    if (first) {
-      span.setAttribute('y', baseY.toFixed(3));
-      first = false;
-    } else {
-      span.setAttribute('dy', lineDy.toFixed(3));
-    }
-    span.textContent = line;
-    textEl.appendChild(span);
+  let isFirstLine = true;
+  effectiveLines.forEach((lineTokens) => {
+    lineTokens.forEach((token, tokenIdx) => {
+      const span = document.createElementNS(svgNS, 'tspan');
+      const isFirstTokenInLine = tokenIdx === 0;
+      if (isFirstTokenInLine) {
+        span.setAttribute('x', '0');
+        if (isFirstLine) {
+          span.setAttribute('y', baseY.toFixed(3));
+          isFirstLine = false;
+        } else {
+          span.setAttribute('dy', lineDy.toFixed(3));
+        }
+      }
+      const tokenText = typeof token === 'object' && token !== null ? token.text : token;
+      span.textContent = tokenText ?? '';
+      const tokenClass =
+        typeof token === 'object' && token !== null
+          ? token.className || token.class || null
+          : null;
+      if (tokenClass) span.setAttribute('class', tokenClass);
+      textEl.appendChild(span);
+    });
   });
   return textEl;
 }
 
-function formatMarketCostSummary(cost, maxChars = 22) {
-  const summary = summarizeMarketCost(cost);
-  const text = summary ? `Cout: ${summary}` : 'Cout: --';
-  return trimMarketLine(text, maxChars);
+function createMarketCardToken(kind, value, { signed = false } = {}) {
+  if (!Number.isFinite(value)) return null;
+  const baseClass = 'market-card__token';
+  const classKey = MARKET_RESOURCE_TOKEN_CLASS_MAP[kind] || MARKET_SPECIAL_TOKEN_CLASS_MAP[kind] || '';
+  const className = classKey ? `${baseClass} market-card__token--${classKey}` : baseClass;
+  const display = signed && value > 0 ? `+${value}` : String(value);
+  return { text: display, className };
 }
 
-function formatMarketRewardSummary(reward, maxChars = 22) {
-  const summary = summarizeMarketReward(reward);
-  const text = summary ? `Apport: ${summary}` : 'Apport: --';
-  return trimMarketLine(text, maxChars);
+function applyMarketTokenSpacing(tokens) {
+  return tokens.map((token, idx) => {
+    const suffix = idx < tokens.length - 1 ? ' ' : '';
+    if (typeof token === 'object' && token !== null) {
+      return { ...token, text: `${token.text}${suffix}` };
+    }
+    return `${token}${suffix}`;
+  });
 }
 
-function trimMarketLine(text, maxChars) {
-  const clean = (text ?? '').toString().trim();
-  if (clean.length <= maxChars) return clean;
-  return `${clean.slice(0, Math.max(0, maxChars - 3))}...`;
+function formatMarketCostSummary(cost) {
+  if (!cost || typeof cost !== 'object') return '--';
+  const tokens = [];
+  RESOURCE_ORDER.forEach((resource) => {
+    const amount = cost[resource];
+    if (Number.isFinite(amount) && amount > 0) {
+      const token = createMarketCardToken(resource, amount);
+      if (token) tokens.push(token);
+    }
+  });
+  if (Number.isFinite(cost.points) && cost.points > 0) {
+    const token = createMarketCardToken('points', cost.points);
+    if (token) tokens.push(token);
+  }
+  if (Number.isFinite(cost.crowns) && cost.crowns > 0) {
+    const token = createMarketCardToken('crowns', cost.crowns);
+    if (token) tokens.push(token);
+  }
+  return tokens.length ? applyMarketTokenSpacing(tokens) : '--';
+}
+
+function formatMarketRewardSummary(reward) {
+  if (!reward || typeof reward !== 'object') return '--';
+  const tokens = [];
+  if (Number.isFinite(reward.points) && reward.points !== 0) {
+    const token = createMarketCardToken('points', reward.points, { signed: true });
+    if (token) tokens.push(token);
+  }
+  if (Number.isFinite(reward.crowns) && reward.crowns !== 0) {
+    const token = createMarketCardToken('crowns', reward.crowns, { signed: true });
+    if (token) tokens.push(token);
+  }
+  if (Number.isFinite(reward.influence) && reward.influence !== 0) {
+    const token = createMarketCardToken('influence', reward.influence, { signed: true });
+    if (token) tokens.push(token);
+  }
+  if (reward.stock && typeof reward.stock === 'object') {
+    RESOURCE_ORDER.forEach((resource) => {
+      const amount = reward.stock[resource];
+      if (Number.isFinite(amount) && amount !== 0) {
+        const token = createMarketCardToken(resource, amount, { signed: true });
+        if (token) tokens.push(token);
+      }
+    });
+  }
+  return tokens.length ? applyMarketTokenSpacing(tokens) : '--';
+}
+
+function createContractCostBreakdown(cost, stock) {
+  if (!cost || typeof cost !== 'object') return null;
+  const rows = [];
+  RESOURCE_ORDER.forEach((resource) => {
+    const required = Number(cost[resource]);
+    if (!Number.isFinite(required) || required <= 0) return;
+    const current = Number(stock?.[resource] ?? 0);
+    const label = RESOURCE_LABELS[resource] || resource;
+    rows.push({ label, current, required });
+  });
+  if (rows.length === 0) return null;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'personal-board__contract-costs';
+  rows.forEach(({ label, current, required }) => {
+    const line = document.createElement('span');
+    line.className = 'personal-board__contract-cost';
+    if (current >= required) {
+      line.classList.add('personal-board__contract-cost--ok');
+    } else {
+      line.classList.add('personal-board__contract-cost--missing');
+    }
+    line.textContent = `${label} ${current}/${required}`;
+    wrapper.appendChild(line);
+  });
+  return wrapper;
+}
+
+function computeAmenagementResourceStock(record) {
+  const stock = {
+    [RESOURCE_TYPES.WOOD]: 0,
+    [RESOURCE_TYPES.BREAD]: 0,
+    [RESOURCE_TYPES.FABRIC]: 0,
+    [RESOURCE_TYPES.LABOR]: 0,
+  };
+  if (!record || !(record.amenagementColors instanceof Map)) return stock;
+  record.amenagementColors.forEach((amount, colorIdx) => {
+    const resourceType = AMENAGEMENT_RESOURCE_TYPES[colorIdx];
+    if (!resourceType) return;
+    const numeric = Number(amount);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    stock[resourceType] = (stock[resourceType] || 0) + numeric;
+  });
+  return stock;
+}
+
+function hasEnoughAmenagementResources(cost, stock) {
+  if (!cost || typeof cost !== 'object') return true;
+  for (const resource of RESOURCE_ORDER) {
+    const required = Number(cost[resource]);
+    if (!Number.isFinite(required) || required <= 0) continue;
+    if ((stock?.[resource] ?? 0) < required) return false;
+  }
+  return true;
+}
+
+function evaluateContractBuildAvailability(player, record, def, providedStock = null) {
+  const cost = def?.cost;
+  if (!cost) return { canBuild: true, reason: '' };
+  const stock = providedStock ?? computeAmenagementResourceStock(record);
+  if (!hasEnoughAmenagementResources(cost, stock)) {
+    return { canBuild: false, reason: 'Ressources insuffisantes' };
+  }
+  const pointsRequired = Number(cost.points);
+  if (Number.isFinite(pointsRequired) && pointsRequired > 0 && pointsRequired > getPlayerScore(player)) {
+    return { canBuild: false, reason: 'Points insuffisants' };
+  }
+  const crownsRequired = Number(cost.crowns);
+  if (Number.isFinite(crownsRequired) && crownsRequired > 0 && crownsRequired > Number(record?.crowns ?? 0)) {
+    return { canBuild: false, reason: 'Couronnes insuffisantes' };
+  }
+  return { canBuild: true, reason: '' };
+}
+
+function attemptBuildFromContract(cardId) {
+  const player = turnState.activePlayer ?? PLAYER_IDS[0];
+  const idx = playerIndex(player);
+  if (idx === -1) return;
+  const record = playerResources[idx];
+  if (!record || !record.contracts || !record.contracts.has(cardId)) return;
+  const def = getMarketCardDefinition(cardId);
+  if (!def) return;
+  const stock = computeAmenagementResourceStock(record);
+  const status = evaluateContractBuildAvailability(player, record, def, stock);
+  if (!status.canBuild) {
+    debugLog('contract-build-blocked', { player, card: cardId, reason: status.reason });
+    return;
+  }
+  const cost = def.cost || {};
+  const pointsRequired = Number(cost.points);
+  const crownsRequired = Number(cost.crowns);
+  if (Number.isFinite(pointsRequired) && pointsRequired > 0 && pointsRequired > getPlayerScore(player)) {
+    return;
+  }
+  if (Number.isFinite(crownsRequired) && crownsRequired > 0 && crownsRequired > Number(record?.crowns ?? 0)) {
+    return;
+  }
+  record.contracts.delete(cardId);
+  if (Number.isFinite(pointsRequired) && pointsRequired > 0) {
+    if (!spendPoints(player, pointsRequired, `contract-build:${cardId}`)) {
+      record.contracts.add(cardId);
+      return;
+    }
+  }
+  if (Number.isFinite(crownsRequired) && crownsRequired > 0) {
+    adjustPlayerCrowns(player, -crownsRequired);
+  }
+  registerBuildingForPlayer(player, cardId);
+  debugLog('contract-build', { player, card: cardId });
 }
 
 function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
@@ -3892,7 +4221,7 @@ function generateAndRender() {
 
   const cfg = readConfig();
   assert100(cfg.typesPct, 'Types de tuiles');
-  assert100(cfg.colorPct, 'RÃ©partition des couleurs');
+  assert100(cfg.colorPct, 'R\u00e9partition des couleurs');
   const colors = cfg.colors.slice();
   const typesPct = cfg.typesPct.slice();
   const colorPct = cfg.colorPct.slice();
@@ -5032,7 +5361,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   function handleWheel(event) {
     event.preventDefault();
     const factor = event.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.min(3, Math.max(0.4, zoom * factor));
+    const newZoom = Math.min(6, Math.max(0.8, zoom * factor));
     if (Math.abs(newZoom - zoom) < 1e-4) return;
     const rect = svg.getBoundingClientRect();
     const cursorX = event.clientX - rect.left - rect.width / 2;
@@ -5377,7 +5706,7 @@ function ensureStatsModal() {
   closeBtn.type = 'button';
   closeBtn.className = 'stats-modal-close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ã—';
+  closeBtn.textContent = '\u00d7';
   header.appendChild(title);
   header.appendChild(closeBtn);
   const body = document.createElement('div');
@@ -5488,12 +5817,12 @@ function refreshStatsModal() {
     .join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">GÃ©nÃ©ral</div>
+    <div class="stats-section-title">G\u00e9n\u00e9ral</div>
     <div class="stats-grid">
-      <div>Tuiles posÃ©es</div><div>${placed}</div>
+      <div>Tuiles pos\u00e9es</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
     </div>
-    <div class="stats-section-title">RÃ©partition</div>
+    <div class="stats-section-title">R\u00e9partition</div>
     <div class="stats-grid">
       <div>Mono</div><div>${counts[1] ?? 0}</div>
       <div>Bi</div><div>${counts[2] ?? 0}</div>
