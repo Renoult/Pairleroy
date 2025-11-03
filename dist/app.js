@@ -1,4 +1,4 @@
-﻿// ----- src/js/core.js -----
+// ----- src/js/core.js -----
 // Fichier: src/js/core.js
 // Description: Fonctions purement logiques (maths hexagonaux, quotas, RNG, combos).
 
@@ -1365,7 +1365,7 @@ function createHexOutlineElement(x, y, radius, attributes = {}) {
 
 // ----- src/js/main.js -----
 // Fichier: src/js/main.js
-// Description: Orchestration de l'application (lecture config, génération de la grille, interactions UI).
+// Description: Orchestration de l'application (lecture config, gÃ©nÃ©ration de la grille, interactions UI).
 
 
 const tiles = generateAxialGrid(RADIUS);
@@ -1409,7 +1409,7 @@ const RESOURCE_LABELS = {
   [RESOURCE_TYPES.WOOD]: 'Bois',
   [RESOURCE_TYPES.BREAD]: 'Pain',
   [RESOURCE_TYPES.FABRIC]: 'Tissu',
-  [RESOURCE_TYPES.LABOR]: 'Main-d’œuvre',
+  [RESOURCE_TYPES.LABOR]: 'Main-dâ€™Å“uvre',
 };
 
 const RESOURCE_ORDER = [
@@ -1475,6 +1475,19 @@ function createEmptyResourceStock() {
   };
 }
 
+function isPointWithinRect(rect, x, y) {
+  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
+  return x >= rect.left && x <= rect.right
+    && y >= rect.top && y <= rect.bottom;
+}
+
+function isPointWithinRectWithPadding(rect, x, y, padding = 0) {
+  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
+  const safePadding = Math.max(0, Number(padding) || 0);
+  return x >= rect.left - safePadding && x <= rect.right + safePadding
+    && y >= rect.top - safePadding && y <= rect.bottom + safePadding;
+}
+
 function createEmptyPlayerResource() {
   return {
     tileColors: new Map(),
@@ -1502,8 +1515,10 @@ const influenceMap = new Map();
 
 const hudElements = {
   scoreboard: null,
+  collapsedScoreboard: null,
   turnIndicator: null,
   endTurnButton: null,
+  collapsedEndTurnButton: null,
 };
 
 const marketDetailElements = {
@@ -1520,10 +1535,12 @@ const MARKET_EXIT_GRACE_PX = 56;
 
 let marketDetailsCollapsed = false;
 let marketDetailsVisible = false;
+let marketDetailsSuppressed = false;
 let marketPointerInside = false;
 let marketRegionMonitorBound = false;
 let marketRectSnapshot = null;
 let lastPointerPosition = null;
+let palettePointerInside = false;
 
 function getMarketBounds() {
   const svg = getBoardSvg();
@@ -1539,24 +1556,11 @@ function getMarketBounds() {
   };
 }
 
-function isPointWithinRect(rect, x, y) {
-  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
-  return x >= rect.left && x <= rect.right
-    && y >= rect.top && y <= rect.bottom;
-}
-
-function isPointWithinRectWithPadding(rect, x, y, padding = 0) {
-  if (!rect || typeof x !== 'number' || typeof y !== 'number') return false;
-  const safePadding = Math.max(0, Number(padding) || 0);
-  return x >= rect.left - safePadding && x <= rect.right + safePadding
-    && y >= rect.top - safePadding && y <= rect.bottom + safePadding;
-}
-
 function applyMarketDetailsVisibility() {
   const elements = ensureMarketDetailElements();
   const container = elements.container;
   if (!container) return;
-  const shouldShow = marketDetailsVisible && !marketDetailsCollapsed;
+  const shouldShow = marketDetailsVisible && !marketDetailsCollapsed && !marketDetailsSuppressed;
   container.classList.toggle('market-details--hidden', !shouldShow);
   container.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
 }
@@ -1566,35 +1570,217 @@ function setMarketDetailVisibility(visible) {
   applyMarketDetailsVisibility();
 }
 
-function isPointInsideMarketRegion(clientX, clientY) {
-  const rect = getMarketBounds();
-  if (!rect) return null;
-  return clientX >= rect.left && clientX <= rect.right
-    && clientY >= rect.top && clientY <= rect.bottom;
-}
-
-function ensureMarketRegionMonitor() {
-  if (typeof document === 'undefined' || marketRegionMonitorBound) return;
-  const handlePointer = (event) => {
-    if (!event || typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
-    updatePointerState(event.clientX, event.clientY);
-  };
-  document.addEventListener('pointermove', handlePointer, true);
-  document.addEventListener('pointerdown', handlePointer, true);
-  window.addEventListener('blur', () => {
-    marketPointerInside = false;
-    marketRectSnapshot = null;
-    lastPointerPosition = null;
-    resetHoveredMarketSlot(true);
-    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
-      setMarketDetailsCollapsed(true);
-    }
-  });
-  marketRegionMonitorBound = true;
+function setMarketDetailsSuppressed(suppressed) {
+  const nextState = Boolean(suppressed);
+  if (marketDetailsSuppressed === nextState) return;
+  marketDetailsSuppressed = nextState;
+  applyMarketDetailsVisibility();
 }
 
 let topbarCollapsed = false;
 let topbarElements = null;
+let collapsedHudOffset = { top: 64, left: null, right: 16 };
+const COLLAPSED_HUD_STORAGE_KEY = 'pairleroyCollapsedHudPosition';
+let collapsedHudDragState = null;
+
+function loadCollapsedHudPosition() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_HUD_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    if (Number.isFinite(parsed.top)) collapsedHudOffset.top = parsed.top;
+    if (Number.isFinite(parsed.left)) {
+      collapsedHudOffset.left = parsed.left;
+      collapsedHudOffset.right = null;
+    } else if (Number.isFinite(parsed.right)) {
+      collapsedHudOffset.right = parsed.right;
+      collapsedHudOffset.left = null;
+    }
+  } catch (error) {
+    console.warn('Impossible de charger la position du HUD compact', error);
+  }
+}
+
+function saveCollapsedHudPosition() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const payload = {
+      top: Number.isFinite(collapsedHudOffset.top) ? collapsedHudOffset.top : 64,
+    };
+    if (Number.isFinite(collapsedHudOffset.left)) {
+      payload.left = collapsedHudOffset.left;
+    } else if (Number.isFinite(collapsedHudOffset.right)) {
+      payload.right = collapsedHudOffset.right;
+    }
+    window.localStorage.setItem(COLLAPSED_HUD_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Impossible d’enregistrer la position du HUD compact', error);
+  }
+}
+
+function clampCollapsedHudPosition(collapsedHud, proposedTop, proposedLeft) {
+  if (!collapsedHud) {
+    return { top: Math.round(proposedTop || 64), left: Math.round(proposedLeft || 16) };
+  }
+  const rect = collapsedHud.getBoundingClientRect();
+  const width = rect.width || collapsedHud.offsetWidth || 0;
+  const height = rect.height || collapsedHud.offsetHeight || 0;
+  const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || width;
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || height;
+  const margin = 8;
+  const minLeft = margin;
+  const minTop = margin;
+  const maxLeft = Math.max(minLeft, viewportWidth - width - margin);
+  const maxTop = Math.max(minTop, viewportHeight - height - margin);
+  const desiredTop = Number.isFinite(proposedTop) ? proposedTop : rect.top;
+  const desiredLeft = Number.isFinite(proposedLeft) ? proposedLeft : rect.left;
+  return {
+    top: Math.round(Math.min(Math.max(minTop, desiredTop), maxTop)),
+    left: Math.round(Math.min(Math.max(minLeft, desiredLeft), maxLeft)),
+  };
+}
+
+function applyCollapsedHudPosition({ skipEnsure = false } = {}) {
+  if (typeof document === 'undefined') return;
+  const collapsedHud = document.getElementById('collapsed-hud');
+  if (!collapsedHud) return;
+  const topValue = Number.isFinite(collapsedHudOffset.top) ? Math.round(collapsedHudOffset.top) : 64;
+  collapsedHud.style.setProperty('--collapsed-hud-top', `${topValue}px`);
+  if (Number.isFinite(collapsedHudOffset.left)) {
+    collapsedHud.style.setProperty('--collapsed-hud-left', `${Math.round(collapsedHudOffset.left)}px`);
+    collapsedHud.style.setProperty('--collapsed-hud-right', 'auto');
+  } else if (Number.isFinite(collapsedHudOffset.right)) {
+    collapsedHud.style.removeProperty('--collapsed-hud-left');
+    collapsedHud.style.setProperty('--collapsed-hud-right', `${Math.round(collapsedHudOffset.right)}px`);
+  } else {
+    collapsedHud.style.removeProperty('--collapsed-hud-left');
+    collapsedHud.style.removeProperty('--collapsed-hud-right');
+  }
+  if (!skipEnsure && document.body?.classList.contains('topbar-collapsed')) {
+    requestAnimationFrame(() => ensureCollapsedHudWithinViewport(collapsedHud));
+  }
+}
+
+function ensureCollapsedHudWithinViewport(collapsedHud) {
+  if (typeof window === 'undefined' || !collapsedHud) return;
+  const rect = collapsedHud.getBoundingClientRect();
+  if (!rect || rect.width === 0 || rect.height === 0) return;
+  const { top, left } = clampCollapsedHudPosition(collapsedHud, rect.top, rect.left);
+  const topChanged = !Number.isFinite(collapsedHudOffset.top) || Math.round(collapsedHudOffset.top) !== top;
+  const leftChanged = !Number.isFinite(collapsedHudOffset.left) || Math.round(collapsedHudOffset.left) !== left;
+  if (!topChanged && !leftChanged) return;
+  collapsedHudOffset.top = top;
+  collapsedHudOffset.left = left;
+  collapsedHudOffset.right = null;
+  applyCollapsedHudPosition({ skipEnsure: true });
+  saveCollapsedHudPosition();
+}
+
+function handleCollapsedHudResize() {
+  if (typeof document === 'undefined') return;
+  const collapsedHud = document.getElementById('collapsed-hud');
+  if (!collapsedHud) return;
+  applyCollapsedHudPosition({ skipEnsure: true });
+  if (!document.body?.classList.contains('topbar-collapsed')) return;
+  if (collapsedHud.offsetWidth === 0 || collapsedHud.offsetHeight === 0) return;
+  ensureCollapsedHudWithinViewport(collapsedHud);
+}
+
+function initCollapsedHudInteractions() {
+  if (typeof document === 'undefined') return;
+  const collapsedHud = document.getElementById('collapsed-hud');
+  if (!collapsedHud || collapsedHud.__pairleroyDragBound) return;
+  collapsedHud.__pairleroyDragBound = true;
+  collapsedHud.addEventListener('pointerdown', onCollapsedHudPointerDown);
+  collapsedHud.addEventListener('pointermove', onCollapsedHudPointerMove);
+  collapsedHud.addEventListener('pointerup', onCollapsedHudPointerUp);
+  collapsedHud.addEventListener('pointercancel', onCollapsedHudPointerCancel);
+  collapsedHud.addEventListener('lostpointercapture', onCollapsedHudPointerLost);
+  applyCollapsedHudPosition({ skipEnsure: true });
+}
+
+function onCollapsedHudPointerDown(event) {
+  if (!event || event.button !== 0) return;
+  const collapsedHud = event.currentTarget;
+  if (!collapsedHud || !document.body?.classList.contains('topbar-collapsed')) return;
+  const rect = collapsedHud.getBoundingClientRect();
+  collapsedHudDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originTop: Number.isFinite(collapsedHudOffset.top) ? collapsedHudOffset.top : rect.top,
+    originLeft: Number.isFinite(collapsedHudOffset.left) ? collapsedHudOffset.left : rect.left,
+    minDistance: 4,
+    dragging: false,
+  };
+}
+
+function onCollapsedHudPointerMove(event) {
+  if (!collapsedHudDragState || event.pointerId !== collapsedHudDragState.pointerId) return;
+  const collapsedHud = event.currentTarget;
+  if (!collapsedHud) return;
+  const dx = event.clientX - collapsedHudDragState.startX;
+  const dy = event.clientY - collapsedHudDragState.startY;
+  if (!collapsedHudDragState.dragging) {
+    if (Math.abs(dx) + Math.abs(dy) < collapsedHudDragState.minDistance) return;
+    collapsedHudDragState.dragging = true;
+    try {
+      collapsedHud.setPointerCapture(event.pointerId);
+    } catch (_) {}
+    collapsedHud.classList.add('collapsed-hud--dragging');
+  }
+  const proposedTop = collapsedHudDragState.originTop + dy;
+  const proposedLeft = collapsedHudDragState.originLeft + dx;
+  const { top, left } = clampCollapsedHudPosition(collapsedHud, proposedTop, proposedLeft);
+  collapsedHudOffset.top = top;
+  collapsedHudOffset.left = left;
+  collapsedHudOffset.right = null;
+  applyCollapsedHudPosition({ skipEnsure: true });
+  event.preventDefault();
+}
+
+function onCollapsedHudPointerUp(event) {
+  if (!collapsedHudDragState || event.pointerId !== collapsedHudDragState.pointerId) return;
+  const wasDragging = collapsedHudDragState.dragging;
+  finishCollapsedHudDrag({ cancel: false });
+  if (wasDragging) event.preventDefault();
+}
+
+function onCollapsedHudPointerCancel(event) {
+  if (!collapsedHudDragState || event.pointerId !== collapsedHudDragState.pointerId) return;
+  finishCollapsedHudDrag({ cancel: true });
+}
+
+function onCollapsedHudPointerLost() {
+  finishCollapsedHudDrag({ cancel: true });
+}
+
+function finishCollapsedHudDrag({ cancel = false } = {}) {
+  if (!collapsedHudDragState) return false;
+  const collapsedHud = document.getElementById('collapsed-hud');
+  const { pointerId, dragging } = collapsedHudDragState;
+  if (collapsedHud && pointerId != null) {
+    try {
+      if (collapsedHud.hasPointerCapture?.(pointerId)) {
+        collapsedHud.releasePointerCapture(pointerId);
+      }
+    } catch (_) {}
+    collapsedHud.classList.remove('collapsed-hud--dragging');
+  }
+  collapsedHudDragState = null;
+  if (!cancel && dragging) {
+    saveCollapsedHudPosition();
+    return true;
+  }
+  return dragging;
+}
+
+if (typeof window !== 'undefined') {
+  loadCollapsedHudPosition();
+  window.addEventListener('resize', handleCollapsedHudResize, { passive: true });
+}
 
 function ensureTopbarControls() {
   if (topbarElements) return topbarElements;
@@ -1629,7 +1815,60 @@ function setTopbarCollapsed(collapsed) {
     toggle.setAttribute('aria-label', topbarCollapsed
       ? 'Deplier la barre superieure'
       : 'Replier la barre superieure');
-    toggle.textContent = topbarCollapsed ? '▼' : '▲';
+    toggle.textContent = topbarCollapsed ? 'â–¼' : 'â–²';
+  }
+  applyCollapsedHudPosition();
+  const collapsedHud = document.getElementById('collapsed-hud');
+  if (collapsedHud) collapsedHud.setAttribute('aria-hidden', topbarCollapsed ? 'false' : 'true');
+  renderGameHud();
+}
+
+function setMarketDetailsCollapsed(collapsed) {
+  const nextState = Boolean(collapsed);
+  if (marketDetailsCollapsed === nextState) return;
+  const prevRect = getMarketBounds();
+  marketDetailsCollapsed = nextState;
+  if (typeof document !== 'undefined') {
+    document.body?.classList.toggle('market-details-collapsed', marketDetailsCollapsed);
+  }
+  if (marketDetailsCollapsed) {
+    resetHoveredMarketSlot(true);
+    marketRectSnapshot = null;
+    marketPointerInside = false;
+  }
+  applyMarketDetailsVisibility();
+  if (!marketDetailsCollapsed) {
+    if (prevRect) marketRectSnapshot = prevRect;
+    requestAnimationFrame(() => {
+      if (lastPointerPosition) {
+        updatePointerState(lastPointerPosition.x, lastPointerPosition.y);
+      }
+    });
+  }
+}
+
+function updatePointerState(clientX, clientY) {
+  if (palettePointerInside) return;
+  if (marketDetailsSuppressed) setMarketDetailsSuppressed(false);
+  if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
+  lastPointerPosition = { x: clientX, y: clientY };
+  const rect = getMarketBounds();
+  if (!rect) return;
+  const insideCurrent = isPointWithinRect(rect, clientX, clientY);
+  let inside = insideCurrent;
+  if (!inside && marketRectSnapshot) {
+    inside = isPointWithinRectWithPadding(marketRectSnapshot, clientX, clientY, MARKET_EXIT_GRACE_PX);
+  }
+  if (inside) {
+    if (insideCurrent) marketRectSnapshot = rect;
+    if (!marketPointerInside) marketPointerInside = true;
+    if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
+    if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
+  } else {
+    marketPointerInside = false;
+    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+      setMarketDetailsCollapsed(true);
+    }
   }
 }
 
@@ -1660,53 +1899,6 @@ function initTopbarControls() {
   }
   setTopbarCollapsed(topbarCollapsed);
   updateTopbarQuickActions();
-}
-
-function setMarketDetailsCollapsed(collapsed) {
-  const nextState = Boolean(collapsed);
-  if (marketDetailsCollapsed === nextState) return;
-  const prevRect = getMarketBounds();
-  marketDetailsCollapsed = nextState;
-  if (typeof document !== 'undefined') {
-    document.body?.classList.toggle('market-details-collapsed', marketDetailsCollapsed);
-  }
-  if (marketDetailsCollapsed) {
-    resetHoveredMarketSlot(true);
-    marketRectSnapshot = null;
-    marketPointerInside = false;
-  }
-  applyMarketDetailsVisibility();
-  if (!marketDetailsCollapsed) {
-    if (prevRect) marketRectSnapshot = prevRect;
-    requestAnimationFrame(() => {
-      if (lastPointerPosition) {
-        updatePointerState(lastPointerPosition.x, lastPointerPosition.y);
-      }
-    });
-  }
-}
-
-function updatePointerState(clientX, clientY) {
-  if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
-  lastPointerPosition = { x: clientX, y: clientY };
-  const rect = getMarketBounds();
-  if (!rect) return;
-  const insideCurrent = isPointWithinRect(rect, clientX, clientY);
-  let inside = insideCurrent;
-  if (!inside && marketRectSnapshot) {
-    inside = isPointWithinRectWithPadding(marketRectSnapshot, clientX, clientY, MARKET_EXIT_GRACE_PX);
-  }
-  if (inside) {
-    if (insideCurrent) marketRectSnapshot = rect;
-    if (!marketPointerInside) marketPointerInside = true;
-    if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
-    if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
-  } else {
-    marketPointerInside = false;
-    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
-      setMarketDetailsCollapsed(true);
-    }
-  }
 }
 
 const amenagementColorByKey = new Map();
@@ -1971,7 +2163,7 @@ function ensureSettingsPanel() {
   closeBtn.type = 'button';
   closeBtn.className = 'settings-panel__close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = '×';
+  closeBtn.textContent = 'Ã—';
   header.appendChild(title);
   header.appendChild(closeBtn);
 
@@ -2191,15 +2383,24 @@ function handleSettingsKeyUp(event) {
   }
 }
 
+function bindEndTurnButton(button) {
+  if (!button || button.__pairleroyBound) return;
+  button.__pairleroyBound = true;
+  button.addEventListener('click', () => endCurrentTurn({ reason: 'manual' }));
+}
+
 function ensureHudElements() {
   if (!hudElements.scoreboard) hudElements.scoreboard = document.getElementById('scoreboard');
+  if (!hudElements.collapsedScoreboard) {
+    hudElements.collapsedScoreboard = document.getElementById('collapsed-scoreboard');
+  }
   if (!hudElements.turnIndicator) hudElements.turnIndicator = document.getElementById('turn-indicator');
   if (!hudElements.endTurnButton) hudElements.endTurnButton = document.getElementById('end-turn');
-  const { endTurnButton } = hudElements;
-  if (endTurnButton && !endTurnButton.__pairleroyBound) {
-    endTurnButton.__pairleroyBound = true;
-    endTurnButton.addEventListener('click', () => endCurrentTurn({ reason: 'manual' }));
+  if (!hudElements.collapsedEndTurnButton) {
+    hudElements.collapsedEndTurnButton = document.getElementById('collapsed-end-turn');
   }
+  bindEndTurnButton(hudElements.endTurnButton);
+  bindEndTurnButton(hudElements.collapsedEndTurnButton);
 }
 
 function awardPoints(player, delta, source = 'generic') {
@@ -2789,39 +2990,43 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
   debugLog('endCurrentTurn', { reason, activePlayer: turnState.activePlayer, turn: turnState.turnNumber });
 }
 
+function renderScoreboard(target) {
+  if (!target) return;
+  target.innerHTML = '';
+  PLAYER_IDS.forEach((player) => {
+    const idx = playerIndex(player);
+    const scoreValue = playerScores[idx] || 0;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'scorecard';
+    card.dataset.player = String(player);
+    const isActive = player === turnState.activePlayer;
+    const labelText = `Joueur ${player} - ${scoreValue} points${isActive ? ' (actif)' : ''}`;
+    card.title = labelText;
+    card.setAttribute('aria-label', labelText);
+    card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    card.classList.toggle('scorecard--active', isActive);
+    card.addEventListener('click', () => {
+      if (player !== turnState.activePlayer) setActivePlayer(player);
+    });
+
+    const crestSvg = createScorecardIcon(player);
+    card.appendChild(crestSvg);
+
+    const scoreNode = document.createElement('span');
+    scoreNode.className = 'scorecard-score';
+    scoreNode.textContent = String(scoreValue);
+    card.appendChild(scoreNode);
+
+    target.appendChild(card);
+  });
+}
+
 function renderGameHud() {
   ensureHudElements();
-  const { scoreboard, turnIndicator } = hudElements;
-  if (scoreboard) {
-    scoreboard.innerHTML = '';
-    PLAYER_IDS.forEach((player) => {
-      const idx = playerIndex(player);
-      const scoreValue = playerScores[idx] || 0;
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'scorecard';
-      card.dataset.player = String(player);
-      const isActive = player === turnState.activePlayer;
-      const labelText = `Joueur ${player} - ${scoreValue} points${isActive ? ' (actif)' : ''}`;
-      card.title = labelText;
-      card.setAttribute('aria-label', labelText);
-      card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      card.classList.toggle('scorecard--active', isActive);
-      card.addEventListener('click', () => {
-        if (player !== turnState.activePlayer) setActivePlayer(player);
-      });
-
-      const crestSvg = createScorecardIcon(player);
-      card.appendChild(crestSvg);
-
-      const scoreNode = document.createElement('span');
-      scoreNode.className = 'scorecard-score';
-      scoreNode.textContent = String(scoreValue);
-      card.appendChild(scoreNode);
-
-      scoreboard.appendChild(card);
-    });
-  }
+  const { scoreboard, collapsedScoreboard, turnIndicator } = hudElements;
+  renderScoreboard(scoreboard);
+  renderScoreboard(collapsedScoreboard);
   if (turnIndicator) {
     turnIndicator.textContent = `Tour ${turnState.turnNumber} - Joueur ${turnState.activePlayer}`;
   }
@@ -3051,6 +3256,9 @@ function setHoveredMarketSlot(slotIdx, element = null, options = {}) {
   if (marketDetailsCollapsed && (viaPointer || slotIdx != null)) {
     setMarketDetailsCollapsed(false);
   }
+  if (viaPointer) {
+    marketRectSnapshot = getMarketBounds();
+  }
   hoveredMarketSlot = slotIdx;
   applyMarketCardActiveClass(element);
   updateMarketDetailPanel(slotIdx);
@@ -3262,7 +3470,7 @@ function generateAndRender() {
 
   const cfg = readConfig();
   assert100(cfg.typesPct, 'Types de tuiles');
-  assert100(cfg.colorPct, 'Répartition des couleurs');
+  assert100(cfg.colorPct, 'RÃ©partition des couleurs');
   const colors = cfg.colors.slice();
   const typesPct = cfg.typesPct.slice();
   const colorPct = cfg.colorPct.slice();
@@ -4747,7 +4955,7 @@ function ensureStatsModal() {
   closeBtn.type = 'button';
   closeBtn.className = 'stats-modal-close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = '×';
+  closeBtn.textContent = 'Ã—';
   header.appendChild(title);
   header.appendChild(closeBtn);
   const body = document.createElement('div');
@@ -4760,6 +4968,8 @@ function ensureStatsModal() {
 
   header.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
+    const target = event.target;
+    if (target && typeof target.closest === 'function' && target.closest('.stats-modal-close')) return;
     event.preventDefault();
     const rect = modal.getBoundingClientRect();
     statsDragState = {
@@ -4856,12 +5066,12 @@ function refreshStatsModal() {
     .join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">Général</div>
+    <div class="stats-section-title">GÃ©nÃ©ral</div>
     <div class="stats-grid">
-      <div>Tuiles posées</div><div>${placed}</div>
+      <div>Tuiles posÃ©es</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
     </div>
-    <div class="stats-section-title">Répartition</div>
+    <div class="stats-section-title">RÃ©partition</div>
     <div class="stats-grid">
       <div>Mono</div><div>${counts[1] ?? 0}</div>
       <div>Bi</div><div>${counts[2] ?? 0}</div>
@@ -4910,6 +5120,7 @@ function handleStatsKeyUp(event) {
 
 function bindUI() {
   initTopbarControls();
+  initCollapsedHudInteractions();
   ensureMarketDetailElements();
   showMarketDetailsPlaceholder();
   setMarketDetailsCollapsed(true);
@@ -5065,3 +5276,123 @@ window.addEventListener('DOMContentLoaded', () => {
   generateAndRender();
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function isPointInsideMarketRegion(clientX, clientY) {
+  const rect = getMarketBounds();
+  if (!rect) return null;
+  return isPointWithinRect(rect, clientX, clientY);
+}
+
+function ensureMarketRegionMonitor() {
+  if (typeof document === 'undefined' || marketRegionMonitorBound) return;
+  const paletteRoot = document.getElementById('palette');
+  const isEventInsidePalette = (event) => {
+    if (!paletteRoot || !event) return false;
+    const targetNode = event.target;
+    if (targetNode && typeof targetNode.closest === 'function') {
+      const closestPalette = targetNode.closest('#palette');
+      if (closestPalette) return true;
+    }
+    if (paletteRoot && targetNode && typeof paletteRoot.contains === 'function') {
+      if (paletteRoot === targetNode || paletteRoot.contains(targetNode)) return true;
+    }
+    if (typeof event.composedPath === 'function') {
+      const path = event.composedPath();
+      if (Array.isArray(path)) {
+        return path.includes(paletteRoot);
+      }
+    }
+    return false;
+  };
+  const isPointInsidePaletteRect = (x, y) => {
+    if (!paletteRoot || typeof x !== 'number' || typeof y !== 'number') return false;
+    if (typeof paletteRoot.getBoundingClientRect !== 'function') return false;
+    const rect = paletteRoot.getBoundingClientRect();
+    if (!rect) return false;
+    return isPointWithinRect(rect, x, y);
+  };
+  const handlePointer = (event) => {
+    if (!event || (typeof event.clientX !== 'number') || (typeof event.clientY !== 'number')) return;
+    const insidePalette = isEventInsidePalette(event) || isPointInsidePaletteRect(event.clientX, event.clientY);
+    if (insidePalette) {
+      if (!palettePointerInside) {
+        palettePointerInside = true;
+        marketPointerInside = false;
+        marketRectSnapshot = null;
+        resetHoveredMarketSlot(true);
+        setMarketDetailsSuppressed(true);
+        if (!marketDetailsCollapsed) setMarketDetailsCollapsed(true);
+      }
+      lastPointerPosition = { x: event.clientX, y: event.clientY };
+      return;
+    }
+    if (palettePointerInside) {
+      palettePointerInside = false;
+      setMarketDetailsSuppressed(false);
+    }
+    updatePointerState(event.clientX, event.clientY);
+  };
+  document.addEventListener('pointermove', handlePointer, true);
+  document.addEventListener('pointerdown', handlePointer, true);
+  if (paletteRoot && !paletteRoot.__pairleroyMarketMonitor) {
+    const handlePaletteEnter = (event) => {
+      if (palettePointerInside) return;
+      palettePointerInside = true;
+      if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+        lastPointerPosition = { x: event.clientX, y: event.clientY };
+      }
+      marketPointerInside = false;
+      marketRectSnapshot = null;
+      setMarketDetailsSuppressed(true);
+      if (!marketDetailsCollapsed) {
+        resetHoveredMarketSlot(true);
+        setMarketDetailsCollapsed(true);
+      }
+    };
+    const handlePaletteLeave = (event) => {
+      const nextTarget = event?.relatedTarget;
+      if (nextTarget && paletteRoot.contains && paletteRoot.contains(nextTarget)) return;
+      if (!palettePointerInside) return;
+      palettePointerInside = false;
+      setMarketDetailsSuppressed(false);
+      if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+        updatePointerState(event.clientX, event.clientY);
+      }
+    };
+    paletteRoot.addEventListener('pointerover', handlePaletteEnter);
+    paletteRoot.addEventListener('pointerout', handlePaletteLeave);
+    paletteRoot.addEventListener('mouseleave', handlePaletteLeave);
+    paletteRoot.__pairleroyMarketMonitor = true;
+  }
+  window.addEventListener('blur', () => {
+    marketPointerInside = false;
+    marketRectSnapshot = null;
+    lastPointerPosition = null;
+    palettePointerInside = false;
+    setMarketDetailsSuppressed(false);
+    resetHoveredMarketSlot(true);
+    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+      setMarketDetailsCollapsed(true);
+    }
+  });
+  marketRegionMonitorBound = true;
+}
