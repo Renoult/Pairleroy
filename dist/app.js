@@ -1,4 +1,4 @@
-﻿// ----- src/js/core.js -----
+// ----- src/js/core.js -----
 // Fichier: src/js/core.js
 // Description: Fonctions purement logiques (maths hexagonaux, quotas, RNG, combos).
 
@@ -286,22 +286,22 @@ function quotasHamiltonCap(total, weights, caps) {
     base[i] += take;
     rem -= take;
   }
-  if (rem !== 0) throw new Error('RÃ©partition impossible (caps)');
+  if (rem !== 0) throw new Error('Répartition impossible (caps)');
   return base;
 }
 
 /**
  * Assigne des combinaisons de couleurs aux tuiles selon les quotas Hamilton
  * 
- * Algorithme de rÃ©partition en 3 phases :
- * 1. Monochromatiques (3 unitÃ©s par tuile) - prioritÃ© haute
- * 2. Bicolores majeures (2+1 unitÃ©s par tuile) - prioritÃ© moyenne  
- * 3. RÃ©partition des unitÃ©s restantes entre bicolores mineures et tricolores
+ * Algorithme de répartition en 3 phases :
+ * 1. Monochromatiques (3 unités par tuile) - priorité haute
+ * 2. Bicolores majeures (2+1 unités par tuile) - priorité moyenne  
+ * 3. Répartition des unités restantes entre bicolores mineures et tricolores
  * 
  * @param {number[]} types - Types de tuiles (1=mono, 2=bi, 3=tri)
- * @param {number[]} colorUnitTargets - Quotas d'unitÃ©s par couleur (somme = 3N)
- * @param {function} rng - GÃ©nÃ©rateur de nombres alÃ©atoires
- * @returns {Array} Combinaisons assignÃ©es aux tuiles
+ * @param {number[]} colorUnitTargets - Quotas d'unités par couleur (somme = 3N)
+ * @param {function} rng - Générateur de nombres aléatoires
+ * @returns {Array} Combinaisons assignées aux tuiles
  */
 function assignTileCombos(types, colorUnitTargets, rng) {
   // Phase 0: Compter les types de tuiles
@@ -310,31 +310,31 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const biTileCount = types.filter((k) => k === 2).length;
   const triTileCount = types.filter((k) => k === 3).length;
   
-  // Variable de travail pour les unitÃ©s de couleurs restantes
+  // Variable de travail pour les unités de couleurs restantes
   const colorUnitTargetsRemaining = colorUnitTargets.slice(); // sum = 3N
   
-  // Phase 1: Attribuer les monochromatiques (3 unitÃ©s par tuile)
-  // Calcul des limites supÃ©rieures basÃ©es sur les unitÃ©s disponibles
+  // Phase 1: Attribuer les monochromatiques (3 unités par tuile)
+  // Calcul des limites supérieures basées sur les unités disponibles
   const monoCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 3));
-  // RÃ©partition selon la mÃ©thode Hamilton avec contraintes
+  // Répartition selon la méthode Hamilton avec contraintes
   const monoComboCount = quotasHamiltonCap(monoTileCount, colorUnitTargetsRemaining, monoCap);
-  // DÃ©duire les unitÃ©s utilisÃ©es pour les monochromatiques
+  // Déduire les unités utilisées pour les monochromatiques
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 3 * monoComboCount[i];
   
-  // Phase 2: Attribuer les bicolores majeures (2+1 unitÃ©s par tuile)
+  // Phase 2: Attribuer les bicolores majeures (2+1 unités par tuile)
   const biCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 2));
   const biMajorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, biCap);
-  // DÃ©duire les unitÃ©s utilisÃ©es pour les bicolores majeures
+  // Déduire les unités utilisées pour les bicolores majeures
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 2 * biMajorComboCount[i];
   
-  // Phase 3: RÃ©partir les unitÃ©s restantes entre bicolores mineures et tricolores
+  // Phase 3: Répartir les unités restantes entre bicolores mineures et tricolores
   const totalRem = colorUnitTargetsRemaining.reduce((a, b) => a + b, 0);
-  // VÃ©rification: unitÃ©s restantes = B tuiles bi + 3*T tuiles tri
-  if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('IncohÃ©rence unitÃ©s restantes');
+  // Vérification: unités restantes = B tuiles bi + 3*T tuiles tri
+  if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('Incohérence unités restantes');
   
-  // RÃ©partir d'abord les bicolores mineures (1+2 unitÃ©s par tuile)
+  // Répartir d'abord les bicolores mineures (1+2 unités par tuile)
   const biMinorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, colorUnitTargetsRemaining);
-  // Les unitÃ©s tricolores sont le reste aprÃ¨s les bicolores mineures
+  // Les unités tricolores sont le reste après les bicolores mineures
   const triComboCount = colorUnitTargetsRemaining.map((v, i) => v - biMinorComboCount[i]);
   
   // Ajustement pour assurer au moins 3 couleurs disponibles pour les tricolores
@@ -346,7 +346,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
       }
     }
   }
-  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) throw new Error('Tri nÃ©cessite au moins 3 couleurs');
+  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) throw new Error('Tri nécessite au moins 3 couleurs');
 
   const monos = [];
   for (let c = 0; c < 4; c++) for (let k = 0; k < monoComboCount[c]; k++) monos.push(c);
@@ -374,7 +374,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   }
 
   const triTriples = buildTriTriples(triUnits);
-  if (!triTriples) throw new Error('RÃ©partition tri impossible');
+  if (!triTriples) throw new Error('Répartition tri impossible');
 
   const combos = new Array(N);
   const idxByType = { 1: [], 2: [], 3: [] };
@@ -405,7 +405,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
 
 // ----- src/js/palette.js -----
 // Fichier: src/js/palette.js
-// Description: Fonctions liÃ©es Ã  la palette de tuiles (sÃ©lection, rotation, rendu miniatures).
+// Description: Fonctions liées à la palette de tuiles (sélection, rotation, rendu miniatures).
 
 
 function colorFromIndex(colorIdx, colors) {
@@ -586,7 +586,7 @@ function createPalette(typesPct, colorPct, rng) {
 
 // ----- src/js/render.js -----
 // Fichier: src/js/render.js
-// Description: Fonctions DOM/SVG liÃ©es Ã  l'affichage de la grille et des palettes.
+// Description: Fonctions DOM/SVG liées à l'affichage de la grille et des palettes.
 
 
 const PLAYER_SHAPES = {
@@ -637,7 +637,7 @@ const PLAYER_SHAPES = {
     },
   },
   4: {
-    name: 'carrÃ©',
+    name: 'carré',
     draw: (g, cx, cy, r) => {
       const s = r * 1.55;
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1019,7 +1019,7 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
 
 // ----- src/js/market.js -----
 // Fichier: src/js/market.js
-// Description: DÃ©finitions de base pour les bÃ¢timents et contrats du marchÃ© central.
+// Description: Définitions de base pour les bâtiments et contrats du marché central.
 
 const MARKET_SLOT_COUNT = 16;
 
@@ -1044,17 +1044,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, points: 4 },
     reward: { points: 3, crowns: 1 },
     tags: ['production', 'wood'],
-    description: 'RÃ©duit de 1 le coÃ»t en bois des futurs bÃ¢timents.',
+    description: 'Réduit de 1 le coût en bois des futurs bâtiments.',
   },
   {
     id: 'building-bakery',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Boulangerie du ChÃ¢teau',
+    name: 'Boulangerie du Château',
     icon: 'building-bakery',
     cost: { [RESOURCE_TYPES.BREAD]: 3, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 5 },
     tags: ['production', 'bread'],
-    description: 'Ã€ chaque fin de tour, gagnez 1 pain si vous contrÃ´lez un amÃ©nagement adjacent.',
+    description: 'À chaque fin de tour, gagnez 1 pain si vous contrôlez un aménagement adjacent.',
   },
   {
     id: 'building-weaver',
@@ -1064,17 +1064,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 6, crowns: 1 },
     tags: ['fabric', 'craft'],
-    description: 'Accorde +2 points par contrat textile Ã  la fin de la partie.',
+    description: 'Accorde +2 points par contrat textile à la fin de la partie.',
   },
   {
     id: 'building-garrison',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Garnison FrontaliÃ¨re',
+    name: 'Garnison Frontalière',
     icon: 'building-garrison',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, points: 6 },
     reward: { points: 8 },
     tags: ['military'],
-    description: 'Permet un dÃ©ploiement gratuit dâ€™un colon Ã  portÃ©e 2 dÃ¨s lâ€™achat.',
+    description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
   },
   {
     id: 'building-harvest-hall',
@@ -1124,7 +1124,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 5 },
     reward: { points: 7, crowns: 1 },
     tags: ['science'],
-    description: 'RÃ©vÃ¨le deux tuiles du sachet supplÃ©mentaire Ã  chaque prÃ©paration de tour.',
+    description: 'Révèle deux tuiles du sachet supplémentaire à chaque préparation de tour.',
   },
   {
     id: 'building-harbor',
@@ -1134,17 +1134,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.BREAD]: 1, points: 3 },
     reward: { points: 6, influence: 1 },
     tags: ['trade', 'water'],
-    description: 'Autorise un Ã©change bois â†” tissu par tour sans coÃ»t additionnel.',
+    description: 'Autorise un échange bois ↔ tissu par tour sans coût additionnel.',
   },
   {
     id: 'building-guildhall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'HÃ´tel de Guilde',
+    name: 'Hôtel de Guilde',
     icon: 'building-guildhall',
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 1, points: 4 },
     reward: { points: 7, crowns: 1 },
     tags: ['guild'],
-    description: 'Chaque contrat accompli rapporte 1 point supplÃ©mentaire.',
+    description: 'Chaque contrat accompli rapporte 1 point supplémentaire.',
   },
   {
     id: 'building-granary',
@@ -1154,7 +1154,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.WOOD]: 1 },
     reward: { points: 4, stock: { [RESOURCE_TYPES.BREAD]: 2 } },
     tags: ['storage'],
-    description: 'Augmente votre rÃ©serve maximale de pain de 2 unitÃ©s.',
+    description: 'Augmente votre réserve maximale de pain de 2 unités.',
   },
   {
     id: 'building-expedition-hall',
@@ -1277,25 +1277,25 @@ function seedMarketSlotsFromDeck(state) {
 
 // ----- src/js/utils.js -----
 // Fichier: src/js/utils.js
-// Description: Fonctions utilitaires pour la crÃ©ation et manipulation d'Ã©lÃ©ments SVG
+// Description: Fonctions utilitaires pour la création et manipulation d'éléments SVG
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ORIENTED_INDEX_FOR_TRIANGLE = [4, 5, 0, 1, 2, 3];
 
 /**
- * CrÃ©e un Ã©lÃ©ment SVG avec le namespace appropriÃ©
+ * Crée un élément SVG avec le namespace approprié
  * @param {string} tagName - Nom de la balise SVG
- * @returns {Element} Ã‰lÃ©ment SVG crÃ©Ã©
+ * @returns {Element} Élément SVG créé
  */
 function createSVGElement(tagName) {
   return document.createElementNS(SVG_NS, tagName);
 }
 
 /**
- * CrÃ©e un path pour un triangle formÃ© par le centre et deux points
+ * Crée un path pour un triangle formé par le centre et deux points
  * @param {{x: number, y: number}} center - Point central
  * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - DeuxiÃ¨me point
+ * @param {{x: number, y: number}} b - Deuxième point
  * @returns {string} Path SVG du triangle
  */
 function createTrianglePath(center, a, b) {
@@ -1303,23 +1303,23 @@ function createTrianglePath(center, a, b) {
 }
 
 /**
- * CrÃ©e un path pour un outline hexagonal arrondi
- * @param {number} x - CoordonnÃ©e x du centre
- * @param {number} y - CoordonnÃ©e y du centre
+ * Crée un path pour un outline hexagonal arrondi
+ * @param {number} x - Coordonnée x du centre
+ * @param {number} y - Coordonnée y du centre
  * @param {number} radius - Rayon de l'hexagone
- * @param {number} cornerRadius - Rayon d'arrondi (dÃ©faut: 0.18)
+ * @param {number} cornerRadius - Rayon d'arrondi (défaut: 0.18)
  * @returns {string} Path SVG de l'hexagone arrondi
  */
 function createHexOutlinePath(x, y, radius, cornerRadius = 0.18) {
-  // DÃ©lÃ¨gue Ã  la fonction roundedHexPathAt de core.js
+  // Délègue à la fonction roundedHexPathAt de core.js
   return roundedHexPathAt(x, y, radius, cornerRadius);
 }
 
 /**
- * CrÃ©e un Ã©lÃ©ment SVG avec des attributs
+ * Crée un élément SVG avec des attributs
  * @param {string} tagName - Nom de la balise SVG
- * @param {Object} attributes - Attributs Ã  dÃ©finir
- * @returns {Element} Ã‰lÃ©ment SVG crÃ©Ã© avec attributs
+ * @param {Object} attributes - Attributs à définir
+ * @returns {Element} Élément SVG créé avec attributs
  */
 function createSVGElementWithAttributes(tagName, attributes = {}) {
   const element = createSVGElement(tagName);
@@ -1330,12 +1330,12 @@ function createSVGElementWithAttributes(tagName, attributes = {}) {
 }
 
 /**
- * CrÃ©e un path de triangle SVG avec un centre et deux points
+ * Crée un path de triangle SVG avec un centre et deux points
  * @param {{x: number, y: number}} center - Point central
  * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - DeuxiÃ¨me point
- * @param {Object} attributes - Attributs supplÃ©mentaires
- * @returns {Element} Ã‰lÃ©ment path SVG
+ * @param {{x: number, y: number}} b - Deuxième point
+ * @param {Object} attributes - Attributs supplémentaires
+ * @returns {Element} Élément path SVG
  */
 function createTrianglePathElement(center, a, b, attributes = {}) {
   const path = createSVGElement('path');
@@ -1347,12 +1347,12 @@ function createTrianglePathElement(center, a, b, attributes = {}) {
 }
 
 /**
- * CrÃ©e un outline hexagonal SVG
- * @param {number} x - CoordonnÃ©e x du centre
- * @param {number} y - CoordonnÃ©e y du centre
+ * Crée un outline hexagonal SVG
+ * @param {number} x - Coordonnée x du centre
+ * @param {number} y - Coordonnée y du centre
  * @param {number} radius - Rayon de l'hexagone
- * @param {Object} attributes - Attributs supplÃ©mentaires
- * @returns {Element} Ã‰lÃ©ment path SVG
+ * @param {Object} attributes - Attributs supplémentaires
+ * @returns {Element} Élément path SVG
  */
 function createHexOutlineElement(x, y, radius, attributes = {}) {
   const path = createSVGElement('path');
@@ -1365,7 +1365,7 @@ function createHexOutlineElement(x, y, radius, attributes = {}) {
 
 // ----- src/js/main.js -----
 // Fichier: src/js/main.js
-// Description: Orchestration de l'application (lecture config, gÃƒÂ©nÃƒÂ©ration de la grille, interactions UI).
+// Description: Orchestration de l'application (lecture config, gÃ©nÃ©ration de la grille, interactions UI).
 
 
 const tiles = generateAxialGrid(RADIUS);
@@ -1409,7 +1409,7 @@ const RESOURCE_LABELS = {
   [RESOURCE_TYPES.WOOD]: 'Bois',
   [RESOURCE_TYPES.BREAD]: 'Pain',
   [RESOURCE_TYPES.FABRIC]: 'Tissu',
-  [RESOURCE_TYPES.LABOR]: 'Main-dÃ¢â‚¬â„¢Ã…â€œuvre',
+  [RESOURCE_TYPES.LABOR]: 'Main-dâ€™Å“uvre',
 };
 
 const RESOURCE_ORDER = [
@@ -1511,6 +1511,7 @@ const turnState = {
 
 let marketState = createInitialMarketState();
 let hoveredMarketSlot = null;
+let lockedMarketSlot = null;
 const influenceMap = new Map();
 
 const hudElements = {
@@ -1632,7 +1633,7 @@ function saveCollapsedHudPosition() {
     }
     window.localStorage.setItem(COLLAPSED_HUD_STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
-    console.warn('Impossible dâ€™enregistrer la position du HUD compact', error);
+    console.warn("Impossible d'enregistrer la position du HUD compact", error);
   }
 }
 
@@ -1866,6 +1867,7 @@ function setPersonalBoardCollapsed(collapsed) {
 function togglePersonalBoardCollapsed() {
   setPersonalBoardCollapsed(!personalBoardCollapsed);
 }
+
 function setMarketDetailsCollapsed(collapsed) {
   const nextState = Boolean(collapsed);
   if (marketDetailsCollapsed === nextState) return;
@@ -1905,15 +1907,11 @@ function updatePointerState(clientX, clientY) {
   if (inside) {
     if (insideCurrent) marketRectSnapshot = rect;
     if (!marketPointerInside) marketPointerInside = true;
-    if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
-    if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
   } else {
     marketPointerInside = false;
     if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
       setMarketDetailsCollapsed(true);
-  ensurePersonalBoardElements();
-  setPersonalBoardCollapsed(personalBoardCollapsed);
-}
+    }
   }
 }
 
@@ -2212,7 +2210,7 @@ function ensureSettingsPanel() {
   closeBtn.type = 'button';
   closeBtn.className = 'settings-panel__close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ãƒâ€”';
+  closeBtn.textContent = 'Ã—';
   header.appendChild(title);
   header.appendChild(closeBtn);
 
@@ -2661,14 +2659,14 @@ function renderPersonalBoard() {
 
   container.dataset.player = String(activePlayer);
 
-  if (elements.playerLabel) elements.playerLabel.textContent = 'Joueur ' + activePlayer;
-  if (elements.subtitle) elements.subtitle.textContent = 'Tour ' + turnState.turnNumber;
+  if (elements.playerLabel) elements.playerLabel.textContent = `Joueur ${activePlayer}`;
+  if (elements.subtitle) elements.subtitle.textContent = `Tour ${turnState.turnNumber}`;
 
   if (elements.crest) {
     const crestUrl = PLAYER_CRESTS[activePlayer] || '';
     if (crestUrl) {
       elements.crest.src = crestUrl;
-      elements.crest.alt = 'Blason joueur ' + activePlayer;
+      elements.crest.alt = `Blason joueur ${activePlayer}`;
       elements.crest.hidden = false;
     } else {
       elements.crest.removeAttribute('src');
@@ -2686,7 +2684,7 @@ function renderPersonalBoard() {
   if (elements.amenagementCount) {
     if (amenagementTotal > 0) {
       const suffix = amenagementTotal > 1 ? 's' : '';
-      elements.amenagementCount.textContent = amenagementTotal + ' amenagement' + suffix + ' controles';
+      elements.amenagementCount.textContent = `${amenagementTotal} amenagement${suffix} controles`;
     } else {
       elements.amenagementCount.textContent = 'Aucun amenagement controle';
     }
@@ -2717,7 +2715,7 @@ function renderPersonalBoard() {
         chip.title = colorHex;
         const name = document.createElement('span');
         name.className = 'personal-board__amenagement-name';
-        name.textContent = colorLabelForIndex(colorIdx) || Couleur ;
+        name.textContent = colorLabelForIndex(colorIdx) || `Couleur ${colorIdx + 1}`;
         const countNode = document.createElement('span');
         countNode.className = 'personal-board__amenagement-count';
         countNode.textContent = String(count);
@@ -2741,7 +2739,7 @@ function renderPersonalBoard() {
     if (buildingTotal > 0) {
       const suffix = buildingTotal > 1 ? 's' : '';
       const verb = buildingTotal > 1 ? 'construits' : 'construit';
-      elements.buildingsCount.textContent = buildingTotal + ' batiment' + suffix + ' ' + verb;
+      elements.buildingsCount.textContent = `${buildingTotal} batiment${suffix} ${verb}`;
     } else {
       elements.buildingsCount.textContent = 'Aucun batiment construit';
     }
@@ -2775,6 +2773,7 @@ function renderPersonalBoard() {
     }
   }
 }
+
 function adjustPlayerResourceStock(player, resourceType, delta) {
   if (!isValidPlayer(player) || !resourceType || !Number.isFinite(delta) || delta === 0) return;
   const idx = playerIndex(player);
@@ -3364,8 +3363,6 @@ function renderMarketDisplay() {
     marketLayer.addEventListener('pointerenter', (event) => {
       marketPointerInside = true;
       marketRectSnapshot = getMarketBounds();
-      setMarketDetailsCollapsed(false);
-      if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         updatePointerState(event.clientX, event.clientY);
       }
@@ -3381,11 +3378,6 @@ function renderMarketDisplay() {
   }
   if (cardsLayer && !cardsLayer.__pairleroyHoverBound) {
     cardsLayer.__pairleroyHoverBound = true;
-    const hideDetails = () => {
-      resetHoveredMarketSlot();
-    };
-    cardsLayer.addEventListener('pointerleave', hideDetails);
-    cardsLayer.addEventListener('mouseleave', hideDetails);
   }
   ensureMarketDetailElements();
   cardsLayer.innerHTML = '';
@@ -3395,6 +3387,7 @@ function renderMarketDisplay() {
   const svgNS = 'http://www.w3.org/2000/svg';
 
   cells.forEach((cell, idx) => {
+    const slotElement = cell?.slotElement ?? null;
     const slotState = marketState?.slots?.[idx] ?? null;
     const def = slotState ? getMarketCardDefinition(slotState.id) : null;
     const hasCard = Boolean(def);
@@ -3433,21 +3426,104 @@ function renderMarketDisplay() {
       group.appendChild(reward);
     }
 
+    if (slotElement) {
+      slotElement.__pairleroyCardGroup = group;
+      if (!slotElement.__pairleroyBound) {
+        slotElement.__pairleroyBound = true;
+        const activateSlot = (event, { lockSelection = false } = {}) => {
+          if (event) {
+            if (event.type === 'keydown') {
+              const key = event.key;
+              if (key !== 'Enter' && key !== ' ') return;
+              event.preventDefault();
+            } else {
+              if (typeof event.button === 'number' && event.button !== 0) return;
+              event.preventDefault?.();
+            }
+            event.stopPropagation?.();
+          }
+          const slotIdx = Number(slotElement.dataset.slot ?? idx);
+          const targetGroup = slotElement.__pairleroyCardGroup;
+          if (!Number.isInteger(slotIdx) || slotIdx < 0 || !targetGroup) return;
+          if (lockSelection && lockedMarketSlot === slotIdx && !marketDetailsCollapsed) {
+            lockedMarketSlot = null;
+            setMarketDetailsCollapsed(true);
+            return;
+          }
+          setHoveredMarketSlot(slotIdx, targetGroup, { viaPointer: true, lockSelection });
+        };
+        slotElement.__pairleroyActivateSlot = activateSlot;
+        slotElement.addEventListener('click', (event) => activateSlot(event, { lockSelection: true }));
+        slotElement.addEventListener('pointerup', (event) => {
+          if (event?.pointerType && event.pointerType !== 'mouse') {
+            activateSlot(event, { lockSelection: true });
+          }
+        });
+        slotElement.addEventListener('pointerleave', () => {
+          if (lockedMarketSlot === idx) return;
+          if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+        });
+        slotElement.addEventListener('dblclick', (event) => {
+          event?.preventDefault?.();
+          event?.stopPropagation?.();
+          const slotIdx = Number(slotElement.dataset.slot ?? idx);
+          const targetGroup = slotElement.__pairleroyCardGroup;
+          if (!Number.isInteger(slotIdx) || slotIdx < 0 || !targetGroup) return;
+          setHoveredMarketSlot(slotIdx, targetGroup, { viaPointer: true, lockSelection: true });
+          handleMarketCardPurchase({
+            currentTarget: targetGroup,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          });
+        });
+      }
+    }
+
     if (hasCard) {
-      const pointerActivate = () => setHoveredMarketSlot(idx, group, { viaPointer: true });
-      const focusActivate = () => setHoveredMarketSlot(idx, group);
-      group.addEventListener('pointerenter', pointerActivate);
-      group.addEventListener('mouseenter', pointerActivate);
-      group.addEventListener('focus', focusActivate);
-      group.addEventListener('mouseleave', () => {
+      const leaveCard = () => {
+        if (lockedMarketSlot === idx) return;
         if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
         else group.classList.remove('market-card--active');
+      };
+      const lockCard = (event) => {
+        if (event) {
+          if (event.type === 'keydown') {
+            const key = event.key;
+            if (key !== 'Enter' && key !== ' ') return;
+            event.preventDefault();
+          } else {
+            if (typeof event.button === 'number' && event.button !== 0) return;
+            event.preventDefault?.();
+          }
+          event.stopPropagation?.();
+        }
+        const slotIdx = Number(group.dataset.slot ?? idx);
+        if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
+        if (lockedMarketSlot === slotIdx && !marketDetailsCollapsed) {
+          lockedMarketSlot = null;
+          setMarketDetailsCollapsed(true);
+          return;
+        }
+        setHoveredMarketSlot(slotIdx, group, { viaPointer: true, lockSelection: true });
+      };
+      group.addEventListener('focus', () => {
+        if (lockedMarketSlot != null && lockedMarketSlot !== idx) return;
+        setHoveredMarketSlot(idx, group, { viaPointer: true });
       });
-      group.addEventListener('blur', () => {
-        if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+      group.addEventListener('pointerleave', leaveCard);
+      group.addEventListener('mouseleave', leaveCard);
+      group.addEventListener('blur', leaveCard);
+      group.addEventListener('click', lockCard);
+      group.addEventListener('keydown', lockCard);
+      group.addEventListener('pointerup', (event) => {
+        if (event?.pointerType && event.pointerType !== 'mouse') lockCard(event);
+      });
+      group.addEventListener('dblclick', handleMarketCardPurchase);
+    } else {
+      group.addEventListener('pointerleave', () => {
+        if (hoveredMarketSlot === idx && lockedMarketSlot == null) resetHoveredMarketSlot();
         else group.classList.remove('market-card--active');
       });
-      group.addEventListener('click', handleMarketCardClick);
     }
 
     cardsLayer.appendChild(group);
@@ -3525,7 +3601,7 @@ function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
   return Number.isFinite(distance) ? distance : null;
 }
 
-function handleMarketCardClick(event) {
+function handleMarketCardPurchase(event) {
   const target = event.currentTarget;
   const slotIdx = Number(target?.dataset?.slot ?? -1);
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
@@ -3553,6 +3629,7 @@ function handleMarketCardClick(event) {
   if (Array.isArray(marketState.discardPile)) marketState.discardPile.push(def.id);
   refillMarketSlot(marketState, slotIdx);
   hoveredMarketSlot = null;
+  lockedMarketSlot = null;
   registerContractForPlayer(player, def.id);
   updateMarketDetailPanel(null);
   debugLog('market-claimed', { player, card: def.id, cost, distance });
@@ -3560,21 +3637,58 @@ function handleMarketCardClick(event) {
 
 function setHoveredMarketSlot(slotIdx, element = null, options = {}) {
   if (slotIdx != null && (!Number.isInteger(slotIdx) || slotIdx < 0)) return;
-  const { viaPointer = false } = options;
-  if (marketDetailsCollapsed && (viaPointer || slotIdx != null)) {
-    setMarketDetailsCollapsed(false);
+  const {
+    viaPointer = false,
+    lockSelection = false,
+    allowWhenLocked = false,
+  } = options;
+  if (!viaPointer) return;
+  if (
+    lockedMarketSlot != null
+    && slotIdx != null
+    && slotIdx !== lockedMarketSlot
+    && !lockSelection
+    && !allowWhenLocked
+  ) {
+    return;
   }
-  if (viaPointer) {
-    marketRectSnapshot = getMarketBounds();
+  const detailElements = ensureMarketDetailElements();
+  marketDetailsVisible = true;
+  marketDetailsSuppressed = false;
+  if (typeof document !== 'undefined') {
+    document.body?.classList.remove('market-details-collapsed');
   }
+  if (detailElements?.container) {
+    detailElements.container.hidden = false;
+    detailElements.container.classList.remove('market-details--hidden');
+    detailElements.container.setAttribute('aria-hidden', 'false');
+    detailElements.container.removeAttribute('hidden');
+    detailElements.container.style.removeProperty('display');
+  }
+  setMarketDetailVisibility(true);
+  if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
+  else applyMarketDetailsVisibility();
+  marketPointerInside = true;
+  marketRectSnapshot = getMarketBounds();
   hoveredMarketSlot = slotIdx;
+  if (lockSelection) lockedMarketSlot = slotIdx;
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
   applyMarketCardActiveClass(element);
-  updateMarketDetailPanel(slotIdx);
+  if (def) {
+    updateMarketDetailPanel(slotIdx);
+  } else {
+    showMarketDetailsPlaceholder();
+  }
 }
 
 function resetHoveredMarketSlot(force = false) {
-  if (!force && hoveredMarketSlot == null) return;
+  if (!force) {
+    if (hoveredMarketSlot == null) return;
+    if (lockedMarketSlot != null) return;
+  }
   hoveredMarketSlot = null;
+  if (force) lockedMarketSlot = null;
   applyMarketCardActiveClass(null);
   updateMarketDetailPanel(null);
 }
@@ -3594,10 +3708,10 @@ function showMarketDetailsPlaceholder() {
   setMarketDetailVisibility(true);
   elements.type.textContent = 'Marche';
   elements.slot.textContent = '';
-  elements.name.textContent = 'Survolez une carte';
+  elements.name.textContent = 'Selectionnez une carte';
   elements.cost.textContent = '--';
   elements.reward.textContent = '--';
-  elements.description.textContent = 'Passez la souris sur une carte du marche pour voir son effet.';
+  elements.description.textContent = 'Cliquez sur une carte du marche pour afficher les details et double-cliquez pour l\'acquerir.';
 }
 
 function updateMarketDetailPanel(slotIdx) {
@@ -3778,7 +3892,7 @@ function generateAndRender() {
 
   const cfg = readConfig();
   assert100(cfg.typesPct, 'Types de tuiles');
-  assert100(cfg.colorPct, 'RÃƒÂ©partition des couleurs');
+  assert100(cfg.colorPct, 'RÃ©partition des couleurs');
   const colors = cfg.colors.slice();
   const typesPct = cfg.typesPct.slice();
   const colorPct = cfg.colorPct.slice();
@@ -5263,7 +5377,7 @@ function ensureStatsModal() {
   closeBtn.type = 'button';
   closeBtn.className = 'stats-modal-close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ãƒâ€”';
+  closeBtn.textContent = 'Ã—';
   header.appendChild(title);
   header.appendChild(closeBtn);
   const body = document.createElement('div');
@@ -5374,12 +5488,12 @@ function refreshStatsModal() {
     .join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">GÃƒÂ©nÃƒÂ©ral</div>
+    <div class="stats-section-title">GÃ©nÃ©ral</div>
     <div class="stats-grid">
-      <div>Tuiles posÃƒÂ©es</div><div>${placed}</div>
+      <div>Tuiles posÃ©es</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
     </div>
-    <div class="stats-section-title">RÃƒÂ©partition</div>
+    <div class="stats-section-title">RÃ©partition</div>
     <div class="stats-grid">
       <div>Mono</div><div>${counts[1] ?? 0}</div>
       <div>Bi</div><div>${counts[2] ?? 0}</div>
@@ -5705,8 +5819,19 @@ function ensureMarketRegionMonitor() {
     }
   });
   marketRegionMonitorBound = true;
+  if (!document.__pairleroyMarketHotkeysBound) {
+    document.addEventListener('keydown', (event) => {
+      if (!event) return;
+      const key = event.key || event.code;
+      if (!key) return;
+      if (key === 'Escape' || key === 'Esc') {
+        if (!marketDetailsCollapsed) {
+          lockedMarketSlot = null;
+          setMarketDetailsCollapsed(true);
+          event.preventDefault();
+        }
+      }
+    });
+    document.__pairleroyMarketHotkeysBound = true;
+  }
 }
-
-
-
-

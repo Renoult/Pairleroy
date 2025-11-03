@@ -145,6 +145,7 @@ const turnState = {
 
 let marketState = createInitialMarketState();
 let hoveredMarketSlot = null;
+let lockedMarketSlot = null;
 const influenceMap = new Map();
 
 const hudElements = {
@@ -540,8 +541,6 @@ function updatePointerState(clientX, clientY) {
   if (inside) {
     if (insideCurrent) marketRectSnapshot = rect;
     if (!marketPointerInside) marketPointerInside = true;
-    if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
-    if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
   } else {
     marketPointerInside = false;
     if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
@@ -1998,8 +1997,6 @@ function renderMarketDisplay() {
     marketLayer.addEventListener('pointerenter', (event) => {
       marketPointerInside = true;
       marketRectSnapshot = getMarketBounds();
-      setMarketDetailsCollapsed(false);
-      if (!Number.isInteger(hoveredMarketSlot)) showMarketDetailsPlaceholder();
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         updatePointerState(event.clientX, event.clientY);
       }
@@ -2015,11 +2012,6 @@ function renderMarketDisplay() {
   }
   if (cardsLayer && !cardsLayer.__pairleroyHoverBound) {
     cardsLayer.__pairleroyHoverBound = true;
-    const hideDetails = () => {
-      resetHoveredMarketSlot();
-    };
-    cardsLayer.addEventListener('pointerleave', hideDetails);
-    cardsLayer.addEventListener('mouseleave', hideDetails);
   }
   ensureMarketDetailElements();
   cardsLayer.innerHTML = '';
@@ -2029,6 +2021,7 @@ function renderMarketDisplay() {
   const svgNS = 'http://www.w3.org/2000/svg';
 
   cells.forEach((cell, idx) => {
+    const slotElement = cell?.slotElement ?? null;
     const slotState = marketState?.slots?.[idx] ?? null;
     const def = slotState ? getMarketCardDefinition(slotState.id) : null;
     const hasCard = Boolean(def);
@@ -2067,21 +2060,104 @@ function renderMarketDisplay() {
       group.appendChild(reward);
     }
 
+    if (slotElement) {
+      slotElement.__pairleroyCardGroup = group;
+      if (!slotElement.__pairleroyBound) {
+        slotElement.__pairleroyBound = true;
+        const activateSlot = (event, { lockSelection = false } = {}) => {
+          if (event) {
+            if (event.type === 'keydown') {
+              const key = event.key;
+              if (key !== 'Enter' && key !== ' ') return;
+              event.preventDefault();
+            } else {
+              if (typeof event.button === 'number' && event.button !== 0) return;
+              event.preventDefault?.();
+            }
+            event.stopPropagation?.();
+          }
+          const slotIdx = Number(slotElement.dataset.slot ?? idx);
+          const targetGroup = slotElement.__pairleroyCardGroup;
+          if (!Number.isInteger(slotIdx) || slotIdx < 0 || !targetGroup) return;
+          if (lockSelection && lockedMarketSlot === slotIdx && !marketDetailsCollapsed) {
+            lockedMarketSlot = null;
+            setMarketDetailsCollapsed(true);
+            return;
+          }
+          setHoveredMarketSlot(slotIdx, targetGroup, { viaPointer: true, lockSelection });
+        };
+        slotElement.__pairleroyActivateSlot = activateSlot;
+        slotElement.addEventListener('click', (event) => activateSlot(event, { lockSelection: true }));
+        slotElement.addEventListener('pointerup', (event) => {
+          if (event?.pointerType && event.pointerType !== 'mouse') {
+            activateSlot(event, { lockSelection: true });
+          }
+        });
+        slotElement.addEventListener('pointerleave', () => {
+          if (lockedMarketSlot === idx) return;
+          if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+        });
+        slotElement.addEventListener('dblclick', (event) => {
+          event?.preventDefault?.();
+          event?.stopPropagation?.();
+          const slotIdx = Number(slotElement.dataset.slot ?? idx);
+          const targetGroup = slotElement.__pairleroyCardGroup;
+          if (!Number.isInteger(slotIdx) || slotIdx < 0 || !targetGroup) return;
+          setHoveredMarketSlot(slotIdx, targetGroup, { viaPointer: true, lockSelection: true });
+          handleMarketCardPurchase({
+            currentTarget: targetGroup,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          });
+        });
+      }
+    }
+
     if (hasCard) {
-      const pointerActivate = () => setHoveredMarketSlot(idx, group, { viaPointer: true });
-      const focusActivate = () => setHoveredMarketSlot(idx, group);
-      group.addEventListener('pointerenter', pointerActivate);
-      group.addEventListener('mouseenter', pointerActivate);
-      group.addEventListener('focus', focusActivate);
-      group.addEventListener('mouseleave', () => {
+      const leaveCard = () => {
+        if (lockedMarketSlot === idx) return;
         if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
         else group.classList.remove('market-card--active');
+      };
+      const lockCard = (event) => {
+        if (event) {
+          if (event.type === 'keydown') {
+            const key = event.key;
+            if (key !== 'Enter' && key !== ' ') return;
+            event.preventDefault();
+          } else {
+            if (typeof event.button === 'number' && event.button !== 0) return;
+            event.preventDefault?.();
+          }
+          event.stopPropagation?.();
+        }
+        const slotIdx = Number(group.dataset.slot ?? idx);
+        if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
+        if (lockedMarketSlot === slotIdx && !marketDetailsCollapsed) {
+          lockedMarketSlot = null;
+          setMarketDetailsCollapsed(true);
+          return;
+        }
+        setHoveredMarketSlot(slotIdx, group, { viaPointer: true, lockSelection: true });
+      };
+      group.addEventListener('focus', () => {
+        if (lockedMarketSlot != null && lockedMarketSlot !== idx) return;
+        setHoveredMarketSlot(idx, group, { viaPointer: true });
       });
-      group.addEventListener('blur', () => {
-        if (hoveredMarketSlot === idx) resetHoveredMarketSlot();
+      group.addEventListener('pointerleave', leaveCard);
+      group.addEventListener('mouseleave', leaveCard);
+      group.addEventListener('blur', leaveCard);
+      group.addEventListener('click', lockCard);
+      group.addEventListener('keydown', lockCard);
+      group.addEventListener('pointerup', (event) => {
+        if (event?.pointerType && event.pointerType !== 'mouse') lockCard(event);
+      });
+      group.addEventListener('dblclick', handleMarketCardPurchase);
+    } else {
+      group.addEventListener('pointerleave', () => {
+        if (hoveredMarketSlot === idx && lockedMarketSlot == null) resetHoveredMarketSlot();
         else group.classList.remove('market-card--active');
       });
-      group.addEventListener('click', handleMarketCardClick);
     }
 
     cardsLayer.appendChild(group);
@@ -2159,7 +2235,7 @@ function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
   return Number.isFinite(distance) ? distance : null;
 }
 
-function handleMarketCardClick(event) {
+function handleMarketCardPurchase(event) {
   const target = event.currentTarget;
   const slotIdx = Number(target?.dataset?.slot ?? -1);
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
@@ -2187,6 +2263,7 @@ function handleMarketCardClick(event) {
   if (Array.isArray(marketState.discardPile)) marketState.discardPile.push(def.id);
   refillMarketSlot(marketState, slotIdx);
   hoveredMarketSlot = null;
+  lockedMarketSlot = null;
   registerContractForPlayer(player, def.id);
   updateMarketDetailPanel(null);
   debugLog('market-claimed', { player, card: def.id, cost, distance });
@@ -2194,21 +2271,58 @@ function handleMarketCardClick(event) {
 
 function setHoveredMarketSlot(slotIdx, element = null, options = {}) {
   if (slotIdx != null && (!Number.isInteger(slotIdx) || slotIdx < 0)) return;
-  const { viaPointer = false } = options;
-  if (marketDetailsCollapsed && (viaPointer || slotIdx != null)) {
-    setMarketDetailsCollapsed(false);
+  const {
+    viaPointer = false,
+    lockSelection = false,
+    allowWhenLocked = false,
+  } = options;
+  if (!viaPointer) return;
+  if (
+    lockedMarketSlot != null
+    && slotIdx != null
+    && slotIdx !== lockedMarketSlot
+    && !lockSelection
+    && !allowWhenLocked
+  ) {
+    return;
   }
-  if (viaPointer) {
-    marketRectSnapshot = getMarketBounds();
+  const detailElements = ensureMarketDetailElements();
+  marketDetailsVisible = true;
+  marketDetailsSuppressed = false;
+  if (typeof document !== 'undefined') {
+    document.body?.classList.remove('market-details-collapsed');
   }
+  if (detailElements?.container) {
+    detailElements.container.hidden = false;
+    detailElements.container.classList.remove('market-details--hidden');
+    detailElements.container.setAttribute('aria-hidden', 'false');
+    detailElements.container.removeAttribute('hidden');
+    detailElements.container.style.removeProperty('display');
+  }
+  setMarketDetailVisibility(true);
+  if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
+  else applyMarketDetailsVisibility();
+  marketPointerInside = true;
+  marketRectSnapshot = getMarketBounds();
   hoveredMarketSlot = slotIdx;
+  if (lockSelection) lockedMarketSlot = slotIdx;
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
   applyMarketCardActiveClass(element);
-  updateMarketDetailPanel(slotIdx);
+  if (def) {
+    updateMarketDetailPanel(slotIdx);
+  } else {
+    showMarketDetailsPlaceholder();
+  }
 }
 
 function resetHoveredMarketSlot(force = false) {
-  if (!force && hoveredMarketSlot == null) return;
+  if (!force) {
+    if (hoveredMarketSlot == null) return;
+    if (lockedMarketSlot != null) return;
+  }
   hoveredMarketSlot = null;
+  if (force) lockedMarketSlot = null;
   applyMarketCardActiveClass(null);
   updateMarketDetailPanel(null);
 }
@@ -2228,10 +2342,10 @@ function showMarketDetailsPlaceholder() {
   setMarketDetailVisibility(true);
   elements.type.textContent = 'Marche';
   elements.slot.textContent = '';
-  elements.name.textContent = 'Survolez une carte';
+  elements.name.textContent = 'Selectionnez une carte';
   elements.cost.textContent = '--';
   elements.reward.textContent = '--';
-  elements.description.textContent = 'Passez la souris sur une carte du marche pour voir son effet.';
+  elements.description.textContent = 'Cliquez sur une carte du marche pour afficher les details et double-cliquez pour l\'acquerir.';
 }
 
 function updateMarketDetailPanel(slotIdx) {
@@ -4339,6 +4453,21 @@ function ensureMarketRegionMonitor() {
     }
   });
   marketRegionMonitorBound = true;
+  if (!document.__pairleroyMarketHotkeysBound) {
+    document.addEventListener('keydown', (event) => {
+      if (!event) return;
+      const key = event.key || event.code;
+      if (!key) return;
+      if (key === 'Escape' || key === 'Esc') {
+        if (!marketDetailsCollapsed) {
+          lockedMarketSlot = null;
+          setMarketDetailsCollapsed(true);
+          event.preventDefault();
+        }
+      }
+    });
+    document.__pairleroyMarketHotkeysBound = true;
+  }
 }
 
 
