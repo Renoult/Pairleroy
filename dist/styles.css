@@ -584,6 +584,201 @@ body.topbar-collapsed #market-details {
   max-height: calc(100vh - 110px);
 }
 
+#personal-board {
+  flex: 0 0 clamp(240px, 26vw, 320px);
+  width: clamp(240px, 26vw, 320px);
+  border: 1px solid var(--border);
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  min-height: 0;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+body.topbar-collapsed #personal-board {
+  max-height: calc(100vh - 110px);
+}
+
+body.personal-board-collapsed #personal-board,
+#personal-board.personal-board--collapsed {
+  display: none !important;
+}
+
+.personal-board__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.personal-board__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.personal-board__crest {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+  padding: 4px;
+  object-fit: contain;
+}
+
+.personal-board__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.personal-board__player {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.personal-board__subtitle {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.personal-board__totals {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.personal-board__total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+  box-shadow: var(--shadow-xs);
+  min-width: 90px;
+}
+
+.personal-board__total-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.personal-board__total-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+}
+
+.personal-board__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-top: 12px;
+}
+
+.personal-board__section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.personal-board__section-title {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.personal-board__section-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.personal-board__amenagement-list,
+.personal-board__buildings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.personal-board__amenagement-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.personal-board__color-chip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--chip-color, #cccccc);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.personal-board__amenagement-name {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.personal-board__amenagement-count {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.personal-board__building-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.78));
+  box-shadow: var(--shadow-xs);
+}
+
+.personal-board__building-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.personal-board__building-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.personal-board__empty {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .market-details__header {
   display: flex;
   justify-content: space-between;

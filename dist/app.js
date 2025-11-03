@@ -1,4 +1,4 @@
-// ----- src/js/core.js -----
+﻿// ----- src/js/core.js -----
 // Fichier: src/js/core.js
 // Description: Fonctions purement logiques (maths hexagonaux, quotas, RNG, combos).
 
@@ -286,22 +286,22 @@ function quotasHamiltonCap(total, weights, caps) {
     base[i] += take;
     rem -= take;
   }
-  if (rem !== 0) throw new Error('Répartition impossible (caps)');
+  if (rem !== 0) throw new Error('RÃ©partition impossible (caps)');
   return base;
 }
 
 /**
  * Assigne des combinaisons de couleurs aux tuiles selon les quotas Hamilton
  * 
- * Algorithme de répartition en 3 phases :
- * 1. Monochromatiques (3 unités par tuile) - priorité haute
- * 2. Bicolores majeures (2+1 unités par tuile) - priorité moyenne  
- * 3. Répartition des unités restantes entre bicolores mineures et tricolores
+ * Algorithme de rÃ©partition en 3 phases :
+ * 1. Monochromatiques (3 unitÃ©s par tuile) - prioritÃ© haute
+ * 2. Bicolores majeures (2+1 unitÃ©s par tuile) - prioritÃ© moyenne  
+ * 3. RÃ©partition des unitÃ©s restantes entre bicolores mineures et tricolores
  * 
  * @param {number[]} types - Types de tuiles (1=mono, 2=bi, 3=tri)
- * @param {number[]} colorUnitTargets - Quotas d'unités par couleur (somme = 3N)
- * @param {function} rng - Générateur de nombres aléatoires
- * @returns {Array} Combinaisons assignées aux tuiles
+ * @param {number[]} colorUnitTargets - Quotas d'unitÃ©s par couleur (somme = 3N)
+ * @param {function} rng - GÃ©nÃ©rateur de nombres alÃ©atoires
+ * @returns {Array} Combinaisons assignÃ©es aux tuiles
  */
 function assignTileCombos(types, colorUnitTargets, rng) {
   // Phase 0: Compter les types de tuiles
@@ -310,31 +310,31 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const biTileCount = types.filter((k) => k === 2).length;
   const triTileCount = types.filter((k) => k === 3).length;
   
-  // Variable de travail pour les unités de couleurs restantes
+  // Variable de travail pour les unitÃ©s de couleurs restantes
   const colorUnitTargetsRemaining = colorUnitTargets.slice(); // sum = 3N
   
-  // Phase 1: Attribuer les monochromatiques (3 unités par tuile)
-  // Calcul des limites supérieures basées sur les unités disponibles
+  // Phase 1: Attribuer les monochromatiques (3 unitÃ©s par tuile)
+  // Calcul des limites supÃ©rieures basÃ©es sur les unitÃ©s disponibles
   const monoCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 3));
-  // Répartition selon la méthode Hamilton avec contraintes
+  // RÃ©partition selon la mÃ©thode Hamilton avec contraintes
   const monoComboCount = quotasHamiltonCap(monoTileCount, colorUnitTargetsRemaining, monoCap);
-  // Déduire les unités utilisées pour les monochromatiques
+  // DÃ©duire les unitÃ©s utilisÃ©es pour les monochromatiques
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 3 * monoComboCount[i];
   
-  // Phase 2: Attribuer les bicolores majeures (2+1 unités par tuile)
+  // Phase 2: Attribuer les bicolores majeures (2+1 unitÃ©s par tuile)
   const biCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 2));
   const biMajorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, biCap);
-  // Déduire les unités utilisées pour les bicolores majeures
+  // DÃ©duire les unitÃ©s utilisÃ©es pour les bicolores majeures
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 2 * biMajorComboCount[i];
   
-  // Phase 3: Répartir les unités restantes entre bicolores mineures et tricolores
+  // Phase 3: RÃ©partir les unitÃ©s restantes entre bicolores mineures et tricolores
   const totalRem = colorUnitTargetsRemaining.reduce((a, b) => a + b, 0);
-  // Vérification: unités restantes = B tuiles bi + 3*T tuiles tri
-  if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('Incohérence unités restantes');
+  // VÃ©rification: unitÃ©s restantes = B tuiles bi + 3*T tuiles tri
+  if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('IncohÃ©rence unitÃ©s restantes');
   
-  // Répartir d'abord les bicolores mineures (1+2 unités par tuile)
+  // RÃ©partir d'abord les bicolores mineures (1+2 unitÃ©s par tuile)
   const biMinorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, colorUnitTargetsRemaining);
-  // Les unités tricolores sont le reste après les bicolores mineures
+  // Les unitÃ©s tricolores sont le reste aprÃ¨s les bicolores mineures
   const triComboCount = colorUnitTargetsRemaining.map((v, i) => v - biMinorComboCount[i]);
   
   // Ajustement pour assurer au moins 3 couleurs disponibles pour les tricolores
@@ -346,7 +346,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
       }
     }
   }
-  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) throw new Error('Tri nécessite au moins 3 couleurs');
+  if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) throw new Error('Tri nÃ©cessite au moins 3 couleurs');
 
   const monos = [];
   for (let c = 0; c < 4; c++) for (let k = 0; k < monoComboCount[c]; k++) monos.push(c);
@@ -374,7 +374,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   }
 
   const triTriples = buildTriTriples(triUnits);
-  if (!triTriples) throw new Error('Répartition tri impossible');
+  if (!triTriples) throw new Error('RÃ©partition tri impossible');
 
   const combos = new Array(N);
   const idxByType = { 1: [], 2: [], 3: [] };
@@ -405,7 +405,7 @@ function assignTileCombos(types, colorUnitTargets, rng) {
 
 // ----- src/js/palette.js -----
 // Fichier: src/js/palette.js
-// Description: Fonctions liées à la palette de tuiles (sélection, rotation, rendu miniatures).
+// Description: Fonctions liÃ©es Ã  la palette de tuiles (sÃ©lection, rotation, rendu miniatures).
 
 
 function colorFromIndex(colorIdx, colors) {
@@ -586,7 +586,7 @@ function createPalette(typesPct, colorPct, rng) {
 
 // ----- src/js/render.js -----
 // Fichier: src/js/render.js
-// Description: Fonctions DOM/SVG liées à l'affichage de la grille et des palettes.
+// Description: Fonctions DOM/SVG liÃ©es Ã  l'affichage de la grille et des palettes.
 
 
 const PLAYER_SHAPES = {
@@ -637,7 +637,7 @@ const PLAYER_SHAPES = {
     },
   },
   4: {
-    name: 'carré',
+    name: 'carrÃ©',
     draw: (g, cx, cy, r) => {
       const s = r * 1.55;
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1019,7 +1019,7 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
 
 // ----- src/js/market.js -----
 // Fichier: src/js/market.js
-// Description: Définitions de base pour les bâtiments et contrats du marché central.
+// Description: DÃ©finitions de base pour les bÃ¢timents et contrats du marchÃ© central.
 
 const MARKET_SLOT_COUNT = 16;
 
@@ -1044,17 +1044,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, points: 4 },
     reward: { points: 3, crowns: 1 },
     tags: ['production', 'wood'],
-    description: 'Réduit de 1 le coût en bois des futurs bâtiments.',
+    description: 'RÃ©duit de 1 le coÃ»t en bois des futurs bÃ¢timents.',
   },
   {
     id: 'building-bakery',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Boulangerie du Château',
+    name: 'Boulangerie du ChÃ¢teau',
     icon: 'building-bakery',
     cost: { [RESOURCE_TYPES.BREAD]: 3, [RESOURCE_TYPES.LABOR]: 1 },
     reward: { points: 5 },
     tags: ['production', 'bread'],
-    description: 'À chaque fin de tour, gagnez 1 pain si vous contrôlez un aménagement adjacent.',
+    description: 'Ã€ chaque fin de tour, gagnez 1 pain si vous contrÃ´lez un amÃ©nagement adjacent.',
   },
   {
     id: 'building-weaver',
@@ -1064,17 +1064,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 2 },
     reward: { points: 6, crowns: 1 },
     tags: ['fabric', 'craft'],
-    description: 'Accorde +2 points par contrat textile à la fin de la partie.',
+    description: 'Accorde +2 points par contrat textile Ã  la fin de la partie.',
   },
   {
     id: 'building-garrison',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Garnison Frontalière',
+    name: 'Garnison FrontaliÃ¨re',
     icon: 'building-garrison',
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.BREAD]: 1, points: 6 },
     reward: { points: 8 },
     tags: ['military'],
-    description: 'Permet un déploiement gratuit d’un colon à portée 2 dès l’achat.',
+    description: 'Permet un dÃ©ploiement gratuit dâ€™un colon Ã  portÃ©e 2 dÃ¨s lâ€™achat.',
   },
   {
     id: 'building-harvest-hall',
@@ -1124,7 +1124,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 1, [RESOURCE_TYPES.FABRIC]: 1, points: 5 },
     reward: { points: 7, crowns: 1 },
     tags: ['science'],
-    description: 'Révèle deux tuiles du sachet supplémentaire à chaque préparation de tour.',
+    description: 'RÃ©vÃ¨le deux tuiles du sachet supplÃ©mentaire Ã  chaque prÃ©paration de tour.',
   },
   {
     id: 'building-harbor',
@@ -1134,17 +1134,17 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.WOOD]: 2, [RESOURCE_TYPES.BREAD]: 1, points: 3 },
     reward: { points: 6, influence: 1 },
     tags: ['trade', 'water'],
-    description: 'Autorise un échange bois ↔ tissu par tour sans coût additionnel.',
+    description: 'Autorise un Ã©change bois â†” tissu par tour sans coÃ»t additionnel.',
   },
   {
     id: 'building-guildhall',
     type: MARKET_CARD_TYPES.BUILDING,
-    name: 'Hôtel de Guilde',
+    name: 'HÃ´tel de Guilde',
     icon: 'building-guildhall',
     cost: { [RESOURCE_TYPES.FABRIC]: 2, [RESOURCE_TYPES.LABOR]: 1, points: 4 },
     reward: { points: 7, crowns: 1 },
     tags: ['guild'],
-    description: 'Chaque contrat accompli rapporte 1 point supplémentaire.',
+    description: 'Chaque contrat accompli rapporte 1 point supplÃ©mentaire.',
   },
   {
     id: 'building-granary',
@@ -1154,7 +1154,7 @@ const MARKET_CARD_DEFINITIONS = [
     cost: { [RESOURCE_TYPES.BREAD]: 2, [RESOURCE_TYPES.WOOD]: 1 },
     reward: { points: 4, stock: { [RESOURCE_TYPES.BREAD]: 2 } },
     tags: ['storage'],
-    description: 'Augmente votre réserve maximale de pain de 2 unités.',
+    description: 'Augmente votre rÃ©serve maximale de pain de 2 unitÃ©s.',
   },
   {
     id: 'building-expedition-hall',
@@ -1277,25 +1277,25 @@ function seedMarketSlotsFromDeck(state) {
 
 // ----- src/js/utils.js -----
 // Fichier: src/js/utils.js
-// Description: Fonctions utilitaires pour la création et manipulation d'éléments SVG
+// Description: Fonctions utilitaires pour la crÃ©ation et manipulation d'Ã©lÃ©ments SVG
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ORIENTED_INDEX_FOR_TRIANGLE = [4, 5, 0, 1, 2, 3];
 
 /**
- * Crée un élément SVG avec le namespace approprié
+ * CrÃ©e un Ã©lÃ©ment SVG avec le namespace appropriÃ©
  * @param {string} tagName - Nom de la balise SVG
- * @returns {Element} Élément SVG créé
+ * @returns {Element} Ã‰lÃ©ment SVG crÃ©Ã©
  */
 function createSVGElement(tagName) {
   return document.createElementNS(SVG_NS, tagName);
 }
 
 /**
- * Crée un path pour un triangle formé par le centre et deux points
+ * CrÃ©e un path pour un triangle formÃ© par le centre et deux points
  * @param {{x: number, y: number}} center - Point central
  * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - Deuxième point
+ * @param {{x: number, y: number}} b - DeuxiÃ¨me point
  * @returns {string} Path SVG du triangle
  */
 function createTrianglePath(center, a, b) {
@@ -1303,23 +1303,23 @@ function createTrianglePath(center, a, b) {
 }
 
 /**
- * Crée un path pour un outline hexagonal arrondi
- * @param {number} x - Coordonnée x du centre
- * @param {number} y - Coordonnée y du centre
+ * CrÃ©e un path pour un outline hexagonal arrondi
+ * @param {number} x - CoordonnÃ©e x du centre
+ * @param {number} y - CoordonnÃ©e y du centre
  * @param {number} radius - Rayon de l'hexagone
- * @param {number} cornerRadius - Rayon d'arrondi (défaut: 0.18)
+ * @param {number} cornerRadius - Rayon d'arrondi (dÃ©faut: 0.18)
  * @returns {string} Path SVG de l'hexagone arrondi
  */
 function createHexOutlinePath(x, y, radius, cornerRadius = 0.18) {
-  // Délègue à la fonction roundedHexPathAt de core.js
+  // DÃ©lÃ¨gue Ã  la fonction roundedHexPathAt de core.js
   return roundedHexPathAt(x, y, radius, cornerRadius);
 }
 
 /**
- * Crée un élément SVG avec des attributs
+ * CrÃ©e un Ã©lÃ©ment SVG avec des attributs
  * @param {string} tagName - Nom de la balise SVG
- * @param {Object} attributes - Attributs à définir
- * @returns {Element} Élément SVG créé avec attributs
+ * @param {Object} attributes - Attributs Ã  dÃ©finir
+ * @returns {Element} Ã‰lÃ©ment SVG crÃ©Ã© avec attributs
  */
 function createSVGElementWithAttributes(tagName, attributes = {}) {
   const element = createSVGElement(tagName);
@@ -1330,12 +1330,12 @@ function createSVGElementWithAttributes(tagName, attributes = {}) {
 }
 
 /**
- * Crée un path de triangle SVG avec un centre et deux points
+ * CrÃ©e un path de triangle SVG avec un centre et deux points
  * @param {{x: number, y: number}} center - Point central
  * @param {{x: number, y: number}} a - Premier point
- * @param {{x: number, y: number}} b - Deuxième point
- * @param {Object} attributes - Attributs supplémentaires
- * @returns {Element} Élément path SVG
+ * @param {{x: number, y: number}} b - DeuxiÃ¨me point
+ * @param {Object} attributes - Attributs supplÃ©mentaires
+ * @returns {Element} Ã‰lÃ©ment path SVG
  */
 function createTrianglePathElement(center, a, b, attributes = {}) {
   const path = createSVGElement('path');
@@ -1347,12 +1347,12 @@ function createTrianglePathElement(center, a, b, attributes = {}) {
 }
 
 /**
- * Crée un outline hexagonal SVG
- * @param {number} x - Coordonnée x du centre
- * @param {number} y - Coordonnée y du centre
+ * CrÃ©e un outline hexagonal SVG
+ * @param {number} x - CoordonnÃ©e x du centre
+ * @param {number} y - CoordonnÃ©e y du centre
  * @param {number} radius - Rayon de l'hexagone
- * @param {Object} attributes - Attributs supplémentaires
- * @returns {Element} Élément path SVG
+ * @param {Object} attributes - Attributs supplÃ©mentaires
+ * @returns {Element} Ã‰lÃ©ment path SVG
  */
 function createHexOutlineElement(x, y, radius, attributes = {}) {
   const path = createSVGElement('path');
@@ -1365,7 +1365,7 @@ function createHexOutlineElement(x, y, radius, attributes = {}) {
 
 // ----- src/js/main.js -----
 // Fichier: src/js/main.js
-// Description: Orchestration de l'application (lecture config, gÃ©nÃ©ration de la grille, interactions UI).
+// Description: Orchestration de l'application (lecture config, gÃƒÂ©nÃƒÂ©ration de la grille, interactions UI).
 
 
 const tiles = generateAxialGrid(RADIUS);
@@ -1409,7 +1409,7 @@ const RESOURCE_LABELS = {
   [RESOURCE_TYPES.WOOD]: 'Bois',
   [RESOURCE_TYPES.BREAD]: 'Pain',
   [RESOURCE_TYPES.FABRIC]: 'Tissu',
-  [RESOURCE_TYPES.LABOR]: 'Main-dâ€™Å“uvre',
+  [RESOURCE_TYPES.LABOR]: 'Main-dÃ¢â‚¬â„¢Ã…â€œuvre',
 };
 
 const RESOURCE_ORDER = [
@@ -1531,6 +1531,21 @@ const marketDetailElements = {
   description: null,
 };
 
+const personalBoardElements = {
+  container: null,
+  crest: null,
+  playerLabel: null,
+  subtitle: null,
+  pointsValue: null,
+  crownsValue: null,
+  amenagementCount: null,
+  amenagementList: null,
+  amenagementEmpty: null,
+  buildingsCount: null,
+  buildingsList: null,
+  buildingsEmpty: null,
+};
+
 const MARKET_EXIT_GRACE_PX = 56;
 
 let marketDetailsCollapsed = false;
@@ -1578,6 +1593,7 @@ function setMarketDetailsSuppressed(suppressed) {
 }
 
 let topbarCollapsed = false;
+let personalBoardCollapsed = false;
 let topbarElements = null;
 let collapsedHudOffset = { top: 64, left: null, right: 16 };
 const COLLAPSED_HUD_STORAGE_KEY = 'pairleroyCollapsedHudPosition';
@@ -1616,7 +1632,7 @@ function saveCollapsedHudPosition() {
     }
     window.localStorage.setItem(COLLAPSED_HUD_STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
-    console.warn('Impossible d’enregistrer la position du HUD compact', error);
+    console.warn('Impossible dâ€™enregistrer la position du HUD compact', error);
   }
 }
 
@@ -1787,6 +1803,7 @@ function ensureTopbarControls() {
   topbarElements = {
     header: document.getElementById('app-topbar'),
     toggle: document.getElementById('toggle-topbar'),
+    personalBoardToggle: document.getElementById('toggle-personal-board'),
     stats: document.getElementById('open-stats'),
     settings: document.getElementById('open-settings'),
     group: document.getElementById('topbar-volet'),
@@ -1815,7 +1832,7 @@ function setTopbarCollapsed(collapsed) {
     toggle.setAttribute('aria-label', topbarCollapsed
       ? 'Deplier la barre superieure'
       : 'Replier la barre superieure');
-    toggle.textContent = topbarCollapsed ? 'â–¼' : 'â–²';
+    toggle.textContent = topbarCollapsed ? 'TB+' : 'TB-';
   }
   applyCollapsedHudPosition();
   const collapsedHud = document.getElementById('collapsed-hud');
@@ -1823,6 +1840,32 @@ function setTopbarCollapsed(collapsed) {
   renderGameHud();
 }
 
+function setPersonalBoardCollapsed(collapsed) {
+  personalBoardCollapsed = Boolean(collapsed);
+  const elements = ensureTopbarControls();
+  const toggle = elements.personalBoardToggle;
+  const personalBoard = ensurePersonalBoardElements().container || document.getElementById('personal-board');
+  if (personalBoard) {
+    personalBoard.hidden = personalBoardCollapsed;
+    personalBoard.classList.toggle('personal-board--collapsed', personalBoardCollapsed);
+    personalBoard.setAttribute('aria-hidden', personalBoardCollapsed ? 'true' : 'false');
+  }
+  if (document.body) {
+    document.body.classList.toggle('personal-board-collapsed', personalBoardCollapsed);
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!personalBoardCollapsed));
+    toggle.setAttribute('aria-label', personalBoardCollapsed
+      ? 'Deplier le plateau personnel'
+      : 'Replier le plateau personnel');
+    toggle.textContent = personalBoardCollapsed ? 'PB+' : 'PB-';
+  }
+  renderPersonalBoard();
+}
+
+function togglePersonalBoardCollapsed() {
+  setPersonalBoardCollapsed(!personalBoardCollapsed);
+}
 function setMarketDetailsCollapsed(collapsed) {
   const nextState = Boolean(collapsed);
   if (marketDetailsCollapsed === nextState) return;
@@ -1868,7 +1911,9 @@ function updatePointerState(clientX, clientY) {
     marketPointerInside = false;
     if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
       setMarketDetailsCollapsed(true);
-    }
+  ensurePersonalBoardElements();
+  setPersonalBoardCollapsed(personalBoardCollapsed);
+}
   }
 }
 
@@ -1878,10 +1923,14 @@ function toggleTopbarCollapsed() {
 
 function initTopbarControls() {
   const elements = ensureTopbarControls();
-  const { toggle, stats, settings } = elements;
+  const { toggle, personalBoardToggle, stats, settings } = elements;
   if (toggle && !toggle.__pairleroyBound) {
     toggle.__pairleroyBound = true;
     toggle.addEventListener('click', toggleTopbarCollapsed);
+  }
+  if (personalBoardToggle && !personalBoardToggle.__pairleroyBound) {
+    personalBoardToggle.__pairleroyBound = true;
+    personalBoardToggle.addEventListener('click', togglePersonalBoardCollapsed);
   }
   if (stats && !stats.__pairleroyBound) {
     stats.__pairleroyBound = true;
@@ -2163,7 +2212,7 @@ function ensureSettingsPanel() {
   closeBtn.type = 'button';
   closeBtn.className = 'settings-panel__close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ã—';
+  closeBtn.textContent = 'Ãƒâ€”';
   header.appendChild(title);
   header.appendChild(closeBtn);
 
@@ -2468,6 +2517,264 @@ function ensureMarketDetailElements() {
   return marketDetailElements;
 }
 
+function ensurePersonalBoardElements() {
+  if (personalBoardElements.container || typeof document === 'undefined') return personalBoardElements;
+  const container = document.getElementById('personal-board');
+  if (!container) return personalBoardElements;
+
+  container.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'personal-board__header';
+
+  const identity = document.createElement('div');
+  identity.className = 'personal-board__identity';
+
+  const crest = document.createElement('img');
+  crest.className = 'personal-board__crest';
+  crest.alt = '';
+  crest.decoding = 'async';
+
+  const title = document.createElement('div');
+  title.className = 'personal-board__title';
+
+  const playerLabel = document.createElement('div');
+  playerLabel.className = 'personal-board__player';
+  playerLabel.textContent = 'Joueur 1';
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'personal-board__subtitle';
+  subtitle.textContent = 'Tour 1';
+
+  title.appendChild(playerLabel);
+  title.appendChild(subtitle);
+  identity.appendChild(crest);
+  identity.appendChild(title);
+
+  const totals = document.createElement('div');
+  totals.className = 'personal-board__totals';
+
+  const pointsTotal = document.createElement('div');
+  pointsTotal.className = 'personal-board__total personal-board__total--points';
+  const pointsLabel = document.createElement('div');
+  pointsLabel.className = 'personal-board__total-label';
+  pointsLabel.textContent = 'Points';
+  const pointsValue = document.createElement('div');
+  pointsValue.className = 'personal-board__total-value';
+  pointsValue.textContent = '0';
+  pointsTotal.appendChild(pointsLabel);
+  pointsTotal.appendChild(pointsValue);
+
+  const crownsTotal = document.createElement('div');
+  crownsTotal.className = 'personal-board__total personal-board__total--crowns';
+  const crownsLabel = document.createElement('div');
+  crownsLabel.className = 'personal-board__total-label';
+  crownsLabel.textContent = 'Couronnes';
+  const crownsValue = document.createElement('div');
+  crownsValue.className = 'personal-board__total-value';
+  crownsValue.textContent = '0';
+  crownsTotal.appendChild(crownsLabel);
+  crownsTotal.appendChild(crownsValue);
+
+  totals.appendChild(pointsTotal);
+  totals.appendChild(crownsTotal);
+
+  header.appendChild(identity);
+  header.appendChild(totals);
+  container.appendChild(header);
+
+  const amenagementSection = document.createElement('section');
+  amenagementSection.className = 'personal-board__section personal-board__section--amenagements';
+
+  const amenagementTitle = document.createElement('div');
+  amenagementTitle.className = 'personal-board__section-title';
+  amenagementTitle.textContent = 'Amenagements';
+
+  const amenagementCount = document.createElement('div');
+  amenagementCount.className = 'personal-board__section-count';
+  amenagementCount.textContent = 'Aucun amenagement controle';
+
+  const amenagementList = document.createElement('ul');
+  amenagementList.className = 'personal-board__amenagement-list';
+
+  const amenagementEmpty = document.createElement('div');
+  amenagementEmpty.className = 'personal-board__empty';
+  amenagementEmpty.textContent = 'Aucun amenagement controle.';
+
+  amenagementSection.appendChild(amenagementTitle);
+  amenagementSection.appendChild(amenagementCount);
+  amenagementSection.appendChild(amenagementList);
+  amenagementSection.appendChild(amenagementEmpty);
+  container.appendChild(amenagementSection);
+
+  const buildingsSection = document.createElement('section');
+  buildingsSection.className = 'personal-board__section personal-board__section--buildings';
+
+  const buildingsTitle = document.createElement('div');
+  buildingsTitle.className = 'personal-board__section-title';
+  buildingsTitle.textContent = 'Batiments';
+
+  const buildingsCount = document.createElement('div');
+  buildingsCount.className = 'personal-board__section-count';
+  buildingsCount.textContent = 'Aucun batiment construit';
+
+  const buildingsList = document.createElement('ul');
+  buildingsList.className = 'personal-board__buildings-list';
+
+  const buildingsEmpty = document.createElement('div');
+  buildingsEmpty.className = 'personal-board__empty';
+  buildingsEmpty.textContent = 'Aucun batiment construit.';
+
+  buildingsSection.appendChild(buildingsTitle);
+  buildingsSection.appendChild(buildingsCount);
+  buildingsSection.appendChild(buildingsList);
+  buildingsSection.appendChild(buildingsEmpty);
+  container.appendChild(buildingsSection);
+
+  personalBoardElements.container = container;
+  personalBoardElements.crest = crest;
+  personalBoardElements.playerLabel = playerLabel;
+  personalBoardElements.subtitle = subtitle;
+  personalBoardElements.pointsValue = pointsValue;
+  personalBoardElements.crownsValue = crownsValue;
+  personalBoardElements.amenagementCount = amenagementCount;
+  personalBoardElements.amenagementList = amenagementList;
+  personalBoardElements.amenagementEmpty = amenagementEmpty;
+  personalBoardElements.buildingsCount = buildingsCount;
+  personalBoardElements.buildingsList = buildingsList;
+  personalBoardElements.buildingsEmpty = buildingsEmpty;
+
+  amenagementEmpty.hidden = true;
+  buildingsEmpty.hidden = true;
+
+  return personalBoardElements;
+}
+
+function renderPersonalBoard() {
+  const elements = ensurePersonalBoardElements();
+  const container = elements.container;
+  if (!container) return;
+
+  const activePlayer = turnState.activePlayer ?? PLAYER_IDS[0];
+  const idx = playerIndex(activePlayer);
+  const record = idx !== -1 ? playerResources[idx] : null;
+
+  container.dataset.player = String(activePlayer);
+
+  if (elements.playerLabel) elements.playerLabel.textContent = 'Joueur ' + activePlayer;
+  if (elements.subtitle) elements.subtitle.textContent = 'Tour ' + turnState.turnNumber;
+
+  if (elements.crest) {
+    const crestUrl = PLAYER_CRESTS[activePlayer] || '';
+    if (crestUrl) {
+      elements.crest.src = crestUrl;
+      elements.crest.alt = 'Blason joueur ' + activePlayer;
+      elements.crest.hidden = false;
+    } else {
+      elements.crest.removeAttribute('src');
+      elements.crest.alt = '';
+      elements.crest.hidden = true;
+    }
+  }
+
+  if (elements.pointsValue) elements.pointsValue.textContent = String(getPlayerScore(activePlayer));
+
+  const crowns = record?.crowns ?? 0;
+  if (elements.crownsValue) elements.crownsValue.textContent = String(crowns);
+
+  const amenagementTotal = record?.amenagements?.size ?? 0;
+  if (elements.amenagementCount) {
+    if (amenagementTotal > 0) {
+      const suffix = amenagementTotal > 1 ? 's' : '';
+      elements.amenagementCount.textContent = amenagementTotal + ' amenagement' + suffix + ' controles';
+    } else {
+      elements.amenagementCount.textContent = 'Aucun amenagement controle';
+    }
+  }
+
+  const amenagementList = elements.amenagementList;
+  if (amenagementList) {
+    amenagementList.innerHTML = '';
+    const entries = [];
+    if (record?.amenagementColors instanceof Map) {
+      for (const [colorIdx, amount] of record.amenagementColors.entries()) {
+        const numericIdx = Number(colorIdx);
+        const count = Number(amount);
+        if (!Number.isFinite(count) || count <= 0) continue;
+        entries.push({ colorIdx: numericIdx, count });
+      }
+    }
+    entries.sort((a, b) => a.colorIdx - b.colorIdx);
+    if (entries.length > 0) {
+      entries.forEach(({ colorIdx, count }) => {
+        const item = document.createElement('li');
+        item.className = 'personal-board__amenagement-item';
+        const chip = document.createElement('span');
+        chip.className = 'personal-board__color-chip';
+        const colorHex = activeColors[colorIdx] || DEFAULT_COLOR_HEX[colorIdx % DEFAULT_COLOR_HEX.length] || '#cccccc';
+        chip.style.backgroundColor = colorHex;
+        chip.style.setProperty('--chip-color', colorHex);
+        chip.title = colorHex;
+        const name = document.createElement('span');
+        name.className = 'personal-board__amenagement-name';
+        name.textContent = colorLabelForIndex(colorIdx) || Couleur ;
+        const countNode = document.createElement('span');
+        countNode.className = 'personal-board__amenagement-count';
+        countNode.textContent = String(count);
+        item.appendChild(chip);
+        item.appendChild(name);
+        item.appendChild(countNode);
+        amenagementList.appendChild(item);
+      });
+      if (elements.amenagementEmpty) elements.amenagementEmpty.hidden = true;
+    } else if (elements.amenagementEmpty) {
+      elements.amenagementEmpty.textContent = amenagementTotal > 0
+        ? 'Amenagements sans couleur reference.'
+        : 'Aucun amenagement controle.';
+      elements.amenagementEmpty.hidden = false;
+    }
+  }
+
+  const buildings = record?.buildings ? Array.from(record.buildings) : [];
+  const buildingTotal = buildings.length;
+  if (elements.buildingsCount) {
+    if (buildingTotal > 0) {
+      const suffix = buildingTotal > 1 ? 's' : '';
+      const verb = buildingTotal > 1 ? 'construits' : 'construit';
+      elements.buildingsCount.textContent = buildingTotal + ' batiment' + suffix + ' ' + verb;
+    } else {
+      elements.buildingsCount.textContent = 'Aucun batiment construit';
+    }
+  }
+
+  const buildingsList = elements.buildingsList;
+  if (buildingsList) {
+    buildingsList.innerHTML = '';
+    if (buildingTotal > 0) {
+      buildings.forEach((cardId) => {
+        const def = getMarketCardDefinition(cardId);
+        const item = document.createElement('li');
+        item.className = 'personal-board__building-item';
+        const name = document.createElement('span');
+        name.className = 'personal-board__building-name';
+        name.textContent = def?.name || cardId;
+        item.appendChild(name);
+        const metaText = summarizeMarketReward(def?.reward);
+        if (metaText) {
+          const meta = document.createElement('span');
+          meta.className = 'personal-board__building-meta';
+          meta.textContent = metaText;
+          item.appendChild(meta);
+        }
+        buildingsList.appendChild(item);
+      });
+      if (elements.buildingsEmpty) elements.buildingsEmpty.hidden = true;
+    } else if (elements.buildingsEmpty) {
+      elements.buildingsEmpty.textContent = 'Aucun batiment construit.';
+      elements.buildingsEmpty.hidden = false;
+    }
+  }
+}
 function adjustPlayerResourceStock(player, resourceType, delta) {
   if (!isValidPlayer(player) || !resourceType || !Number.isFinite(delta) || delta === 0) return;
   const idx = playerIndex(player);
@@ -3027,6 +3334,7 @@ function renderGameHud() {
   const { scoreboard, collapsedScoreboard, turnIndicator } = hudElements;
   renderScoreboard(scoreboard);
   renderScoreboard(collapsedScoreboard);
+  renderPersonalBoard();
   if (turnIndicator) {
     turnIndicator.textContent = `Tour ${turnState.turnNumber} - Joueur ${turnState.activePlayer}`;
   }
@@ -3470,7 +3778,7 @@ function generateAndRender() {
 
   const cfg = readConfig();
   assert100(cfg.typesPct, 'Types de tuiles');
-  assert100(cfg.colorPct, 'RÃ©partition des couleurs');
+  assert100(cfg.colorPct, 'RÃƒÂ©partition des couleurs');
   const colors = cfg.colors.slice();
   const typesPct = cfg.typesPct.slice();
   const colorPct = cfg.colorPct.slice();
@@ -4955,7 +5263,7 @@ function ensureStatsModal() {
   closeBtn.type = 'button';
   closeBtn.className = 'stats-modal-close';
   closeBtn.setAttribute('aria-label', 'Fermer');
-  closeBtn.textContent = 'Ã—';
+  closeBtn.textContent = 'Ãƒâ€”';
   header.appendChild(title);
   header.appendChild(closeBtn);
   const body = document.createElement('div');
@@ -5066,12 +5374,12 @@ function refreshStatsModal() {
     .join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">GÃ©nÃ©ral</div>
+    <div class="stats-section-title">GÃƒÂ©nÃƒÂ©ral</div>
     <div class="stats-grid">
-      <div>Tuiles posÃ©es</div><div>${placed}</div>
+      <div>Tuiles posÃƒÂ©es</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
     </div>
-    <div class="stats-section-title">RÃ©partition</div>
+    <div class="stats-section-title">RÃƒÂ©partition</div>
     <div class="stats-grid">
       <div>Mono</div><div>${counts[1] ?? 0}</div>
       <div>Bi</div><div>${counts[2] ?? 0}</div>
@@ -5124,6 +5432,8 @@ function bindUI() {
   ensureMarketDetailElements();
   showMarketDetailsPlaceholder();
   setMarketDetailsCollapsed(true);
+  ensurePersonalBoardElements();
+  setPersonalBoardCollapsed(personalBoardCollapsed);
   ensureMarketRegionMonitor();
   const generateBtn = document.getElementById('generate');
   const clearBtn = document.getElementById('clear');
@@ -5396,3 +5706,7 @@ function ensureMarketRegionMonitor() {
   });
   marketRegionMonitorBound = true;
 }
+
+
+
+

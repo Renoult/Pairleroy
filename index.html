@@ -89,7 +89,8 @@
     </header>
 
     <div id="topbar-volet" class="topbar-volet" role="group" aria-label="Commandes de la barre superieure">
-      <button id="toggle-topbar" type="button" aria-expanded="true" aria-controls="app-topbar" aria-label="Replier la barre superieure">▲</button>
+      <button id="toggle-topbar" type="button" aria-expanded="true" aria-controls="app-topbar" aria-label="Replier la barre superieure">TB-</button>
+      <button id="toggle-personal-board" type="button" aria-expanded="true" aria-controls="personal-board" aria-label="Replier le plateau personnel">PB-</button>
       <button id="open-stats" type="button" aria-label="Ouvrir les statistiques">STA</button>
       <button id="open-settings" type="button" aria-label="Afficher les parametres">MOD</button>
     </div>
@@ -122,6 +123,9 @@
         <p class="market-details__description" id="market-details-description">
           Passez la souris sur une carte du marché pour voir son effet.
         </p>
+      </aside>
+      <aside id="personal-board" aria-live="polite" aria-label="Plateau personnel">
+        <!-- Contenu genere dynamiquement -->
       </aside>
     </main>
 

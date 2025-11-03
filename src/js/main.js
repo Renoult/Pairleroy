@@ -165,6 +165,21 @@ const marketDetailElements = {
   description: null,
 };
 
+const personalBoardElements = {
+  container: null,
+  crest: null,
+  playerLabel: null,
+  subtitle: null,
+  pointsValue: null,
+  crownsValue: null,
+  amenagementCount: null,
+  amenagementList: null,
+  amenagementEmpty: null,
+  buildingsCount: null,
+  buildingsList: null,
+  buildingsEmpty: null,
+};
+
 const MARKET_EXIT_GRACE_PX = 56;
 
 let marketDetailsCollapsed = false;
@@ -212,6 +227,7 @@ function setMarketDetailsSuppressed(suppressed) {
 }
 
 let topbarCollapsed = false;
+let personalBoardCollapsed = false;
 let topbarElements = null;
 let collapsedHudOffset = { top: 64, left: null, right: 16 };
 const COLLAPSED_HUD_STORAGE_KEY = 'pairleroyCollapsedHudPosition';
@@ -421,6 +437,7 @@ function ensureTopbarControls() {
   topbarElements = {
     header: document.getElementById('app-topbar'),
     toggle: document.getElementById('toggle-topbar'),
+    personalBoardToggle: document.getElementById('toggle-personal-board'),
     stats: document.getElementById('open-stats'),
     settings: document.getElementById('open-settings'),
     group: document.getElementById('topbar-volet'),
@@ -449,12 +466,39 @@ function setTopbarCollapsed(collapsed) {
     toggle.setAttribute('aria-label', topbarCollapsed
       ? 'Deplier la barre superieure'
       : 'Replier la barre superieure');
-    toggle.textContent = topbarCollapsed ? 'â–¼' : 'â–²';
+    toggle.textContent = topbarCollapsed ? 'TB+' : 'TB-';
   }
   applyCollapsedHudPosition();
   const collapsedHud = document.getElementById('collapsed-hud');
   if (collapsedHud) collapsedHud.setAttribute('aria-hidden', topbarCollapsed ? 'false' : 'true');
   renderGameHud();
+}
+
+function setPersonalBoardCollapsed(collapsed) {
+  personalBoardCollapsed = Boolean(collapsed);
+  const elements = ensureTopbarControls();
+  const toggle = elements.personalBoardToggle;
+  const personalBoard = ensurePersonalBoardElements().container || document.getElementById('personal-board');
+  if (personalBoard) {
+    personalBoard.hidden = personalBoardCollapsed;
+    personalBoard.classList.toggle('personal-board--collapsed', personalBoardCollapsed);
+    personalBoard.setAttribute('aria-hidden', personalBoardCollapsed ? 'true' : 'false');
+  }
+  if (document.body) {
+    document.body.classList.toggle('personal-board-collapsed', personalBoardCollapsed);
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!personalBoardCollapsed));
+    toggle.setAttribute('aria-label', personalBoardCollapsed
+      ? 'Deplier le plateau personnel'
+      : 'Replier le plateau personnel');
+    toggle.textContent = personalBoardCollapsed ? 'PB+' : 'PB-';
+  }
+  renderPersonalBoard();
+}
+
+function togglePersonalBoardCollapsed() {
+  setPersonalBoardCollapsed(!personalBoardCollapsed);
 }
 
 function setMarketDetailsCollapsed(collapsed) {
@@ -512,10 +556,14 @@ function toggleTopbarCollapsed() {
 
 function initTopbarControls() {
   const elements = ensureTopbarControls();
-  const { toggle, stats, settings } = elements;
+  const { toggle, personalBoardToggle, stats, settings } = elements;
   if (toggle && !toggle.__pairleroyBound) {
     toggle.__pairleroyBound = true;
     toggle.addEventListener('click', toggleTopbarCollapsed);
+  }
+  if (personalBoardToggle && !personalBoardToggle.__pairleroyBound) {
+    personalBoardToggle.__pairleroyBound = true;
+    personalBoardToggle.addEventListener('click', togglePersonalBoardCollapsed);
   }
   if (stats && !stats.__pairleroyBound) {
     stats.__pairleroyBound = true;
@@ -1102,6 +1150,265 @@ function ensureMarketDetailElements() {
   return marketDetailElements;
 }
 
+function ensurePersonalBoardElements() {
+  if (personalBoardElements.container || typeof document === 'undefined') return personalBoardElements;
+  const container = document.getElementById('personal-board');
+  if (!container) return personalBoardElements;
+
+  container.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'personal-board__header';
+
+  const identity = document.createElement('div');
+  identity.className = 'personal-board__identity';
+
+  const crest = document.createElement('img');
+  crest.className = 'personal-board__crest';
+  crest.alt = '';
+  crest.decoding = 'async';
+
+  const title = document.createElement('div');
+  title.className = 'personal-board__title';
+
+  const playerLabel = document.createElement('div');
+  playerLabel.className = 'personal-board__player';
+  playerLabel.textContent = 'Joueur 1';
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'personal-board__subtitle';
+  subtitle.textContent = 'Tour 1';
+
+  title.appendChild(playerLabel);
+  title.appendChild(subtitle);
+  identity.appendChild(crest);
+  identity.appendChild(title);
+
+  const totals = document.createElement('div');
+  totals.className = 'personal-board__totals';
+
+  const pointsTotal = document.createElement('div');
+  pointsTotal.className = 'personal-board__total personal-board__total--points';
+  const pointsLabel = document.createElement('div');
+  pointsLabel.className = 'personal-board__total-label';
+  pointsLabel.textContent = 'Points';
+  const pointsValue = document.createElement('div');
+  pointsValue.className = 'personal-board__total-value';
+  pointsValue.textContent = '0';
+  pointsTotal.appendChild(pointsLabel);
+  pointsTotal.appendChild(pointsValue);
+
+  const crownsTotal = document.createElement('div');
+  crownsTotal.className = 'personal-board__total personal-board__total--crowns';
+  const crownsLabel = document.createElement('div');
+  crownsLabel.className = 'personal-board__total-label';
+  crownsLabel.textContent = 'Couronnes';
+  const crownsValue = document.createElement('div');
+  crownsValue.className = 'personal-board__total-value';
+  crownsValue.textContent = '0';
+  crownsTotal.appendChild(crownsLabel);
+  crownsTotal.appendChild(crownsValue);
+
+  totals.appendChild(pointsTotal);
+  totals.appendChild(crownsTotal);
+
+  header.appendChild(identity);
+  header.appendChild(totals);
+  container.appendChild(header);
+
+  const amenagementSection = document.createElement('section');
+  amenagementSection.className = 'personal-board__section personal-board__section--amenagements';
+
+  const amenagementTitle = document.createElement('div');
+  amenagementTitle.className = 'personal-board__section-title';
+  amenagementTitle.textContent = 'Amenagements';
+
+  const amenagementCount = document.createElement('div');
+  amenagementCount.className = 'personal-board__section-count';
+  amenagementCount.textContent = 'Aucun amenagement controle';
+
+  const amenagementList = document.createElement('ul');
+  amenagementList.className = 'personal-board__amenagement-list';
+
+  const amenagementEmpty = document.createElement('div');
+  amenagementEmpty.className = 'personal-board__empty';
+  amenagementEmpty.textContent = 'Aucun amenagement controle.';
+
+  amenagementSection.appendChild(amenagementTitle);
+  amenagementSection.appendChild(amenagementCount);
+  amenagementSection.appendChild(amenagementList);
+  amenagementSection.appendChild(amenagementEmpty);
+  container.appendChild(amenagementSection);
+
+  const buildingsSection = document.createElement('section');
+  buildingsSection.className = 'personal-board__section personal-board__section--buildings';
+
+  const buildingsTitle = document.createElement('div');
+  buildingsTitle.className = 'personal-board__section-title';
+  buildingsTitle.textContent = 'Batiments';
+
+  const buildingsCount = document.createElement('div');
+  buildingsCount.className = 'personal-board__section-count';
+  buildingsCount.textContent = 'Aucun batiment construit';
+
+  const buildingsList = document.createElement('ul');
+  buildingsList.className = 'personal-board__buildings-list';
+
+  const buildingsEmpty = document.createElement('div');
+  buildingsEmpty.className = 'personal-board__empty';
+  buildingsEmpty.textContent = 'Aucun batiment construit.';
+
+  buildingsSection.appendChild(buildingsTitle);
+  buildingsSection.appendChild(buildingsCount);
+  buildingsSection.appendChild(buildingsList);
+  buildingsSection.appendChild(buildingsEmpty);
+  container.appendChild(buildingsSection);
+
+  personalBoardElements.container = container;
+  personalBoardElements.crest = crest;
+  personalBoardElements.playerLabel = playerLabel;
+  personalBoardElements.subtitle = subtitle;
+  personalBoardElements.pointsValue = pointsValue;
+  personalBoardElements.crownsValue = crownsValue;
+  personalBoardElements.amenagementCount = amenagementCount;
+  personalBoardElements.amenagementList = amenagementList;
+  personalBoardElements.amenagementEmpty = amenagementEmpty;
+  personalBoardElements.buildingsCount = buildingsCount;
+  personalBoardElements.buildingsList = buildingsList;
+  personalBoardElements.buildingsEmpty = buildingsEmpty;
+
+  amenagementEmpty.hidden = true;
+  buildingsEmpty.hidden = true;
+
+  return personalBoardElements;
+}
+
+function renderPersonalBoard() {
+  const elements = ensurePersonalBoardElements();
+  const container = elements.container;
+  if (!container) return;
+
+  const activePlayer = turnState.activePlayer ?? PLAYER_IDS[0];
+  const idx = playerIndex(activePlayer);
+  const record = idx !== -1 ? playerResources[idx] : null;
+
+  container.dataset.player = String(activePlayer);
+
+  if (elements.playerLabel) elements.playerLabel.textContent = `Joueur ${activePlayer}`;
+  if (elements.subtitle) elements.subtitle.textContent = `Tour ${turnState.turnNumber}`;
+
+  if (elements.crest) {
+    const crestUrl = PLAYER_CRESTS[activePlayer] || '';
+    if (crestUrl) {
+      elements.crest.src = crestUrl;
+      elements.crest.alt = `Blason joueur ${activePlayer}`;
+      elements.crest.hidden = false;
+    } else {
+      elements.crest.removeAttribute('src');
+      elements.crest.alt = '';
+      elements.crest.hidden = true;
+    }
+  }
+
+  if (elements.pointsValue) elements.pointsValue.textContent = String(getPlayerScore(activePlayer));
+
+  const crowns = record?.crowns ?? 0;
+  if (elements.crownsValue) elements.crownsValue.textContent = String(crowns);
+
+  const amenagementTotal = record?.amenagements?.size ?? 0;
+  if (elements.amenagementCount) {
+    if (amenagementTotal > 0) {
+      const suffix = amenagementTotal > 1 ? 's' : '';
+      elements.amenagementCount.textContent = `${amenagementTotal} amenagement${suffix} controles`;
+    } else {
+      elements.amenagementCount.textContent = 'Aucun amenagement controle';
+    }
+  }
+
+  const amenagementList = elements.amenagementList;
+  if (amenagementList) {
+    amenagementList.innerHTML = '';
+    const entries = [];
+    if (record?.amenagementColors instanceof Map) {
+      for (const [colorIdx, amount] of record.amenagementColors.entries()) {
+        const numericIdx = Number(colorIdx);
+        const count = Number(amount);
+        if (!Number.isFinite(count) || count <= 0) continue;
+        entries.push({ colorIdx: numericIdx, count });
+      }
+    }
+    entries.sort((a, b) => a.colorIdx - b.colorIdx);
+    if (entries.length > 0) {
+      entries.forEach(({ colorIdx, count }) => {
+        const item = document.createElement('li');
+        item.className = 'personal-board__amenagement-item';
+        const chip = document.createElement('span');
+        chip.className = 'personal-board__color-chip';
+        const colorHex = activeColors[colorIdx] || DEFAULT_COLOR_HEX[colorIdx % DEFAULT_COLOR_HEX.length] || '#cccccc';
+        chip.style.backgroundColor = colorHex;
+        chip.style.setProperty('--chip-color', colorHex);
+        chip.title = colorHex;
+        const name = document.createElement('span');
+        name.className = 'personal-board__amenagement-name';
+        name.textContent = colorLabelForIndex(colorIdx) || `Couleur ${colorIdx + 1}`;
+        const countNode = document.createElement('span');
+        countNode.className = 'personal-board__amenagement-count';
+        countNode.textContent = String(count);
+        item.appendChild(chip);
+        item.appendChild(name);
+        item.appendChild(countNode);
+        amenagementList.appendChild(item);
+      });
+      if (elements.amenagementEmpty) elements.amenagementEmpty.hidden = true;
+    } else if (elements.amenagementEmpty) {
+      elements.amenagementEmpty.textContent = amenagementTotal > 0
+        ? 'Amenagements sans couleur reference.'
+        : 'Aucun amenagement controle.';
+      elements.amenagementEmpty.hidden = false;
+    }
+  }
+
+  const buildings = record?.buildings ? Array.from(record.buildings) : [];
+  const buildingTotal = buildings.length;
+  if (elements.buildingsCount) {
+    if (buildingTotal > 0) {
+      const suffix = buildingTotal > 1 ? 's' : '';
+      const verb = buildingTotal > 1 ? 'construits' : 'construit';
+      elements.buildingsCount.textContent = `${buildingTotal} batiment${suffix} ${verb}`;
+    } else {
+      elements.buildingsCount.textContent = 'Aucun batiment construit';
+    }
+  }
+
+  const buildingsList = elements.buildingsList;
+  if (buildingsList) {
+    buildingsList.innerHTML = '';
+    if (buildingTotal > 0) {
+      buildings.forEach((cardId) => {
+        const def = getMarketCardDefinition(cardId);
+        const item = document.createElement('li');
+        item.className = 'personal-board__building-item';
+        const name = document.createElement('span');
+        name.className = 'personal-board__building-name';
+        name.textContent = def?.name || cardId;
+        item.appendChild(name);
+        const metaText = summarizeMarketReward(def?.reward);
+        if (metaText) {
+          const meta = document.createElement('span');
+          meta.className = 'personal-board__building-meta';
+          meta.textContent = metaText;
+          item.appendChild(meta);
+        }
+        buildingsList.appendChild(item);
+      });
+      if (elements.buildingsEmpty) elements.buildingsEmpty.hidden = true;
+    } else if (elements.buildingsEmpty) {
+      elements.buildingsEmpty.textContent = 'Aucun batiment construit.';
+      elements.buildingsEmpty.hidden = false;
+    }
+  }
+}
+
 function adjustPlayerResourceStock(player, resourceType, delta) {
   if (!isValidPlayer(player) || !resourceType || !Number.isFinite(delta) || delta === 0) return;
   const idx = playerIndex(player);
@@ -1661,6 +1968,7 @@ function renderGameHud() {
   const { scoreboard, collapsedScoreboard, turnIndicator } = hudElements;
   renderScoreboard(scoreboard);
   renderScoreboard(collapsedScoreboard);
+  renderPersonalBoard();
   if (turnIndicator) {
     turnIndicator.textContent = `Tour ${turnState.turnNumber} - Joueur ${turnState.activePlayer}`;
   }
@@ -3758,6 +4066,8 @@ function bindUI() {
   ensureMarketDetailElements();
   showMarketDetailsPlaceholder();
   setMarketDetailsCollapsed(true);
+  ensurePersonalBoardElements();
+  setPersonalBoardCollapsed(personalBoardCollapsed);
   ensureMarketRegionMonitor();
   const generateBtn = document.getElementById('generate');
   const clearBtn = document.getElementById('clear');
@@ -4030,6 +4340,7 @@ function ensureMarketRegionMonitor() {
   });
   marketRegionMonitorBound = true;
 }
+
 
 
 
