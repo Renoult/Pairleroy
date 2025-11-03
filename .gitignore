@@ -895,7 +895,3 @@
 # uploads/
 # downloads/
 
-# Allow committing the production bundle in the repository root.
-!/dist/
-!/dist/**
-

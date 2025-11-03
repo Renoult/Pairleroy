@@ -1019,7 +1019,7 @@ function renderOverlays(svg, tiles, size, overlayByIdx) {
 
 // ----- src/js/market.js -----
 // Fichier: src/js/market.js
-// Description: Définitions de base pour les bâtiments et contrats du marché central.
+// Description: Definitions de base pour les batiments et contrats du marche central.
 
 const MARKET_SLOT_COUNT = 16;
 
@@ -2857,6 +2857,7 @@ function renderPersonalBoard() {
   }
 
   const amenagementStock = record ? computeAmenagementResourceStock(record) : null;
+
   const contractsList = elements.contractsList;
   if (contractsList) {
     contractsList.innerHTML = '';
@@ -2895,7 +2896,7 @@ function renderPersonalBoard() {
         buildBtn.textContent = 'Construire';
         buildBtn.disabled = !buildStatus.canBuild;
         buildBtn.title = buildStatus.canBuild
-          ? 'Construire ce b\u00e2timent'
+          ? 'Construire ce bâtiment'
           : buildStatus.reason || 'Conditions non remplies';
         if (buildStatus.canBuild) {
           buildBtn.addEventListener('click', () => attemptBuildFromContract(cardId));
@@ -3369,7 +3370,7 @@ function registerBuildingForPlayer(player, cardId, { applyReward = true } = {}) 
   record.buildings.add(cardId);
   if (applyReward) {
     const def = getMarketCardDefinition(cardId);
-    if (def?.reward) applyMarketReward(player, record, def.reward, "build:" + cardId);
+    if (def?.reward) applyMarketReward(player, record, def.reward, 'build:' + cardId);
   }
   renderGameHud();
 }
