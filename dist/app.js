@@ -3361,12 +3361,16 @@ function chargeAmenagementPlacement(player) {
   return spendPoints(player, cost, 'amenagement');
 }
 
-function registerBuildingForPlayer(player, cardId) {
+function registerBuildingForPlayer(player, cardId, { applyReward = true } = {}) {
   if (!isValidPlayer(player) || !cardId) return;
   const idx = playerIndex(player);
   const record = playerResources[idx];
   if (!record) return;
   record.buildings.add(cardId);
+  if (applyReward) {
+    const def = getMarketCardDefinition(cardId);
+    if (def?.reward) applyMarketReward(player, record, def.reward, "build:" + cardId);
+  }
   renderGameHud();
 }
 
@@ -3821,6 +3825,24 @@ function createContractCostBreakdown(cost, stock) {
     wrapper.appendChild(line);
   });
   return wrapper;
+}
+
+function applyMarketReward(player, record, reward, source = 'reward') {
+  if (!reward || typeof reward !== 'object') return;
+  if (Number.isFinite(reward.points) && reward.points !== 0) {
+    awardPoints(player, reward.points, source);
+  }
+  if (Number.isFinite(reward.crowns) && reward.crowns !== 0) {
+    adjustPlayerCrowns(player, reward.crowns);
+  }
+  if (reward.stock && typeof reward.stock === 'object') {
+    RESOURCE_ORDER.forEach((resource) => {
+      const amount = reward.stock[resource];
+      if (Number.isFinite(amount) && amount !== 0) {
+        adjustPlayerResourceStock(player, resource, amount);
+      }
+    });
+  }
 }
 
 function computeAmenagementResourceStock(record) {
