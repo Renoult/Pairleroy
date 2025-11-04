@@ -4424,6 +4424,9 @@ let paletteCombos = [];
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 
+// Variables d'affichage et de zoom
+let previewLayer;
+
 // Fonctions UI globales
 function renderPlacementPreview(tileIdx) {
   if (!previewLayer) return;
@@ -5401,7 +5404,7 @@ function generateAndRender() {
   let panWasActive = false;
 
   const viewport = svg.querySelector('#viewport');
-  const previewLayer = svg.querySelector('#preview');
+  previewLayer = svg.querySelector('#preview');
 
   function updateViewportTransform() {
     if (!viewport) return;
