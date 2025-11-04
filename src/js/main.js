@@ -186,6 +186,37 @@ function renderAll() {
   const svg = document.querySelector('#board-container svg');
   if (!svg) return;
   
+  const state = svg.__state;
+  if (!state) return;
+  
+  // Re-rendre les placements de tuiles sur la grille
+  if (Array.isArray(placements) && typeof renderTileFill === 'function') {
+    placements.forEach((placement, idx) => {
+      if (!placement) {
+        gridSideColors[idx] = null;
+        return;
+      }
+      const mapped = mapSideColorIndices(placement.sideColors, state.colors);
+      gridSideColors[idx] = mapped;
+      placement.colors = mapped.slice();
+      try {
+        renderTileFill(idx, placement.sideColors, svg, state.tiles, state.size, state.colors);
+      } catch (e) {
+        // Fonction renderTileFill peut ne pas être accessible dans ce scope
+      }
+    });
+  }
+  
+  // Réactualiser tous les overlays et éléments visuels
+  if (state.renderJunctionOverlays) state.renderJunctionOverlays();
+  if (state.renderCastleOverlays) state.renderCastleOverlays();
+  if (state.renderOutpostOverlays) state.renderOutpostOverlays();
+  
+  // Réactualiser les marqueurs de colon
+  if (typeof updateColonMarkersPositions === 'function') {
+    updateColonMarkersPositions();
+  }
+  
   // Réactualiser l'interface de jeu
   renderGameHud();
   
@@ -195,8 +226,7 @@ function renderAll() {
   }
   
   // Réactualiser la palette si la fonction est disponible
-  const state = svg.__state;
-  if (state && state.regenPalette) {
+  if (state.regenPalette) {
     state.regenPalette();
   }
   
