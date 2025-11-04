@@ -2698,6 +2698,9 @@ function showMarketDetailsPlaceholder() {
   elements.cost.textContent = '--';
   elements.reward.textContent = '--';
   elements.description.textContent = 'Cliquez sur une carte du marche pour afficher les details et double-cliquez pour l\'acquerir.';
+  
+  // Cacher la section d'édition
+  hideMarketEditSection();
 }
 
 function updateMarketDetailPanel(slotIdx) {
@@ -2722,6 +2725,87 @@ function updateMarketDetailPanel(slotIdx) {
   elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
   elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
   elements.description.textContent = def.description || '--';
+  
+  // Afficher la section d'édition pour les bâtiments
+  showMarketEditSection(slotIdx, def);
+}
+
+function showMarketEditSection(slotIdx, def) {
+  const editSection = document.getElementById('market-edit-section');
+  if (!editSection || !def) return;
+  
+  // Remplir les champs avec les valeurs actuelles
+  document.getElementById('edit-name').value = def.name || '';
+  document.getElementById('edit-cost').value = getCostValue(def.cost) || 0;
+  document.getElementById('edit-reward').value = getRewardValue(def.reward) || 0;
+  document.getElementById('edit-titre').value = def.description || '';
+  
+  // Afficher la section d'édition
+  editSection.style.display = 'block';
+}
+
+function hideMarketEditSection() {
+  const editSection = document.getElementById('market-edit-section');
+  if (editSection) {
+    editSection.style.display = 'none';
+  }
+}
+
+function getCostValue(cost) {
+  if (!cost) return 0;
+  // Extraire le coût principal (premier élément non nul)
+  const firstResource = Object.keys(cost)[0];
+  return cost[firstResource] || 0;
+}
+
+function getRewardValue(reward) {
+  if (!reward) return 0;
+  // Extraire la récompense principale (premier élément non nul)
+  const firstKey = Object.keys(reward)[0];
+  return reward[firstKey] || 0;
+}
+
+function applyMarketEdits(slotIdx) {
+  const elements = ensureMarketDetailElements();
+  const slotState = marketState?.slots?.[slotIdx];
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+  
+  if (!def) return;
+  
+  // Récupérer les nouvelles valeurs
+  const newName = document.getElementById('edit-name').value;
+  const newCost = Number(document.getElementById('edit-cost').value) || 0;
+  const newReward = Number(document.getElementById('edit-reward').value) || 0;
+  const newDescription = document.getElementById('edit-titre').value;
+  
+  // Appliquer les modifications
+  if (newName !== def.name) {
+    def.name = newName;
+    elements.name.textContent = newName;
+  }
+  
+  // Modifier le coût (supposant qu'on utilise la première ressource)
+  const firstResource = Object.keys(def.cost)[0];
+  if (firstResource && def.cost[firstResource] !== newCost) {
+    def.cost[firstResource] = newCost;
+    elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
+  }
+  
+  // Modifier la récompense (supposant qu'on utilise la première propriété)
+  const firstKey = Object.keys(def.reward)[0];
+  if (firstKey && def.reward[firstKey] !== newReward) {
+    def.reward[firstKey] = newReward;
+    elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
+  }
+  
+  if (newDescription !== def.description) {
+    def.description = newDescription;
+    elements.description.textContent = newDescription;
+  }
+  
+  // Cacher la section d'édition
+  hideMarketEditSection();
+}
 }
 
 function summarizeMarketCost(cost) {
@@ -4673,6 +4757,24 @@ function bindUI() {
       if (isValidPlayer(playerId)) setActivePlayer(playerId);
     }
   });
+
+  // Event listeners pour l'édition des bâtiments
+  const applyBtn = document.getElementById('apply-changes');
+  const cancelBtn = document.getElementById('cancel-edit');
+  
+  if (applyBtn) {
+    applyBtn.addEventListener('click', () => {
+      if (hoveredMarketSlot != null) {
+        applyMarketEdits(hoveredMarketSlot);
+      }
+    });
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      hideMarketEditSection();
+    });
+  }
 
   document.addEventListener('keydown', handleSettingsKeyDown);
   document.addEventListener('keyup', handleSettingsKeyUp);

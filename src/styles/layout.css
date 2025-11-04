@@ -1212,3 +1212,95 @@ svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; background: 
   color: var(--accent);
 }
 
+/* Styles pour l'édition des bâtiments */
+.market-edit-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.market-edit-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-row label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-row input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.form-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent), 0.1);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.edit-actions button {
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-actions button:hover {
+  background: var(--panel-hover);
+  border-color: var(--accent);
+}
+
+#apply-changes {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+#apply-changes:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+#cancel-edit {
+  background: transparent;
+}
+
+#cancel-edit:hover {
+  background: var(--panel-hover);
+}
+

@@ -123,6 +123,33 @@
         <p class="market-details__description" id="market-details-description">
           Passez la souris sur une carte du marché pour voir son effet.
         </p>
+        
+        <!-- Section d'édition des bâtiments -->
+        <div id="market-edit-section" class="market-edit-section" style="display: none;">
+          <h3>Modifier le bâtiment</h3>
+          <div class="edit-form">
+            <div class="form-row">
+              <label for="edit-name">Nom:</label>
+              <input type="text" id="edit-name" placeholder="Nom du bâtiment">
+            </div>
+            <div class="form-row">
+              <label for="edit-cost">Coût:</label>
+              <input type="number" id="edit-cost" min="0" placeholder="0">
+            </div>
+            <div class="form-row">
+              <label for="edit-reward">Récompense:</label>
+              <input type="number" id="edit-reward" min="0" placeholder="0">
+            </div>
+            <div class="form-row">
+              <label for="edit-titre">Titre:</label>
+              <input type="text" id="edit-titre" placeholder="Titre du bâtiment">
+            </div>
+            <div class="edit-actions">
+              <button id="apply-changes" type="button">Appliquer</button>
+              <button id="cancel-edit" type="button">Annuler</button>
+            </div>
+          </div>
+        </div>
       </aside>
       <aside id="personal-board" aria-live="polite" aria-label="Plateau personnel">
         <!-- Contenu genere dynamiquement -->
