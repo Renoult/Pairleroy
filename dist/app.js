@@ -5944,24 +5944,80 @@ function refreshStatsModal() {
   if (!statsModalVisible) return;
   const elements = ensureStatsModal();
   const body = elements.body;
-  const placed = placedCount;
-  const remaining = Math.max(0, TILE_COUNT - placed);
-  const counts = { 1: 0, 2: 0, 3: 0 };
-  placements.forEach((placement) => {
-    if (!placement?.combo) return;
-    const t = placement.combo.type;
-    if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
-  });
+  
+  // Vérifier et sécuriser l'accès aux données
   const svg = document.querySelector('#board-container svg');
-  const overlayMap = svg?.__state?.overlayByJunction ?? null;
-  const castleMap = svg?.__state?.castleByJunction ?? null;
+  const state = svg?.__state || {};
+  
+  // Statistiques générales
+  const placed = placedCount || 0;
+  const remaining = Math.max(0, TILE_COUNT - placed);
+  const completionPercentage = ((placed / TILE_COUNT) * 100).toFixed(1);
+  
+  // Statistiques de répartition des combos
+  const counts = { 1: 0, 2: 0, 3: 0 };
+  const colorCounts = [0, 0, 0, 0]; // Pour 4 couleurs max
+  
+  if (Array.isArray(placements)) {
+    placements.forEach((placement) => {
+      if (!placement?.combo) return;
+      
+      // Compter par type de combo
+      const t = placement.combo.type;
+      if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
+      
+      // Compter par couleur (utiliser les couleurs mappées)
+      if (Array.isArray(placement.colors)) {
+        placement.colors.forEach(colorIdx => {
+          if (colorIdx >= 0 && colorIdx < colorCounts.length) {
+            colorCounts[colorIdx]++;
+          }
+        });
+      }
+    });
+  }
+  
+  // Calculer le total des combos
+  let totalCombos = counts[1] + counts[2] + counts[3];
+  
+  // Calculer les pourcentages
+  const comboPercentages = {
+    1: totalCombos > 0 ? ((counts[1] / totalCombos) * 100).toFixed(1) : '0.0',
+    2: totalCombos > 0 ? ((counts[2] / totalCombos) * 100).toFixed(1) : '0.0',
+    3: totalCombos > 0 ? ((counts[3] / totalCombos) * 100).toFixed(1) : '0.0'
+  };
+  
+  const colorPercentages = colorCounts.map(count => 
+    totalCombos > 0 ? ((count / totalCombos) * 100).toFixed(1) : '0.0'
+  );
+  
+  // Statistiques des blasons (overlays et châteaux)
   const crestCounts = [0, 0, 0, 0, 0, 0];
-  if (overlayMap) {
+  const overlayMap = state.overlayByJunction || null;
+  const castleMap = state.castleByJunction || null;
+  
+  if (overlayMap && typeof overlayMap.forEach === 'function') {
     for (const player of overlayMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
     }
   }
-  if (castleMap) {
+  if (castleMap && typeof castleMap.forEach === 'function') {
+    for (const player of castleMap.values()) {
+      if (player >= 1 && player <= 6) crestCounts[player - 1]++;
+    }
+  }
+
+  // Statistiques des blasons (overlays et châteaux)
+  const crestCounts = [0, 0, 0, 0, 0, 0];
+  const overlayMap = state.overlayByJunction || null;
+  const castleMap = state.castleByJunction || null;
+  
+  if (overlayMap && typeof overlayMap.forEach === 'function') {
+    for (const player of overlayMap.values()) {
+      if (player >= 1 && player <= 6) crestCounts[player - 1]++;
+    }
+  }
+  if (castleMap && typeof castleMap.forEach === 'function') {
     for (const player of castleMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
     }
@@ -5971,19 +6027,33 @@ function refreshStatsModal() {
     .map((value, idx) => `<div>J${idx + 1}</div><div>${value}</div>`)
     .join('');
 
+  // Créer les lignes pour les couleurs avec leurs pourcentages
+  const colors = state.colors || ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'];
+  const colorRows = colorCounts.map((count, idx) => {
+    const colorName = colors[idx] || `Couleur ${idx + 1}`;
+    const percentage = colorPercentages[idx];
+    return `<div>${colorName}</div><div>${count} (${percentage}%)</div>`;
+  }).join('');
+
   body.innerHTML = `
-    <div class="stats-section-title">G\u00e9n\u00e9ral</div>
+    <div class="stats-section-title">Général</div>
     <div class="stats-grid">
-      <div>Tuiles pos\u00e9es</div><div>${placed}</div>
+      <div>Tuiles posées</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
+      <div>Avancement</div><div>${completionPercentage}%</div>
+      <div>Total combos</div><div>${totalCombos}</div>
     </div>
-    <div class="stats-section-title">R\u00e9partition</div>
+    <div class="stats-section-title">Répartition des Combos</div>
     <div class="stats-grid">
-      <div>Mono</div><div>${counts[1] ?? 0}</div>
-      <div>Bi</div><div>${counts[2] ?? 0}</div>
-      <div>Tri</div><div>${counts[3] ?? 0}</div>
+      <div>Mono (1 couleur)</div><div>${counts[1] ?? 0} (${comboPercentages[1]}%)</div>
+      <div>Bi (2 couleurs)</div><div>${counts[2] ?? 0} (${comboPercentages[2]}%)</div>
+      <div>Tri (3 couleurs)</div><div>${counts[3] ?? 0} (${comboPercentages[3]}%)</div>
     </div>
-    <div class="stats-section-title">Blasons</div>
+    <div class="stats-section-title">Répartition par Couleur</div>
+    <div class="stats-grid">
+      ${colorRows}
+    </div>
+    <div class="stats-section-title">Blasons par Joueur</div>
     <div class="stats-grid">
       ${crestRows}
     </div>
