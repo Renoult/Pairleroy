@@ -1442,6 +1442,10 @@ function getGameState() {
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
+      // Inclure les données des colons
+      colonPositions: colonPositions.slice(),
+      colonMoveRemaining: colonMoveRemaining.slice(),
+      colonPlacementUsed: colonPlacementUsed.slice(),
       // Inclure les données d'aménagement
       amenagementColorByKey: amenagementColorByKey ? Array.from(amenagementColorByKey.entries()) : [],
       svgState: {
@@ -1487,6 +1491,17 @@ function applyGameState(syncState) {
     
     // Synchroniser le joueur colon sélectionné
     selectedColonPlayer = syncState.data.selectedColonPlayer;
+    
+    // Synchroniser les données des colons
+    if (Array.isArray(syncState.data.colonPositions)) {
+      colonPositions = syncState.data.colonPositions.slice();
+    }
+    if (Array.isArray(syncState.data.colonMoveRemaining)) {
+      colonMoveRemaining = syncState.data.colonMoveRemaining.slice();
+    }
+    if (Array.isArray(syncState.data.colonPlacementUsed)) {
+      colonPlacementUsed = syncState.data.colonPlacementUsed.slice();
+    }
     
     // Synchroniser les couleurs d'aménagement
     if (syncState.data.amenagementColorByKey && Array.isArray(syncState.data.amenagementColorByKey)) {
