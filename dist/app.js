@@ -4427,7 +4427,13 @@ let paletteCombos = [];
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 
-// Fonction setSelectedPalette accessible globalement
+// Fonctions UI globales
+function updateClearButtonState() {
+  const btn = document.getElementById('clear');
+  if (!btn) return;
+  btn.classList.toggle('danger', placedCount > 0);
+}
+
 function setSelectedPalette(idx) {
   selectedPalette = idx;
   updateClearButtonState();

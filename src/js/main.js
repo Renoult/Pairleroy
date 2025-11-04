@@ -155,7 +155,6 @@ function broadcastGameState() {
   if (isSyncing) return;
   
   const state = getGameState();
-  console.log('[SYNCHRONISATION] Envoi état:', state.tabId, 'Timestamp:', state.timestamp);
   tabChannel.postMessage({
     type: 'gameState',
     data: state
@@ -3061,7 +3060,13 @@ let paletteCombos = [];
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 
-// Fonction setSelectedPalette accessible globalement
+// Fonctions UI globales
+function updateClearButtonState() {
+  const btn = document.getElementById('clear');
+  if (!btn) return;
+  btn.classList.toggle('danger', placedCount > 0);
+}
+
 function setSelectedPalette(idx) {
   selectedPalette = idx;
   updateClearButtonState();
