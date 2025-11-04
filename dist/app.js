@@ -6007,22 +6007,6 @@ function refreshStatsModal() {
     }
   }
 
-  // Statistiques des blasons (overlays et châteaux)
-  const crestCounts = [0, 0, 0, 0, 0, 0];
-  const overlayMap = state.overlayByJunction || null;
-  const castleMap = state.castleByJunction || null;
-  
-  if (overlayMap && typeof overlayMap.forEach === 'function') {
-    for (const player of overlayMap.values()) {
-      if (player >= 1 && player <= 6) crestCounts[player - 1]++;
-    }
-  }
-  if (castleMap && typeof castleMap.forEach === 'function') {
-    for (const player of castleMap.values()) {
-      if (player >= 1 && player <= 6) crestCounts[player - 1]++;
-    }
-  }
-
   const crestRows = crestCounts
     .map((value, idx) => `<div>J${idx + 1}</div><div>${value}</div>`)
     .join('');
