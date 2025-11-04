@@ -3045,6 +3045,11 @@ let autoState = { done: false, pendingPalette: null };
 let panSuppressClick = false;
 let boardInitialized = false;
 
+// Variables de palette et d'interaction
+let paletteCombos = [];
+let selectedPalette = -1;
+let hoveredTileIdx = null;
+
 function syncArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;
   target.splice(0, target.length, ...source);
