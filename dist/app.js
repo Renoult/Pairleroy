@@ -1560,9 +1560,16 @@ function renderAll() {
     refreshStatsModal();
   }
   
-  // Réactualiser l'interface utilisateur
-  renderPaletteUI(paletteCombos);
-  renderPlacementPreview(hoveredTileIdx);
+  // Réactualiser la palette si la fonction est disponible
+  const state = svg.__state;
+  if (state && state.regenPalette) {
+    state.regenPalette();
+  }
+  
+  // Réactualiser la prévisualisation de placement
+  if (typeof renderPlacementPreview === 'function') {
+    renderPlacementPreview(null);
+  }
 }
 
 const RESOURCE_LABELS = {
