@@ -2734,11 +2734,27 @@ function showMarketEditSection(slotIdx, def) {
   const editSection = document.getElementById('market-edit-section');
   if (!editSection || !def) return;
   
-  // Remplir les champs avec les valeurs actuelles
+  // Remplir les champs de base
   document.getElementById('edit-name').value = def.name || '';
-  document.getElementById('edit-cost').value = getCostValue(def.cost) || 0;
-  document.getElementById('edit-reward').value = getRewardValue(def.reward) || 0;
   document.getElementById('edit-titre').value = def.description || '';
+  
+  // Remplir les champs de coût individuels
+  const cost = def.cost || {};
+  document.getElementById('edit-cost-wood').value = cost.wood || 0;
+  document.getElementById('edit-cost-bread').value = cost.bread || 0;
+  document.getElementById('edit-cost-fabric').value = cost.fabric || 0;
+  document.getElementById('edit-cost-labor').value = cost.labor || 0;
+  document.getElementById('edit-cost-points').value = cost.points || 0;
+  document.getElementById('edit-cost-crowns').value = cost.crowns || 0;
+  
+  // Remplir les champs de récompense individuels
+  const reward = def.reward || {};
+  document.getElementById('edit-reward-wood').value = reward.stock?.wood || 0;
+  document.getElementById('edit-reward-bread').value = reward.stock?.bread || 0;
+  document.getElementById('edit-reward-fabric').value = reward.stock?.fabric || 0;
+  document.getElementById('edit-reward-labor').value = reward.stock?.labor || 0;
+  document.getElementById('edit-reward-points').value = reward.points || 0;
+  document.getElementById('edit-reward-crowns').value = reward.crowns || 0;
   
   // Afficher la section d'édition
   editSection.style.display = 'block';
@@ -2772,35 +2788,68 @@ function applyMarketEdits(slotIdx) {
   
   if (!def) return;
   
-  // Récupérer les nouvelles valeurs
+  // Récupérer les nouvelles valeurs de base
   const newName = document.getElementById('edit-name').value;
-  const newCost = Number(document.getElementById('edit-cost').value) || 0;
-  const newReward = Number(document.getElementById('edit-reward').value) || 0;
   const newDescription = document.getElementById('edit-titre').value;
   
+  // Construire le nouvel objet de coût
+  const newCost = {
+    wood: Number(document.getElementById('edit-cost-wood').value) || 0,
+    bread: Number(document.getElementById('edit-cost-bread').value) || 0,
+    fabric: Number(document.getElementById('edit-cost-fabric').value) || 0,
+    labor: Number(document.getElementById('edit-cost-labor').value) || 0,
+    points: Number(document.getElementById('edit-cost-points').value) || 0,
+    crowns: Number(document.getElementById('edit-cost-crowns').value) || 0
+  };
+  
+  // Construire le nouvel objet de récompense
+  const newReward = {
+    points: Number(document.getElementById('edit-reward-points').value) || 0,
+    crowns: Number(document.getElementById('edit-reward-crowns').value) || 0,
+    stock: {
+      wood: Number(document.getElementById('edit-reward-wood').value) || 0,
+      bread: Number(document.getElementById('edit-reward-bread').value) || 0,
+      fabric: Number(document.getElementById('edit-reward-fabric').value) || 0,
+      labor: Number(document.getElementById('edit-reward-labor').value) || 0
+    }
+  };
+  
   // Appliquer les modifications
+  let changed = false;
+  
   if (newName !== def.name) {
     def.name = newName;
     elements.name.textContent = newName;
-  }
-  
-  // Modifier le coût (supposant qu'on utilise la première ressource)
-  const firstResource = Object.keys(def.cost)[0];
-  if (firstResource && def.cost[firstResource] !== newCost) {
-    def.cost[firstResource] = newCost;
-    elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
-  }
-  
-  // Modifier la récompense (supposant qu'on utilise la première propriété)
-  const firstKey = Object.keys(def.reward)[0];
-  if (firstKey && def.reward[firstKey] !== newReward) {
-    def.reward[firstKey] = newReward;
-    elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
+    changed = true;
   }
   
   if (newDescription !== def.description) {
     def.description = newDescription;
     elements.description.textContent = newDescription;
+    changed = true;
+  }
+  
+  // Vérifier si le coût a changé
+  const costChanged = Object.keys(newCost).some(key => (def.cost?.[key] || 0) !== newCost[key]);
+  if (costChanged) {
+    def.cost = newCost;
+    elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
+    changed = true;
+  }
+  
+  // Vérifier si la récompense a changé
+  const rewardChanged = (def.reward?.points || 0) !== newReward.points || 
+                        (def.reward?.crowns || 0) !== newReward.crowns ||
+                        Object.keys(newReward.stock).some(key => (def.reward?.stock?.[key] || 0) !== newReward.stock[key]);
+  if (rewardChanged) {
+    def.reward = newReward;
+    elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
+    changed = true;
+  }
+  
+  // Rafraîchir l'affichage de la carte du marché
+  if (changed) {
+    renderMarketCards();
   }
   
   // Cacher la section d'édition

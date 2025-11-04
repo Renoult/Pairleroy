@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pairleroy - Generateur de grille hexagonale</title>
-    <link rel="stylesheet" href="dist/styles.css" />
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header id="app-topbar" class="topbar">
@@ -133,17 +133,66 @@
               <input type="text" id="edit-name" placeholder="Nom du bâtiment">
             </div>
             <div class="form-row">
-              <label for="edit-cost">Coût:</label>
-              <input type="number" id="edit-cost" min="0" placeholder="0">
-            </div>
-            <div class="form-row">
-              <label for="edit-reward">Récompense:</label>
-              <input type="number" id="edit-reward" min="0" placeholder="0">
-            </div>
-            <div class="form-row">
               <label for="edit-titre">Titre:</label>
               <input type="text" id="edit-titre" placeholder="Titre du bâtiment">
             </div>
+            
+            <div class="edit-section-title">Coût (ressources nécessaires)</div>
+            <div class="resource-grid">
+              <div class="form-row">
+                <label for="edit-cost-wood">Bois:</label>
+                <input type="number" id="edit-cost-wood" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-bread">Pain:</label>
+                <input type="number" id="edit-cost-bread" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-fabric">Tissu:</label>
+                <input type="number" id="edit-cost-fabric" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-labor">Main-d'œuvre:</label>
+                <input type="number" id="edit-cost-labor" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-points">Points de Victoire:</label>
+                <input type="number" id="edit-cost-points" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-crowns">Couronnes:</label>
+                <input type="number" id="edit-cost-crowns" min="0" placeholder="0">
+              </div>
+            </div>
+            
+            <div class="edit-section-title">Récompense (ressources gagnées)</div>
+            <div class="resource-grid">
+              <div class="form-row">
+                <label for="edit-reward-wood">Bois:</label>
+                <input type="number" id="edit-reward-wood" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-bread">Pain:</label>
+                <input type="number" id="edit-reward-bread" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-fabric">Tissu:</label>
+                <input type="number" id="edit-reward-fabric" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-labor">Main-d'œuvre:</label>
+                <input type="number" id="edit-reward-labor" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-points">Points de Victoire:</label>
+                <input type="number" id="edit-reward-points" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-crowns">Couronnes:</label>
+                <input type="number" id="edit-reward-crowns" min="0" placeholder="0">
+              </div>
+            </div>
+            
             <div class="edit-actions">
               <button id="apply-changes" type="button">Appliquer</button>
               <button id="cancel-edit" type="button">Annuler</button>
@@ -156,6 +205,6 @@
       </aside>
     </main>
 
-    <script src="dist/app.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>
