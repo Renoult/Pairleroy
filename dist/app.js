@@ -1452,8 +1452,6 @@ function getGameState() {
       }
     }
   };
-  
-  console.log('[SYNCHRONISATION] Génération état - Placements:', placements.length, 'Count:', placedCount);
   return gameState;
 }
 
@@ -1521,7 +1519,6 @@ function broadcastGameState() {
   if (isSyncing) return;
   
   const state = getGameState();
-  console.log('[SYNCHRONISATION] Envoi état:', state.tabId, 'Timestamp:', state.timestamp);
   tabChannel.postMessage({
     type: 'gameState',
     data: state
@@ -1531,18 +1528,18 @@ function broadcastGameState() {
 // Écouter les messages de synchronisation
 tabChannel.addEventListener('message', (event) => {
   const message = event.data;
-  console.log('[SYNCHRONISATION] Message reçu:', message);
+
   
   if (message.type === 'gameState') {
     const incomingState = message.data;
-    console.log('[SYNCHRONISATION] État reçu de:', incomingState.tabId, 'Timestamp:', incomingState.timestamp, 'vs local:', lastSyncTime);
+
     
     // Synchroniser seulement si les données sont plus récentes
     if (incomingState.timestamp > lastSyncTime) {
-      console.log('[SYNCHRONISATION] Application de l\'état synchronisé');
+
       applyGameState(incomingState);
     } else {
-      console.log('[SYNCHRONISATION] Ignorer - état trop ancien');
+
     }
   }
 });
@@ -4428,6 +4425,38 @@ let selectedPalette = -1;
 let hoveredTileIdx = null;
 
 // Fonctions UI globales
+function renderPlacementPreview(tileIdx) {
+  if (!previewLayer) return;
+  previewLayer.innerHTML = '';
+  hoveredTileIdx = tileIdx;
+  if (tileIdx == null || selectedPalette < 0) return;
+  if (panPointerId != null && panMoved) return;
+  const combo = paletteCombos[selectedPalette];
+  if (!combo) return;
+  const rotation = normalizeRotationStep(combo, combo.rotationStep);
+  const oriented = orientedSideColors(combo, rotation);
+  const can = canPlace(tileIdx, oriented);
+  const fillColors = mapSideColorIndices(oriented, colors);
+  const tile = tiles[tileIdx];
+  const center = axialToPixel(tile.q, tile.r, size);
+  const verts = hexVerticesAt(center.x, center.y, size - 0.6);
+  for (let i = 0; i < 6; i++) {
+    const a = verts[i];
+    const b = verts[(i + 1) % 6];
+    const p = createTrianglePathElement(center, a, b, { 
+      fill: fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]], 
+      'fill-opacity': '0.6' 
+    });
+    previewLayer.appendChild(p);
+  }
+  const outline = createHexOutlineElement(center.x, center.y, size);
+  outline.setAttribute('fill', 'none');
+  outline.setAttribute('stroke', can ? '#2e7d32' : '#c62828');
+  outline.setAttribute('stroke-width', '2.2');
+  outline.setAttribute('stroke-dasharray', can ? '0' : '6,4');
+  previewLayer.appendChild(outline);
+}
+
 function updateClearButtonState() {
   const btn = document.getElementById('clear');
   if (!btn) return;
@@ -5653,37 +5682,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     resetGameDataForNewBoard();
   }
 
-  function renderPlacementPreview(tileIdx) {
-    if (!previewLayer) return;
-    previewLayer.innerHTML = '';
-    hoveredTileIdx = tileIdx;
-    if (tileIdx == null || selectedPalette < 0) return;
-    if (panPointerId != null && panMoved) return;
-    const combo = paletteCombos[selectedPalette];
-    if (!combo) return;
-    const rotation = normalizeRotationStep(combo, combo.rotationStep);
-    const oriented = orientedSideColors(combo, rotation);
-    const can = canPlace(tileIdx, oriented);
-    const fillColors = mapSideColorIndices(oriented, colors);
-    const tile = tiles[tileIdx];
-    const center = axialToPixel(tile.q, tile.r, size);
-    const verts = hexVerticesAt(center.x, center.y, size - 0.6);
-    for (let i = 0; i < 6; i++) {
-      const a = verts[i];
-      const b = verts[(i + 1) % 6];
-      const p = createTrianglePathElement(center, a, b, { 
-        fill: fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]], 
-        'fill-opacity': '0.6' 
-      });
-      previewLayer.appendChild(p);
-    }
-    const outline = createHexOutlineElement(center.x, center.y, size);
-    outline.setAttribute('fill', 'none');
-    outline.setAttribute('stroke', can ? '#2e7d32' : '#c62828');
-    outline.setAttribute('stroke-width', '2.2');
-    outline.setAttribute('stroke-dasharray', can ? '0' : '6,4');
-    previewLayer.appendChild(outline);
-  }
+
 
   function handleWheel(event) {
     event.preventDefault();
