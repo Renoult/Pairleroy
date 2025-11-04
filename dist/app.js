@@ -1478,14 +1478,17 @@ function applyGameState(syncState) {
     
     // Synchroniser la tuile survolée
     hoveredTileIdx = syncState.data.hoveredTileIdx;
-    svg.__state.hoveredTile = hoveredTileIdx;
+    const svg = getBoardSvg();
+    if (svg && svg.__state) {
+      svg.__state.hoveredTile = hoveredTileIdx;
+    }
     
     // Synchroniser le joueur colon sélectionné
     selectedColonPlayer = syncState.data.selectedColonPlayer;
     
     // Synchroniser l'état SVG
     const svgState = syncState.data.svgState;
-    if (svg.__state) {
+    if (svg && svg.__state) {
       if (svgState.overlayByJunction.length > 0) {
         svg.__state.overlayByJunction = new Map(svgState.overlayByJunction);
       }
