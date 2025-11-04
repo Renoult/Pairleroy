@@ -4427,6 +4427,13 @@ let paletteCombos = [];
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 
+// Fonction setSelectedPalette accessible globalement
+function setSelectedPalette(idx) {
+  selectedPalette = idx;
+  updateClearButtonState();
+  renderPlacementPreview(hoveredTileIdx);
+}
+
 function syncArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;
   target.splice(0, target.length, ...source);
