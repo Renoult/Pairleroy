@@ -47,6 +47,147 @@ const AMENAGEMENT_RESOURCE_TYPES = [
 const AMENAGEMENT_RESOURCE_LABELS = DEFAULT_COLOR_LABELS.slice();
 const POINTS_PER_CROWN = 16;
 
+// Système de synchronisation entre onglets
+const TAB_SYNC_CHANNEL_NAME = 'pairleroy-sync';
+const tabChannel = new BroadcastChannel(TAB_SYNC_CHANNEL_NAME);
+
+let currentTabId = generateTabId();
+let lastSyncTime = 0;
+let isSyncing = false;
+
+// Générer un ID unique pour cet onglet
+function generateTabId() {
+  return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// État complet du jeu pour synchronisation
+function getGameState() {
+  const svg = document.querySelector('#board-container svg');
+  const state = svg?.__state || {};
+  
+  return {
+    tabId: currentTabId,
+    timestamp: Date.now(),
+    data: {
+      placements: placements.slice(),
+      placedCount: placedCount,
+      turnState: { ...turnState },
+      playerScores: playerScores.slice(),
+      selectedPalette: selectedPalette,
+      hoveredTileIdx: hoveredTileIdx,
+      selectedColonPlayer: selectedColonPlayer,
+      svgState: {
+        overlayByJunction: state.overlayByJunction ? Array.from(state.overlayByJunction.entries()) : [],
+        castleByJunction: state.castleByJunction ? Array.from(state.castleByJunction.entries()) : [],
+        outpostByJunction: state.outpostByJunction ? Array.from(state.outpostByJunction.entries()) : [],
+        colors: state.colors,
+        typesPct: state.typesPct,
+        colorPct: state.colorPct
+      }
+    }
+  };
+}
+
+// Appliquer l'état reçu à l'onglet actuel
+function applyGameState(syncState) {
+  if (!syncState || !syncState.data || syncState.tabId === currentTabId) return;
+  
+  isSyncing = true;
+  
+  try {
+    // Synchroniser les placements
+    placements = syncState.data.placements.slice();
+    placedCount = syncState.data.placedCount;
+    
+    // Synchroniser l'état du tour
+    Object.assign(turnState, syncState.data.turnState);
+    
+    // Synchroniser les scores
+    playerScores = syncState.data.playerScores.slice();
+    
+    // Synchroniser la sélection de palette
+    selectedPalette = syncState.data.selectedPalette;
+    setSelectedPalette(selectedPalette);
+    
+    // Synchroniser la tuile survolée
+    hoveredTileIdx = syncState.data.hoveredTileIdx;
+    svg.__state.hoveredTile = hoveredTileIdx;
+    
+    // Synchroniser le joueur colon sélectionné
+    selectedColonPlayer = syncState.data.selectedColonPlayer;
+    
+    // Synchroniser l'état SVG
+    const svgState = syncState.data.svgState;
+    if (svg.__state) {
+      if (svgState.overlayByJunction.length > 0) {
+        svg.__state.overlayByJunction = new Map(svgState.overlayByJunction);
+      }
+      if (svgState.castleByJunction.length > 0) {
+        svg.__state.castleByJunction = new Map(svgState.castleByJunction);
+      }
+      if (svgState.outpostByJunction.length > 0) {
+        svg.__state.outpostByJunction = new Map(svgState.outpostByJunction);
+      }
+      
+      // Synchroniser les configurations
+      if (svgState.colors) svg.__state.colors = svgState.colors;
+      if (svgState.typesPct) svg.__state.typesPct = svgState.typesPct;
+      if (svgState.colorPct) svg.__state.colorPct = svgState.colorPct;
+    }
+    
+    // Rendre à nouveau l'affichage
+    renderAll();
+    
+    lastSyncTime = syncState.timestamp;
+    
+  } catch (error) {
+    console.error('Erreur lors de la synchronisation:', error);
+  } finally {
+    isSyncing = false;
+  }
+}
+
+// Envoyer l'état aux autres onglets
+function broadcastGameState() {
+  if (isSyncing) return;
+  
+  const state = getGameState();
+  tabChannel.postMessage({
+    type: 'gameState',
+    data: state
+  });
+}
+
+// Écouter les messages de synchronisation
+tabChannel.addEventListener('message', (event) => {
+  const message = event.data;
+  if (message.type === 'gameState') {
+    const incomingState = message.data;
+    // Synchroniser seulement si les données sont plus récentes
+    if (incomingState.timestamp > lastSyncTime) {
+      applyGameState(incomingState);
+    }
+  }
+});
+
+// Fonction pour rendre tous les éléments de l'interface
+function renderAll() {
+  const svg = document.querySelector('#board-container svg');
+  if (!svg) return;
+  
+  // Réactualiser le plateau
+  renderGrid();
+  
+  // Réactualiser les statistiques si visibles
+  if (statsModalVisible) {
+    refreshStatsModal();
+  }
+  
+  // Réactualiser l'interface utilisateur
+  renderPaletteUI(paletteCombos);
+  renderPlacementPreview(hoveredTileIdx);
+}
+
 const RESOURCE_LABELS = {
   [RESOURCE_TYPES.WOOD]: 'Bois',
   [RESOURCE_TYPES.BREAD]: 'Pain',
@@ -4095,6 +4236,8 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     if (commitPlacement(tileIdx, combo, rotation, oriented, player, options)) {
       combo.rotationStep = rotation;
       renderJunctionOverlays();
+      // Synchroniser avec les autres onglets
+      broadcastGameState();
       return true;
     }
     return false;
@@ -4242,6 +4385,9 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     renderJunctionOverlays();
     updateClearButtonState();
     refreshStatsModal();
+    
+    // Synchroniser avec les autres onglets
+    broadcastGameState();
   }
 
   function handleTilePlacement(tileIdx) {
@@ -4275,6 +4421,9 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
       setSelectedPalette(-1);
       renderPlacementPreview(null);
       clearColonSelection();
+      
+      // Synchroniser avec les autres onglets
+      broadcastGameState();
     } else {
       renderPlacementPreview(tileIdx);
     }
