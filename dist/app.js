@@ -1414,7 +1414,7 @@ const AMENAGEMENT_RESOURCE_LABELS = DEFAULT_COLOR_LABELS.slice();
 const POINTS_PER_CROWN = 16;
 
 // Système de synchronisation entre onglets
-const TAB_SYNC_CHANNEL_NAME = 'pairleroy-sync';
+const TAB_SYNC_CHANNEL_NAME = 'pairleroy_game_sync';
 const tabChannel = new BroadcastChannel(TAB_SYNC_CHANNEL_NAME);
 
 let currentTabId = generateTabId();
@@ -4410,6 +4410,11 @@ let placedCount = 0;
 let autoState = { done: false, pendingPalette: null };
 let panSuppressClick = false;
 let boardInitialized = false;
+
+// Variables de palette et d'interaction
+let paletteCombos = [];
+let selectedPalette = -1;
+let hoveredTileIdx = null;
 
 function syncArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;

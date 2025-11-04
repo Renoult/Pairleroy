@@ -48,7 +48,7 @@ const AMENAGEMENT_RESOURCE_LABELS = DEFAULT_COLOR_LABELS.slice();
 const POINTS_PER_CROWN = 16;
 
 // Système de synchronisation entre onglets
-const TAB_SYNC_CHANNEL_NAME = 'pairleroy-sync';
+const TAB_SYNC_CHANNEL_NAME = 'pairleroy_game_sync';
 const tabChannel = new BroadcastChannel(TAB_SYNC_CHANNEL_NAME);
 
 let currentTabId = generateTabId();
@@ -65,7 +65,7 @@ function getGameState() {
   const svg = document.querySelector('#board-container svg');
   const state = svg?.__state || {};
   
-  return {
+  const gameState = {
     tabId: currentTabId,
     timestamp: Date.now(),
     data: {
@@ -86,6 +86,9 @@ function getGameState() {
       }
     }
   };
+  
+  console.log('[SYNCHRONISATION] Génération état - Placements:', placements.length, 'Count:', placedCount);
+  return gameState;
 }
 
 // Appliquer l'état reçu à l'onglet actuel
@@ -152,6 +155,7 @@ function broadcastGameState() {
   if (isSyncing) return;
   
   const state = getGameState();
+  console.log('[SYNCHRONISATION] Envoi état:', state.tabId, 'Timestamp:', state.timestamp);
   tabChannel.postMessage({
     type: 'gameState',
     data: state
@@ -161,11 +165,18 @@ function broadcastGameState() {
 // Écouter les messages de synchronisation
 tabChannel.addEventListener('message', (event) => {
   const message = event.data;
+  console.log('[SYNCHRONISATION] Message reçu:', message);
+  
   if (message.type === 'gameState') {
     const incomingState = message.data;
+    console.log('[SYNCHRONISATION] État reçu de:', incomingState.tabId, 'Timestamp:', incomingState.timestamp, 'vs local:', lastSyncTime);
+    
     // Synchroniser seulement si les données sont plus récentes
     if (incomingState.timestamp > lastSyncTime) {
+      console.log('[SYNCHRONISATION] Application de l\'état synchronisé');
       applyGameState(incomingState);
+    } else {
+      console.log('[SYNCHRONISATION] Ignorer - état trop ancien');
     }
   }
 });
