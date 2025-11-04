@@ -1442,6 +1442,8 @@ function getGameState() {
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
+      // Inclure les données d'aménagement
+      amenagementColorByKey: amenagementColorByKey ? Array.from(amenagementColorByKey.entries()) : [],
       svgState: {
         overlayByJunction: state.overlayByJunction ? Array.from(state.overlayByJunction.entries()) : [],
         castleByJunction: state.castleByJunction ? Array.from(state.castleByJunction.entries()) : [],
@@ -1486,18 +1488,21 @@ function applyGameState(syncState) {
     // Synchroniser le joueur colon sélectionné
     selectedColonPlayer = syncState.data.selectedColonPlayer;
     
+    // Synchroniser les couleurs d'aménagement
+    if (syncState.data.amenagementColorByKey && Array.isArray(syncState.data.amenagementColorByKey)) {
+      amenagementColorByKey.clear();
+      syncState.data.amenagementColorByKey.forEach(([key, value]) => {
+        amenagementColorByKey.set(key, value);
+      });
+    }
+    
     // Synchroniser l'état SVG
     const svgState = syncState.data.svgState;
     if (svg && svg.__state) {
-      if (svgState.overlayByJunction.length > 0) {
-        svg.__state.overlayByJunction = new Map(svgState.overlayByJunction);
-      }
-      if (svgState.castleByJunction.length > 0) {
-        svg.__state.castleByJunction = new Map(svgState.castleByJunction);
-      }
-      if (svgState.outpostByJunction.length > 0) {
-        svg.__state.outpostByJunction = new Map(svgState.outpostByJunction);
-      }
+      // Toujours réinitialiser les Maps, même si vides
+      svg.__state.overlayByJunction = new Map(svgState.overlayByJunction || []);
+      svg.__state.castleByJunction = new Map(svgState.castleByJunction || []);
+      svg.__state.outpostByJunction = new Map(svgState.outpostByJunction || []);
       
       // Synchroniser les configurations
       if (svgState.colors) svg.__state.colors = svgState.colors;
@@ -1573,32 +1578,73 @@ function renderAll() {
     });
   }
   
-  // Réactualiser tous les overlays et éléments visuels
-  if (state.renderJunctionOverlays) state.renderJunctionOverlays();
-  if (state.renderCastleOverlays) state.renderCastleOverlays();
-  if (state.renderOutpostOverlays) state.renderOutpostOverlays();
+  // Forcer le re-rendu de TOUS les overlays et éléments visuels
+  // On force même si les fonctions existent déjà
+  try {
+    if (state.renderJunctionOverlays) {
+      state.renderJunctionOverlays();
+    }
+  } catch (e) {
+    console.warn('Erreur renderJunctionOverlays:', e);
+  }
+  
+  try {
+    if (state.renderCastleOverlays) {
+      state.renderCastleOverlays();
+    }
+  } catch (e) {
+    console.warn('Erreur renderCastleOverlays:', e);
+  }
+  
+  try {
+    if (state.renderOutpostOverlays) {
+      state.renderOutpostOverlays();
+    }
+  } catch (e) {
+    console.warn('Erreur renderOutpostOverlays:', e);
+  }
   
   // Réactualiser les marqueurs de colon
   if (typeof updateColonMarkersPositions === 'function') {
-    updateColonMarkersPositions();
+    try {
+      updateColonMarkersPositions();
+    } catch (e) {
+      console.warn('Erreur updateColonMarkersPositions:', e);
+    }
   }
   
   // Réactualiser l'interface de jeu
-  renderGameHud();
+  try {
+    renderGameHud();
+  } catch (e) {
+    console.warn('Erreur renderGameHud:', e);
+  }
   
   // Réactualiser les statistiques si visibles
   if (statsModalVisible) {
-    refreshStatsModal();
+    try {
+      refreshStatsModal();
+    } catch (e) {
+      console.warn('Erreur refreshStatsModal:', e);
+    }
   }
   
   // Réactualiser la palette si la fonction est disponible
   if (state.regenPalette) {
-    state.regenPalette();
+    try {
+      state.regenPalette();
+    } catch (e) {
+      console.warn('Erreur regenPalette:', e);
+    }
   }
   
   // Réactualiser la prévisualisation de placement
   if (typeof renderPlacementPreview === 'function') {
-    renderPlacementPreview(null);
+    try {
+      renderPlacementPreview(null);
+    } catch (e) {
+      console.warn('Erreur renderPlacementPreview:', e);
+    }
   }
 }
 
