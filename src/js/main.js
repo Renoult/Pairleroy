@@ -2855,7 +2855,6 @@ function applyMarketEdits(slotIdx) {
   // Cacher la section d'édition
   hideMarketEditSection();
 }
-}
 
 function summarizeMarketCost(cost) {
   if (!cost) return '';
