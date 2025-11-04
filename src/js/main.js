@@ -4578,24 +4578,40 @@ function refreshStatsModal() {
   if (!statsModalVisible) return;
   const elements = ensureStatsModal();
   const body = elements.body;
-  const placed = placedCount;
-  const remaining = Math.max(0, TILE_COUNT - placed);
-  const counts = { 1: 0, 2: 0, 3: 0 };
-  placements.forEach((placement) => {
-    if (!placement?.combo) return;
-    const t = placement.combo.type;
-    if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
-  });
+  
+  // Vérifier et sécuriser l'accès aux données
   const svg = document.querySelector('#board-container svg');
-  const overlayMap = svg?.__state?.overlayByJunction ?? null;
-  const castleMap = svg?.__state?.castleByJunction ?? null;
+  const state = svg?.__state || {};
+  
+  // Statistiques générales
+  const placed = placedCount || 0;
+  const remaining = Math.max(0, TILE_COUNT - placed);
+  const completionPercentage = ((placed / TILE_COUNT) * 100).toFixed(1);
+  
+  // Statistiques de répartition des combos
+  const counts = { 1: 0, 2: 0, 3: 0 };
+  if (Array.isArray(placements)) {
+    placements.forEach((placement) => {
+      if (!placement?.combo) return;
+      const t = placement.combo.type;
+      if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
+    });
+  }
+  
+  // Calculer le total des combos
+  let totalCombos = counts[1] + counts[2] + counts[3];
+  
+  // Statistiques des blasons (overlays et châteaux)
   const crestCounts = [0, 0, 0, 0, 0, 0];
-  if (overlayMap) {
+  const overlayMap = state.overlayByJunction || null;
+  const castleMap = state.castleByJunction || null;
+  
+  if (overlayMap && typeof overlayMap.forEach === 'function') {
     for (const player of overlayMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
     }
   }
-  if (castleMap) {
+  if (castleMap && typeof castleMap.forEach === 'function') {
     for (const player of castleMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
     }
@@ -4606,18 +4622,20 @@ function refreshStatsModal() {
     .join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">G\u00e9n\u00e9ral</div>
+    <div class="stats-section-title">Général</div>
     <div class="stats-grid">
-      <div>Tuiles pos\u00e9es</div><div>${placed}</div>
+      <div>Tuiles posées</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
+      <div>Avancement</div><div>${completionPercentage}%</div>
+      <div>Total combos</div><div>${totalCombos}</div>
     </div>
-    <div class="stats-section-title">R\u00e9partition</div>
+    <div class="stats-section-title">Répartition des Combos</div>
     <div class="stats-grid">
-      <div>Mono</div><div>${counts[1] ?? 0}</div>
-      <div>Bi</div><div>${counts[2] ?? 0}</div>
-      <div>Tri</div><div>${counts[3] ?? 0}</div>
+      <div>Mono (1 couleur)</div><div>${counts[1] ?? 0}</div>
+      <div>Bi (2 couleurs)</div><div>${counts[2] ?? 0}</div>
+      <div>Tri (3 couleurs)</div><div>${counts[3] ?? 0}</div>
     </div>
-    <div class="stats-section-title">Blasons</div>
+    <div class="stats-section-title">Blasons par Joueur</div>
     <div class="stats-grid">
       ${crestRows}
     </div>
