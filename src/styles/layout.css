@@ -578,6 +578,7 @@ body.topbar-collapsed #palette {
   color: var(--text);
   min-height: 0;
   max-height: calc(100vh - 200px);
+  overflow-y: auto;
 }
 
 body.topbar-collapsed #market-details {
