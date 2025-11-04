@@ -1552,8 +1552,8 @@ function renderAll() {
   const svg = document.querySelector('#board-container svg');
   if (!svg) return;
   
-  // Réactualiser le plateau
-  renderGrid();
+  // Réactualiser l'interface de jeu
+  renderGameHud();
   
   // Réactualiser les statistiques si visibles
   if (statsModalVisible) {
