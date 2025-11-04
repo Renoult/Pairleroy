@@ -4920,13 +4920,10 @@ function ensureMarketRegionMonitor() {
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         lastPointerPosition = { x: event.clientX, y: event.clientY };
       }
+      // Ne plus supprimer les détails du marché pour les interactions avec la palette
       marketPointerInside = false;
       marketRectSnapshot = null;
-      setMarketDetailsSuppressed(true);
-      if (!marketDetailsCollapsed) {
-        resetHoveredMarketSlot(true);
-        setMarketDetailsCollapsed(true);
-      }
+      // Garder les détails du marché visibles
     };
     const handlePaletteLeave = (event) => {
       const nextTarget = event?.relatedTarget;
