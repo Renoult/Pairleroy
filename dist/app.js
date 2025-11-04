@@ -3653,6 +3653,10 @@ function renderMarketDisplay() {
           setMarketDetailsCollapsed(true);
           return;
         }
+        // Sélectionner la carte et assurer que les détails restent ouverts
+        lockedMarketSlot = slotIdx;
+        if (marketDetailsCollapsed) setMarketDetailsCollapsed(false);
+        setMarketDetailsSuppressed(false);
         setHoveredMarketSlot(slotIdx, group, { viaPointer: true, lockSelection: true });
       };
       group.addEventListener('focus', () => {
@@ -6237,20 +6241,22 @@ function ensureMarketRegionMonitor() {
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         lastPointerPosition = { x: event.clientX, y: event.clientY };
       }
-      marketPointerInside = false;
-      marketRectSnapshot = null;
-      setMarketDetailsSuppressed(true);
-      if (!marketDetailsCollapsed) {
-        resetHoveredMarketSlot(true);
-        setMarketDetailsCollapsed(true);
-      }
+      // NE PAS supprimer les détails du marché quand on entre dans la palette
+      // marketPointerInside = false;
+      // marketRectSnapshot = null;
+      // setMarketDetailsSuppressed(true);
+      // if (!marketDetailsCollapsed) {
+      //   resetHoveredMarketSlot(true);
+      //   setMarketDetailsCollapsed(true);
+      // }
     };
     const handlePaletteLeave = (event) => {
       const nextTarget = event?.relatedTarget;
       if (nextTarget && paletteRoot.contains && paletteRoot.contains(nextTarget)) return;
       if (!palettePointerInside) return;
       palettePointerInside = false;
-      setMarketDetailsSuppressed(false);
+      // NE PAS restaurer la suppression - les détails peuvent rester visibles
+      // setMarketDetailsSuppressed(false);
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         updatePointerState(event.clientX, event.clientY);
       }
@@ -6261,15 +6267,18 @@ function ensureMarketRegionMonitor() {
     paletteRoot.__pairleroyMarketMonitor = true;
   }
   window.addEventListener('blur', () => {
+    // Garder l'état du marché mais reset le pointeur
     marketPointerInside = false;
     marketRectSnapshot = null;
     lastPointerPosition = null;
     palettePointerInside = false;
     setMarketDetailsSuppressed(false);
-    resetHoveredMarketSlot(true);
-    if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
-      setMarketDetailsCollapsed(true);
-    }
+    // NE PAS resetter le slot en cours si il y en a un de sélectionné
+    // resetHoveredMarketSlot(true);
+    // NE PAS collapse automatiquement - garder l'état actuel
+    // if (!marketDetailsCollapsed && hoveredMarketSlot == null) {
+    //   setMarketDetailsCollapsed(true);
+    // }
   });
   marketRegionMonitorBound = true;
   if (!document.__pairleroyMarketHotkeysBound) {
