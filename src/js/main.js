@@ -4063,7 +4063,7 @@ function generateAndRender() {
     });
     
     // VERSION SIMPLIFIÉE: Créer des hexagones directement sur les tuiles
-    console.log('🔷 Version simplifiée: Création d\\'hexagones sur les tuiles');
+    console.log('🔷 Version simplifiée: Création d\'hexagones sur les tuiles');
     seeds.forEach(({ player, entry }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
