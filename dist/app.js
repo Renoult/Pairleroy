@@ -4530,6 +4530,10 @@ let previewLayer;
 
 // Fonctions UI globales
 function renderPlacementPreview(tileIdx) {
+  // Toujours rechercher l'élément #preview actuel
+  const svg = getBoardSvg();
+  previewLayer = svg?.querySelector('#preview');
+  
   if (!previewLayer) return;
   previewLayer.innerHTML = '';
   hoveredTileIdx = tileIdx;
