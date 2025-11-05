@@ -3804,6 +3804,7 @@ function generateAndRender() {
       castleByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
       renderJunctionOverlays();
+      renderInfluenceZones();
       refreshStatsModal();
       return;
     }
@@ -3814,6 +3815,7 @@ function generateAndRender() {
       outpostByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
       renderJunctionOverlays();
+      renderInfluenceZones();
       refreshStatsModal();
       return;
     }
@@ -3834,6 +3836,7 @@ function generateAndRender() {
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
       renderJunctionOverlays();
+      renderInfluenceZones();
       refreshStatsModal();
       return;
     }
@@ -3851,6 +3854,7 @@ function generateAndRender() {
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
     renderJunctionOverlays();
+    renderInfluenceZones();
     refreshStatsModal();
   }
 
@@ -3893,8 +3897,9 @@ function generateAndRender() {
       marker.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         castleByJunction.delete(key);
-      cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
+        cleanupAmenagementsForPlayer(player);
+        renderJunctionOverlays();
+        renderInfluenceZones();
         refreshStatsModal();
       });
       marker.classList.toggle('castle-marker--active', player === turnState.activePlayer);
@@ -3946,8 +3951,9 @@ function generateAndRender() {
       marker.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         outpostByJunction.delete(key);
-      cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
+        cleanupAmenagementsForPlayer(player);
+        renderJunctionOverlays();
+        renderInfluenceZones();
         refreshStatsModal();
       });
       layer.appendChild(marker);
