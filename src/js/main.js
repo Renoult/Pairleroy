@@ -3994,25 +3994,134 @@ function generateAndRender() {
       return;
     }
     
-    // TEST: Ajouter une zone de test simple
-    console.log('🧪 Test: Ajout d\'une zone d\'influence de test');
+    // TEST: Ajouter des zones de test centrées sur chaque château
+    console.log('🧪 Test: Ajout de zones d\'influence de test pour chaque château');
     const svgNS = 'http://www.w3.org/2000/svg';
-    if (tiles.length > 0) {
-      const testTile = tiles[0];
-      const centerX = testTile.x || 0;
-      const centerY = testTile.y || 0;
-      const testPath = document.createElementNS(svgNS, 'circle');
-      testPath.setAttribute('cx', centerX);
-      testPath.setAttribute('cy', centerY);
-      testPath.setAttribute('r', '50');
-      testPath.setAttribute('fill', '#ff0000');
-      testPath.setAttribute('fill-opacity', '0.3');
-      testPath.setAttribute('stroke', '#ff0000');
-      testPath.setAttribute('stroke-width', '2');
-      testPath.setAttribute('class', 'influence-fill');
-      layer.appendChild(testPath);
-      console.log('🧪 Zone de test ajoutée à:', {centerX, centerY});
-    }
+    
+    // Tester avec les vrais châteaux
+    castleByJunction.forEach((player, key) => {
+      const entry = junctionMap.get(key);
+      if (!entry) return;
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const playerColor = colonColorForIndex(idx);
+      
+      // Utiliser la position réelle du château (coordonnées de l'intersection)
+      const centerX = entry.x;
+      const centerY = entry.y;
+      
+      // Créer un cercle de test
+      const testCircle = document.createElementNS(svgNS, 'circle');
+      testCircle.setAttribute('cx', centerX);
+      testCircle.setAttribute('cy', centerY);
+      testCircle.setAttribute('r', (size * radiusLimit * 0.8).toString());
+      testCircle.setAttribute('fill', playerColor);
+      testCircle.setAttribute('fill-opacity', '0.3');
+      testCircle.setAttribute('stroke', playerColor);
+      testCircle.setAttribute('stroke-width', '2');
+      testCircle.setAttribute('class', 'influence-fill');
+      layer.appendChild(testCircle);
+      
+      console.log('🧪 Zone de test ajoutée pour château:', {
+        player, 
+        centerX, 
+        centerY, 
+        color: playerColor,
+        radius: size * radiusLimit * 0.8
+      });
+    });
+    
+    // Tester avec les avant-postes aussi
+    outpostByJunction.forEach((player, key) => {
+      const entry = junctionMap.get(key);
+      if (!entry) return;
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const playerColor = colonColorForIndex(idx);
+      
+      const centerX = entry.x;
+      const centerY = entry.y;
+      
+      const testCircle = document.createElementNS(svgNS, 'circle');
+      testCircle.setAttribute('cx', centerX);
+      testCircle.setAttribute('cy', centerY);
+      testCircle.setAttribute('r', (size * radiusLimit * 0.5).toString());
+      testCircle.setAttribute('fill', playerColor);
+      testCircle.setAttribute('fill-opacity', '0.3');
+      testCircle.setAttribute('stroke', playerColor);
+      testCircle.setAttribute('stroke-width', '2');
+      testCircle.setAttribute('class', 'influence-fill');
+      layer.appendChild(testCircle);
+      
+      console.log('🧪 Zone de test ajoutée pour avant-poste:', {
+        player, 
+        centerX, 
+        centerY, 
+        color: playerColor,
+        radius: size * radiusLimit * 0.5
+      });
+    });
+    
+    // VERSION SIMPLIFIÉE: Créer des hexagones directement sur les tuiles
+    console.log('🔷 Version simplifiée: Création d\\'hexagones sur les tuiles');
+    seeds.forEach(({ player, entry }) => {
+      const idx = playerIndex(player);
+      if (idx === -1) return;
+      const playerColor = colonColorForIndex(idx);
+      const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
+      if (tilesAround.length === 0) return;
+      
+      // Calculer la distance depuis chaque tuile jusqu'au château/avant-poste le plus proche
+      for (let tileIdx = 0; tileIdx < tiles.length; tileIdx++) {
+        const tile = tiles[tileIdx];
+        if (!tile) continue;
+        let best = Infinity;
+        
+        // Trouver la distance minimale vers les tuiles autour du château
+        for (let t = 0; t < tilesAround.length; t++) {
+          const baseTileIdx = tilesAround[t];
+          const dist = hexDistanceBetweenCached(tileIdx, baseTileIdx);
+          if (Number.isFinite(dist) && dist < best) best = dist;
+          if (best <= radiusLimit) break;
+        }
+        
+        // Si la tuile est dans la zone d'influence, dessiner un hexagone
+        if (best <= radiusLimit) {
+          const center = axialToPixel(tile.q, tile.r, size);
+          const outlineRadius = Math.max(size - 0.35, size * 0.72);
+          const verts = hexVerticesAt(center.x, center.y, outlineRadius);
+          
+          // Créer le chemin de l'hexagone
+          let pathData = '';
+          verts.forEach((vert, index) => {
+            const cmd = index === 0 ? 'M' : 'L';
+            pathData += `${cmd} ${vert.x.toFixed(3)} ${vert.y.toFixed(3)} `;
+          });
+          pathData += 'Z';
+          
+          // Créer la zone d'influence (hexagone rempli)
+          const hexPath = document.createElementNS(svgNS, 'path');
+          hexPath.setAttribute('class', 'influence-fill');
+          hexPath.setAttribute('d', pathData.trim());
+          hexPath.setAttribute('fill', colorWithAlpha(playerColor, 0.18));
+          layer.appendChild(hexPath);
+          
+          // Créer le contour
+          const outlinePath = document.createElementNS(svgNS, 'path');
+          outlinePath.setAttribute('class', 'influence-outline');
+          outlinePath.setAttribute('d', pathData.trim());
+          outlinePath.setAttribute('fill', 'none');
+          outlinePath.setAttribute('stroke', colorWithAlpha(playerColor, 0.9));
+          outlinePath.setAttribute('stroke-width', (size * 0.15).toFixed(3));
+          outlinePath.setAttribute('stroke-linejoin', 'round');
+          layer.appendChild(outlinePath);
+        }
+      }
+      
+      console.log('🔷 Hexagones créés pour', player, '- Couleur:', playerColor, '- Rayon:', radiusLimit);
+    });
+    // Fin de la version simplifiée
+    
     seeds.forEach(({ player, entry }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
@@ -4114,6 +4223,7 @@ function generateAndRender() {
 
       const svgNS = 'http://www.w3.org/2000/svg';
       const baseColor = colonColorForIndex(idx);
+      console.log('🎨 Couleur du joueur', player, '-> idx:', idx, '-> color:', baseColor);
 
       loops.forEach((loop) => {
         if (!Array.isArray(loop) || loop.length < 3) return;
