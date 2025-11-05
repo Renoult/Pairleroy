@@ -6119,6 +6119,9 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   }
   svg.addEventListener('click', handlePointerUpClick);
 
+  // Réattacher les événements de souris pour la prévisualisation
+  attachTileListeners();
+
   boardInitialized = true;
   serializeConfigToURL(cfg);
   refreshStatsModal();
