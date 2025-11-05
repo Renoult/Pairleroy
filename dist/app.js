@@ -5334,7 +5334,8 @@ function generateAndRender() {
     const radiusSetting = Number.isFinite(gameSettings.influenceRadius)
       ? gameSettings.influenceRadius
       : DEFAULT_GAME_SETTINGS.influenceRadius;
-    const radiusLimit = Math.max(0, radiusSetting);
+    // Forcer un rayon minimum de 1 pour garantir la visibilité
+    const radiusLimit = Math.max(1, radiusSetting);
     const influencedTilesByPlayer = new Map();
     const seeds = [];
     castleByJunction.forEach((player, key) => {
@@ -6127,6 +6128,9 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
 
   // Réattacher les événements de souris pour la prévisualisation
   attachTileListeners();
+  
+  // Afficher les zones d'influence
+  renderInfluenceZones();
 
   boardInitialized = true;
   serializeConfigToURL(cfg);
