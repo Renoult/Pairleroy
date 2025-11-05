@@ -3963,13 +3963,19 @@ function generateAndRender() {
 
   function renderInfluenceZones() {
     const layer = svg.__influenceLayer ?? svg.querySelector('#influence-zones');
-    if (!layer) return;
+    if (!layer) {
+      console.log('❌ Layer influence-zones introuvable');
+      return;
+    }
+    console.log('✅ Layer influence-zones trouvé');
     layer.innerHTML = '';
     const radiusSetting = Number.isFinite(gameSettings.influenceRadius)
       ? gameSettings.influenceRadius
       : DEFAULT_GAME_SETTINGS.influenceRadius;
     // Forcer un rayon minimum de 1 pour garantir la visibilité
     const radiusLimit = Math.max(1, radiusSetting);
+    console.log('🔍 Rayon d\'influence:', radiusLimit, '(setting:', radiusSetting, ')');
+    
     const influencedTilesByPlayer = new Map();
     const seeds = [];
     castleByJunction.forEach((player, key) => {
@@ -3980,7 +3986,33 @@ function generateAndRender() {
       const entry = junctionMap.get(key);
       if (entry && isValidPlayer(player)) seeds.push({ player, entry });
     });
-    if (seeds.length === 0) return;
+    
+    console.log('🏰 Châteaux trouvés:', castleByJunction.size, 'Avant-postes:', outpostByJunction.size, 'Seeds total:', seeds.length);
+    
+    if (seeds.length === 0) {
+      console.log('❌ Aucune seed trouvée pour les zones d\'influence');
+      return;
+    }
+    
+    // TEST: Ajouter une zone de test simple
+    console.log('🧪 Test: Ajout d\'une zone d\'influence de test');
+    const svgNS = 'http://www.w3.org/2000/svg';
+    if (tiles.length > 0) {
+      const testTile = tiles[0];
+      const centerX = testTile.x || 0;
+      const centerY = testTile.y || 0;
+      const testPath = document.createElementNS(svgNS, 'circle');
+      testPath.setAttribute('cx', centerX);
+      testPath.setAttribute('cy', centerY);
+      testPath.setAttribute('r', '50');
+      testPath.setAttribute('fill', '#ff0000');
+      testPath.setAttribute('fill-opacity', '0.3');
+      testPath.setAttribute('stroke', '#ff0000');
+      testPath.setAttribute('stroke-width', '2');
+      testPath.setAttribute('class', 'influence-fill');
+      layer.appendChild(testPath);
+      console.log('🧪 Zone de test ajoutée à:', {centerX, centerY});
+    }
     seeds.forEach(({ player, entry }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
@@ -4129,6 +4161,7 @@ function generateAndRender() {
         layer.appendChild(outlinePath);
       });
     });
+    console.log('🎉 Zones d\'influence rendues avec succès');
   }
 
   gridSideColors = new Array(tiles.length).fill(null);
