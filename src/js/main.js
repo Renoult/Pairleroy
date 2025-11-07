@@ -3977,14 +3977,33 @@ function generateAndRender() {
     console.log('🔍 Rayon d\'influence:', radiusLimit, '(setting:', radiusSetting, ')');
     
     const influencedTilesByPlayer = new Map();
+    const influenceCentersByPlayer = new Map();
+    const tilesByCenter = new Map();
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const registerInfluenceCenter = (player, centerKey, entry) => {
+      if (!entry || !isValidPlayer(player)) return;
+      if (!influenceCentersByPlayer.has(player)) influenceCentersByPlayer.set(player, []);
+      influenceCentersByPlayer.get(player).push({ key: centerKey, x: entry.x, y: entry.y });
+    };
+    const ensureCenterTileSet = (centerKey) => {
+      if (!centerKey) return null;
+      if (!tilesByCenter.has(centerKey)) tilesByCenter.set(centerKey, new Set());
+      return tilesByCenter.get(centerKey);
+    };
     const seeds = [];
     castleByJunction.forEach((player, key) => {
       const entry = junctionMap.get(key);
-      if (entry && isValidPlayer(player)) seeds.push({ player, entry });
+      if (entry && isValidPlayer(player)) {
+        seeds.push({ player, entry, centerKey: key });
+        registerInfluenceCenter(player, key, entry);
+      }
     });
     outpostByJunction.forEach((player, key) => {
       const entry = junctionMap.get(key);
-      if (entry && isValidPlayer(player)) seeds.push({ player, entry });
+      if (entry && isValidPlayer(player)) {
+        seeds.push({ player, entry, centerKey: key });
+        registerInfluenceCenter(player, key, entry);
+      }
     });
     
     console.log('🏰 Châteaux trouvés:', castleByJunction.size, 'Avant-postes:', outpostByJunction.size, 'Seeds total:', seeds.length);
@@ -3994,141 +4013,15 @@ function generateAndRender() {
       return;
     }
     
-    // TEST: Ajouter des zones de test centrées sur chaque château
-    console.log('🧪 Test: Ajout de zones d\'influence de test pour chaque château');
-    const svgNS = 'http://www.w3.org/2000/svg';
     
-    // Tester avec les vrais châteaux
-    castleByJunction.forEach((player, key) => {
-      const entry = junctionMap.get(key);
-      if (!entry) return;
-      const idx = playerIndex(player);
-      if (idx === -1) return;
-      const playerColor = colonColorForIndex(idx);
-      
-      // Utiliser la position réelle du château (coordonnées de l'intersection)
-      const centerX = entry.x;
-      const centerY = entry.y;
-      
-      // Créer un cercle de test
-      const testCircle = document.createElementNS(svgNS, 'circle');
-      testCircle.setAttribute('cx', centerX);
-      testCircle.setAttribute('cy', centerY);
-      testCircle.setAttribute('r', (size * radiusLimit * 0.8).toString());
-      testCircle.setAttribute('fill', playerColor);
-      testCircle.setAttribute('fill-opacity', '0.3');
-      testCircle.setAttribute('stroke', playerColor);
-      testCircle.setAttribute('stroke-width', '2');
-      testCircle.setAttribute('class', 'influence-fill');
-      layer.appendChild(testCircle);
-      
-      console.log('🧪 Zone de test ajoutée pour château:', {
-        player, 
-        centerX, 
-        centerY, 
-        color: playerColor,
-        radius: size * radiusLimit * 0.8
-      });
-    });
-    
-    // Tester avec les avant-postes aussi
-    outpostByJunction.forEach((player, key) => {
-      const entry = junctionMap.get(key);
-      if (!entry) return;
-      const idx = playerIndex(player);
-      if (idx === -1) return;
-      const playerColor = colonColorForIndex(idx);
-      
-      const centerX = entry.x;
-      const centerY = entry.y;
-      
-      const testCircle = document.createElementNS(svgNS, 'circle');
-      testCircle.setAttribute('cx', centerX);
-      testCircle.setAttribute('cy', centerY);
-      testCircle.setAttribute('r', (size * radiusLimit * 0.5).toString());
-      testCircle.setAttribute('fill', playerColor);
-      testCircle.setAttribute('fill-opacity', '0.3');
-      testCircle.setAttribute('stroke', playerColor);
-      testCircle.setAttribute('stroke-width', '2');
-      testCircle.setAttribute('class', 'influence-fill');
-      layer.appendChild(testCircle);
-      
-      console.log('🧪 Zone de test ajoutée pour avant-poste:', {
-        player, 
-        centerX, 
-        centerY, 
-        color: playerColor,
-        radius: size * radiusLimit * 0.5
-      });
-    });
-    
-    // VERSION SIMPLIFIÉE: Créer des hexagones directement sur les tuiles
-    console.log('🔷 Version simplifiée: Création d\'hexagones sur les tuiles');
-    seeds.forEach(({ player, entry }) => {
-      const idx = playerIndex(player);
-      if (idx === -1) return;
-      const playerColor = colonColorForIndex(idx);
-      const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
-      if (tilesAround.length === 0) return;
-      
-      // Calculer la distance depuis chaque tuile jusqu'au château/avant-poste le plus proche
-      for (let tileIdx = 0; tileIdx < tiles.length; tileIdx++) {
-        const tile = tiles[tileIdx];
-        if (!tile) continue;
-        let best = Infinity;
-        
-        // Trouver la distance minimale vers les tuiles autour du château
-        for (let t = 0; t < tilesAround.length; t++) {
-          const baseTileIdx = tilesAround[t];
-          const dist = hexDistanceBetweenCached(tileIdx, baseTileIdx);
-          if (Number.isFinite(dist) && dist < best) best = dist;
-          if (best <= radiusLimit) break;
-        }
-        
-        // Si la tuile est dans la zone d'influence, dessiner un hexagone
-        if (best <= radiusLimit) {
-          const center = axialToPixel(tile.q, tile.r, size);
-          const outlineRadius = Math.max(size - 0.35, size * 0.72);
-          const verts = hexVerticesAt(center.x, center.y, outlineRadius);
-          
-          // Créer le chemin de l'hexagone
-          let pathData = '';
-          verts.forEach((vert, index) => {
-            const cmd = index === 0 ? 'M' : 'L';
-            pathData += `${cmd} ${vert.x.toFixed(3)} ${vert.y.toFixed(3)} `;
-          });
-          pathData += 'Z';
-          
-          // Créer la zone d'influence (hexagone rempli)
-          const hexPath = document.createElementNS(svgNS, 'path');
-          hexPath.setAttribute('class', 'influence-fill');
-          hexPath.setAttribute('d', pathData.trim());
-          hexPath.setAttribute('fill', colorWithAlpha(playerColor, 0.18));
-          layer.appendChild(hexPath);
-          
-          // Créer le contour
-          const outlinePath = document.createElementNS(svgNS, 'path');
-          outlinePath.setAttribute('class', 'influence-outline');
-          outlinePath.setAttribute('d', pathData.trim());
-          outlinePath.setAttribute('fill', 'none');
-          outlinePath.setAttribute('stroke', colorWithAlpha(playerColor, 0.9));
-          outlinePath.setAttribute('stroke-width', (size * 0.15).toFixed(3));
-          outlinePath.setAttribute('stroke-linejoin', 'round');
-          layer.appendChild(outlinePath);
-        }
-      }
-      
-      console.log('🔷 Hexagones créés pour', player, '- Couleur:', playerColor, '- Rayon:', radiusLimit);
-    });
-    // Fin de la version simplifiée
-    
-    seeds.forEach(({ player, entry }) => {
+    seeds.forEach(({ player, entry, centerKey }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       if (tilesAround.length === 0) return;
       if (!influencedTilesByPlayer.has(player)) influencedTilesByPlayer.set(player, new Set());
       const tileSet = influencedTilesByPlayer.get(player);
+      const centerTileSet = centerKey ? ensureCenterTileSet(centerKey) : null;
       for (let tileIdx = 0; tileIdx < tiles.length; tileIdx++) {
         const tile = tiles[tileIdx];
         if (!tile) continue;
@@ -4139,7 +4032,10 @@ function generateAndRender() {
           if (Number.isFinite(dist) && dist < best) best = dist;
           if (best <= radiusLimit) break;
         }
-        if (best <= radiusLimit) tileSet.add(tileIdx);
+        if (best <= radiusLimit) {
+          tileSet.add(tileIdx);
+          if (centerTileSet) centerTileSet.add(tileIdx);
+        }
       }
     });
 
@@ -4147,7 +4043,32 @@ function generateAndRender() {
       const idx = playerIndex(player);
       if (idx === -1 || !tileSet || tileSet.size === 0) return;
       const outlineRadius = Math.max(size - 0.35, size * 0.72);
+      const baseColor = colonColorForIndex(idx);
+
+      // Couche de remplissage par tuile (sans contours individuels)
+      const tileFillGroup = document.createElementNS(svgNS, 'g');
+      tileFillGroup.setAttribute('class', 'influence-tiles');
+      tileSet.forEach((tileIdx) => {
+        const tile = tiles[tileIdx];
+        if (!tile) return;
+        const center = axialToPixel(tile.q, tile.r, size);
+        const verts = hexVerticesAt(center.x, center.y, outlineRadius);
+        let pathData = '';
+        verts.forEach((vert, index) => {
+          const cmd = index === 0 ? 'M' : 'L';
+          pathData += `${cmd} ${vert.x.toFixed(3)} ${vert.y.toFixed(3)} `;
+        });
+        pathData += 'Z';
+        const tilePath = document.createElementNS(svgNS, 'path');
+        tilePath.setAttribute('class', 'influence-fill influence-fill--tile');
+        tilePath.setAttribute('d', pathData.trim());
+        tilePath.setAttribute('fill', colorWithAlpha(baseColor, 0.15));
+        tileFillGroup.appendChild(tilePath);
+      });
+      layer.appendChild(tileFillGroup);
+
       const boundaryMap = new Map();
+      const vertexAccumulator = new Map();
       const quantize = (value) => Math.round(value * 1000) / 1000;
       const canonicalEdgeKey = (a, b) => {
         const ax = quantize(a.x);
@@ -4163,6 +4084,12 @@ function generateAndRender() {
         if (!tile) return;
         const center = axialToPixel(tile.q, tile.r, size);
         const verts = hexVerticesAt(center.x, center.y, outlineRadius);
+        verts.forEach((vert) => {
+          const vx = quantize(vert.x);
+          const vy = quantize(vert.y);
+          const vKey = `${vx},${vy}`;
+          if (!vertexAccumulator.has(vKey)) vertexAccumulator.set(vKey, { x: vx, y: vy });
+        });
         for (let i = 0; i < 6; i++) {
           const neighborIdx = Array.isArray(tileNeighbors[tileIdx]) ? tileNeighbors[tileIdx][i] : -1;
           if (neighborIdx !== -1 && tileSet.has(neighborIdx)) continue;
@@ -4179,6 +4106,7 @@ function generateAndRender() {
           else boundaryMap.set(key, { start, end });
         }
       });
+      console.log('📐 Influence boundary: segments', boundaryMap.size, 'for player', player, 'tileSet size', tileSet.size);
       if (boundaryMap.size === 0) return;
       const segments = Array.from(boundaryMap.values());
       const EPSILON = 1e-2;
@@ -4221,10 +4149,130 @@ function generateAndRender() {
         }
       }
 
-      const svgNS = 'http://www.w3.org/2000/svg';
-      const baseColor = colonColorForIndex(idx);
+      if (loops.length === 0 && segments.length > 0) {
+        const vertexList = Array.from(vertexAccumulator.values());
+        if (vertexList.length >= 3) {
+          const playerCenters = influenceCentersByPlayer.get(player);
+          const centerVerticesCache = new Map();
+          const getCenterVertices = (centerKey) => {
+            if (!centerKey) return null;
+            if (centerVerticesCache.has(centerKey)) return centerVerticesCache.get(centerKey);
+            const tileSetForCenter = tilesByCenter.get(centerKey);
+            const map = new Map();
+            if (tileSetForCenter && tileSetForCenter.size > 0) {
+              tileSetForCenter.forEach((tileIdx) => {
+                const tile = tiles[tileIdx];
+                if (!tile) return;
+                const tileCenter = axialToPixel(tile.q, tile.r, size);
+                const verts = hexVerticesAt(tileCenter.x, tileCenter.y, outlineRadius);
+                verts.forEach((vert) => {
+                  const vx = quantize(vert.x);
+                  const vy = quantize(vert.y);
+                  const vKey = `${vx},${vy}`;
+                  if (!map.has(vKey)) map.set(vKey, { x: vx, y: vy });
+                });
+              });
+            }
+            centerVerticesCache.set(centerKey, map);
+            return map;
+          };
+
+          let effectiveCenters = [];
+          if (Array.isArray(playerCenters) && playerCenters.length > 0) {
+            effectiveCenters = playerCenters
+              .map((center) => {
+                const verticesMap = center.key ? getCenterVertices(center.key) : null;
+                if (!verticesMap || verticesMap.size === 0) return null;
+                return { key: center.key, x: center.x, y: center.y, verticesMap };
+              })
+              .filter(Boolean);
+          }
+          if (effectiveCenters.length === 0) {
+            const centroid = vertexList.reduce(
+              (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
+              { x: 0, y: 0 },
+            );
+            centroid.x /= vertexList.length;
+            centroid.y /= vertexList.length;
+            effectiveCenters = [{
+              key: '__fallback__',
+              x: centroid.x,
+              y: centroid.y,
+              verticesMap: vertexAccumulator,
+            }];
+          }
+
+          const coverageMap = new Map();
+          effectiveCenters.forEach((center) => {
+            center.verticesMap.forEach((point, vKey) => {
+              if (!coverageMap.has(vKey)) coverageMap.set(vKey, new Set());
+              coverageMap.get(vKey).add(center.key);
+            });
+          });
+
+          const selectionMap = new Map();
+          effectiveCenters.forEach((center) => {
+            const candidates = Array.from(center.verticesMap.values());
+            if (candidates.length === 0) return;
+            const sorted = candidates
+              .map((point) => {
+                const dx = point.x - center.x;
+                const dy = point.y - center.y;
+                return { point, dist: Math.hypot(dx, dy) };
+              })
+              .sort((a, b) => b.dist - a.dist);
+            const limit = Math.min(27, sorted.length);
+            for (let i = 0; i < limit; i++) {
+              const { point } = sorted[i];
+              const key = `${point.x},${point.y}`;
+              if (!selectionMap.has(key)) {
+                selectionMap.set(key, { point: { x: point.x, y: point.y }, selectedBy: new Set() });
+              }
+              selectionMap.get(key).selectedBy.add(center.key);
+            }
+          });
+
+          const filteredSelection = [];
+          selectionMap.forEach((entry, key) => {
+            const covering = coverageMap.get(key);
+            const coveringCount = covering ? covering.size : 0;
+            const selectedCount = entry.selectedBy.size;
+            if (coveringCount <= 1 || selectedCount === coveringCount) {
+              filteredSelection.push(entry.point);
+            }
+          });
+
+          if (filteredSelection.length >= 3) {
+            const centroid = filteredSelection.reduce(
+              (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
+              { x: 0, y: 0 },
+            );
+            centroid.x /= filteredSelection.length;
+            centroid.y /= filteredSelection.length;
+            filteredSelection.sort((a, b) => {
+              const angleA = Math.atan2(a.y - centroid.y, a.x - centroid.x);
+              const angleB = Math.atan2(b.y - centroid.y, b.x - centroid.x);
+              return angleA - angleB;
+            });
+            loops.push(filteredSelection);
+            console.log(
+              '🌀 Fallback loop built with per-center selection (unique vertices:',
+              filteredSelection.length,
+              ') for player',
+              player,
+            );
+          } else {
+            console.log('⚠️ Fallback loop skipped (pas assez de sommets uniques)');
+          }
+        } else {
+          console.log('⚠️ Fallback loop skipped (pas assez de sommets)');
+        }
+      }
+
+      const shadowStroke = colorWithAlpha('#000000', 0.3);
       console.log('🎨 Couleur du joueur', player, '-> idx:', idx, '-> color:', baseColor);
 
+      console.log('🧊 Outline loops for', player, ':', loops.length);
       loops.forEach((loop) => {
         if (!Array.isArray(loop) || loop.length < 3) return;
         const simplified = [];
@@ -4245,30 +4293,43 @@ function generateAndRender() {
         pathData += 'Z';
         const trimmed = pathData.trim();
         const fillPath = document.createElementNS(svgNS, 'path');
-        fillPath.setAttribute('class', 'influence-fill');
+        fillPath.setAttribute('class', 'influence-fill influence-fill--area');
         fillPath.setAttribute('d', trimmed);
-        fillPath.setAttribute('fill', colorWithAlpha(baseColor, 0.18));
+        fillPath.setAttribute('fill', colorWithAlpha(baseColor, 0.35));
+        fillPath.setAttribute('fill-opacity', '0.45');
         layer.appendChild(fillPath);
 
         const shadowPath = document.createElementNS(svgNS, 'path');
         shadowPath.setAttribute('class', 'influence-outline-shadow');
         shadowPath.setAttribute('d', trimmed);
         shadowPath.setAttribute('fill', 'none');
-        shadowPath.setAttribute('stroke', colorWithAlpha('#000000', 0.3));
-        shadowPath.setAttribute('stroke-width', (size * 0.24).toFixed(3));
+        shadowPath.setAttribute('stroke', colorWithAlpha('#050202', 0.45));
+        shadowPath.setAttribute('stroke-width', (size * 0.18).toFixed(3));
         shadowPath.setAttribute('stroke-linejoin', 'round');
         shadowPath.setAttribute('stroke-linecap', 'round');
+        shadowPath.setAttribute('opacity', '0.65');
         layer.appendChild(shadowPath);
 
         const outlinePath = document.createElementNS(svgNS, 'path');
         outlinePath.setAttribute('class', 'influence-outline');
         outlinePath.setAttribute('d', trimmed);
         outlinePath.setAttribute('fill', 'none');
-        outlinePath.setAttribute('stroke', colorWithAlpha(baseColor, 0.7));
+        outlinePath.setAttribute('stroke', colorWithAlpha(baseColor, 0.8));
         outlinePath.setAttribute('stroke-width', (size * 0.16).toFixed(3));
         outlinePath.setAttribute('stroke-linejoin', 'round');
         outlinePath.setAttribute('stroke-linecap', 'round');
+        outlinePath.setAttribute('stroke-opacity', '0.75');
         layer.appendChild(outlinePath);
+
+        const highlightPath = document.createElementNS(svgNS, 'path');
+        highlightPath.setAttribute('class', 'influence-outline-highlight');
+        highlightPath.setAttribute('d', trimmed);
+        highlightPath.setAttribute('fill', 'none');
+        highlightPath.setAttribute('stroke', colorWithAlpha('#ffffff', 0.5));
+        highlightPath.setAttribute('stroke-width', (size * 0.08).toFixed(3));
+        highlightPath.setAttribute('stroke-linejoin', 'round');
+        highlightPath.setAttribute('stroke-linecap', 'round');
+        layer.appendChild(highlightPath);
       });
     });
     console.log('🎉 Zones d\'influence rendues avec succès');

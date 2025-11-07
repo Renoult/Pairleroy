@@ -1034,8 +1034,8 @@ svg g#influence-zones {
 
 .influence-fill {
   pointer-events: none;
-  mix-blend-mode: multiply;
-  fill-opacity: 0.18;
+  mix-blend-mode: normal;
+  opacity: 1;
   transition: opacity 0.15s ease;
 }
 
@@ -1052,6 +1052,13 @@ svg g#influence-zones {
   mix-blend-mode: multiply;
   fill: none;
   stroke-opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.influence-outline-highlight {
+  pointer-events: none;
+  mix-blend-mode: screen;
+  fill: none;
   transition: opacity 0.15s ease;
 }
 
