@@ -1,0 +1,24 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .hex-bg { fill: #2c3e50; }
+      .hex-border { fill: none; stroke: #3498db; stroke-width: 2; }
+      .segment-1 { fill: #e74c3c; }
+      .segment-2 { fill: #f39c12; }
+      .segment-3 { fill: #27ae60; }
+      .segment-4 { fill: #9b59b6; }
+    </style>
+  </defs>
+  
+  <!-- Hexagone de fond -->
+  <polygon class="hex-bg" points="16,4 26,10 26,22 16,28 6,22 6,10"/>
+  
+  <!-- Segments colorés -->
+  <polygon class="segment-1" points="16,16 6,10 16,4"/>
+  <polygon class="segment-2" points="16,16 16,4 26,10"/>
+  <polygon class="segment-3" points="16,16 26,10 26,22"/>
+  <polygon class="segment-4" points="16,16 26,22 16,28"/>
+  
+  <!-- Bordure -->
+  <polygon class="hex-border" points="16,4 26,10 26,22 16,28 6,22 6,10"/>
+</svg>

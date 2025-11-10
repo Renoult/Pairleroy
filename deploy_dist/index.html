@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pairleroy - Generateur de grille hexagonale</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="dist/styles.css" />
+  </head>
+  <body>
+    <header id="app-topbar" class="topbar">
+      <div class="topbar-controls">
+        <div class="field">
+          <label>Types de tuiles (%)</label>
+          <div class="row tile-type-row">
+            <label class="tile-type-label" title="Tuile mono couleur">
+              <span class="sr-only">Mono</span>
+              <svg class="tile-icon tile-icon--mono" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--mono">
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 8 32 8 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--mono" points="24 22 8 12 24 4" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-mono" type="number" min="0" max="100" value="40" />
+            </label>
+            <label class="tile-type-label" title="Tuile bi couleur">
+              <span class="sr-only">Bi</span>
+              <svg class="tile-icon tile-icon--bi" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--bi">
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 8 12 24 4" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-major" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-minor" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--bi-minor" points="24 22 8 32 8 12" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-bi" type="number" min="0" max="100" value="40" />
+            </label>
+            <label class="tile-type-label" title="Tuile tri couleur">
+              <span class="sr-only">Tri</span>
+              <svg class="tile-icon tile-icon--tri" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
+                <g class="tile-icon__segments tile-icon__segments--tri">
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-a" points="24 22 8 12 24 4" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-a" points="24 22 24 4 40 12" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-b" points="24 22 40 12 40 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-b" points="24 22 40 32 24 40" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-c" points="24 22 24 40 8 32" />
+                  <polygon class="tile-icon__segment tile-icon__segment--tri-c" points="24 22 8 32 8 12" />
+                </g>
+                <polygon class="tile-icon__outline" points="24 2 44 12 44 32 24 42 4 32 4 12" />
+              </svg>
+              <input id="pct-tri" type="number" min="0" max="100" value="20" />
+            </label>
+          </div>
+        </div>
+        <div class="field field--colors">
+          <label>Repartition des 4 couleurs (%)</label>
+          <div class="row">
+            <label title="Main-d’œuvre">
+              <input id="pct-c1" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Tissu">
+              <input id="pct-c2" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Pain">
+              <input id="pct-c3" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+            <label title="Bois">
+              <input id="pct-c4" class="color-percent" type="number" min="0" max="100" value="25" />
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div id="turn-indicator" class="turn-indicator">Tour 1 - Joueur 1</div>
+        <div class="action-buttons">
+          <button id="end-turn" type="button">Fin du tour</button>
+          <button id="generate">Generer</button>
+          <button id="clear">Vider la grille</button>
+        </div>
+      </div>
+      <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
+    </header>
+
+    <div id="topbar-volet" class="topbar-volet" role="group" aria-label="Commandes de la barre superieure">
+      <button id="toggle-topbar" type="button" aria-expanded="true" aria-controls="app-topbar" aria-label="Replier la barre superieure">TB-</button>
+      <button id="toggle-personal-board" type="button" aria-expanded="true" aria-controls="personal-board" aria-label="Replier le plateau personnel">PB-</button>
+      <button id="open-stats" type="button" aria-label="Ouvrir les statistiques">STA</button>
+      <button id="open-settings" type="button" aria-label="Afficher les parametres">MOD</button>
+    </div>
+    <div id="collapsed-hud" class="collapsed-hud" aria-live="polite" aria-hidden="true">
+      <div id="collapsed-scoreboard" class="scoreboard collapsed-scoreboard" aria-label="Scores des joueurs (mode compact)"></div>
+      <button id="collapsed-end-turn" type="button" class="collapsed-end-turn" aria-label="Terminer le tour">Fin du tour</button>
+    </div>
+
+    <main>
+      <div id="board-container" class="board-container">
+        <div id="board-surface" class="board-surface">
+          <!-- SVG inline injected by app.js -->
+        </div>
+      </div>
+      <aside id="palette" aria-label="Palette de tuiles">
+        <div id="palette-items"></div>
+      </aside>
+      <aside id="market-details" aria-live="polite" aria-label="Détails du marché">
+        <div class="market-details__header">
+          <span class="market-details__type" id="market-details-type">Marché</span>
+          <span class="market-details__slot" id="market-details-slot"></span>
+        </div>
+        <h2 class="market-details__name" id="market-details-name">Survolez une carte</h2>
+        <dl class="market-details__stats">
+          <dt>Coût</dt>
+          <dd id="market-details-cost">—</dd>
+          <dt>Récompense</dt>
+          <dd id="market-details-reward">—</dd>
+        </dl>
+        <p class="market-details__description" id="market-details-description">
+          Passez la souris sur une carte du marché pour voir son effet.
+        </p>
+        
+        <!-- Section d'édition des bâtiments -->
+        <div id="market-edit-section" class="market-edit-section" style="display: none;">
+          <h3>Modifier le bâtiment</h3>
+          <div class="edit-form">
+            <div class="form-row">
+              <label for="edit-name">Nom:</label>
+              <input type="text" id="edit-name" placeholder="Nom du bâtiment">
+            </div>
+            <div class="form-row">
+              <label for="edit-titre">Titre:</label>
+              <input type="text" id="edit-titre" placeholder="Titre du bâtiment">
+            </div>
+            
+            <div class="edit-section-title">Coût (ressources nécessaires)</div>
+            <div class="resource-grid">
+              <div class="form-row">
+                <label for="edit-cost-wood">Bois:</label>
+                <input type="number" id="edit-cost-wood" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-bread">Pain:</label>
+                <input type="number" id="edit-cost-bread" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-fabric">Tissu:</label>
+                <input type="number" id="edit-cost-fabric" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-labor">Main-d'œuvre:</label>
+                <input type="number" id="edit-cost-labor" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-points">Points de Victoire:</label>
+                <input type="number" id="edit-cost-points" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-cost-crowns">Couronnes:</label>
+                <input type="number" id="edit-cost-crowns" min="0" placeholder="0">
+              </div>
+            </div>
+            
+            <div class="edit-section-title">Récompense (ressources gagnées)</div>
+            <div class="resource-grid">
+              <div class="form-row">
+                <label for="edit-reward-wood">Bois:</label>
+                <input type="number" id="edit-reward-wood" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-bread">Pain:</label>
+                <input type="number" id="edit-reward-bread" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-fabric">Tissu:</label>
+                <input type="number" id="edit-reward-fabric" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-labor">Main-d'œuvre:</label>
+                <input type="number" id="edit-reward-labor" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-points">Points de Victoire:</label>
+                <input type="number" id="edit-reward-points" min="0" placeholder="0">
+              </div>
+              <div class="form-row">
+                <label for="edit-reward-crowns">Couronnes:</label>
+                <input type="number" id="edit-reward-crowns" min="0" placeholder="0">
+              </div>
+            </div>
+            
+            <div class="edit-actions">
+              <button id="apply-changes" type="button">Appliquer</button>
+              <button id="buy-contract" type="button">Acheter contrat</button>
+              <button id="cancel-edit" type="button">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <aside id="personal-board" aria-live="polite" aria-label="Plateau personnel">
+        <!-- Contenu genere dynamiquement -->
+      </aside>
+    </main>
+
+    <script src="dist/app.js"></script>
+  </body>
+</html>
