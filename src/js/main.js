@@ -152,11 +152,16 @@ function applyGameState(syncState) {
       svg.__state.overlayByJunction = new Map(svgState.overlayByJunction || []);
       svg.__state.castleByJunction = new Map(svgState.castleByJunction || []);
       svg.__state.outpostByJunction = new Map(svgState.outpostByJunction || []);
-      
+
+      // Mettre à jour les structures globales utilisées par le rendu
       // Synchroniser les configurations
       if (svgState.colors) svg.__state.colors = svgState.colors;
       if (svgState.typesPct) svg.__state.typesPct = svgState.typesPct;
       if (svgState.colorPct) svg.__state.colorPct = svgState.colorPct;
+
+      if (typeof window !== 'undefined' && window.__pairleroySyncHooks?.updateStructures) {
+        window.__pairleroySyncHooks.updateStructures(svgState);
+      }
     }
     
     // Rendre à nouveau l'affichage
@@ -3178,10 +3183,14 @@ function renderPlacementPreview(tileIdx) {
   const rotation = normalizeRotationStep(combo, combo.rotationStep);
   const oriented = orientedSideColors(combo, rotation);
   const can = canPlace(tileIdx, oriented);
-  const fillColors = mapSideColorIndices(oriented, colors);
+  const paletteColors = (svg?.__state?.colors && Array.isArray(svg.__state.colors))
+    ? svg.__state.colors
+    : activeColors;
+  const fillColors = mapSideColorIndices(oriented, paletteColors);
   const tile = tiles[tileIdx];
-  const center = axialToPixel(tile.q, tile.r, size);
-  const verts = hexVerticesAt(center.x, center.y, size - 0.6);
+  const boardSize = svg?.__state?.size ?? 32;
+  const center = axialToPixel(tile.q, tile.r, boardSize);
+  const verts = hexVerticesAt(center.x, center.y, Math.max(4, boardSize - 0.6));
   for (let i = 0; i < 6; i++) {
     const a = verts[i];
     const b = verts[(i + 1) % 6];
@@ -3191,7 +3200,7 @@ function renderPlacementPreview(tileIdx) {
     });
     previewLayer.appendChild(p);
   }
-  const outline = createHexOutlineElement(center.x, center.y, size);
+  const outline = createHexOutlineElement(center.x, center.y, boardSize);
   outline.setAttribute('fill', 'none');
   outline.setAttribute('stroke', can ? '#2e7d32' : '#c62828');
   outline.setAttribute('stroke-width', '2.2');
@@ -3371,6 +3380,24 @@ function generateAndRender() {
   const overlayByJunction = new Map();
   const castleByJunction = new Map();
   const outpostByJunction = new Map();
+  window.__pairleroySyncHooks = window.__pairleroySyncHooks || {};
+  window.__pairleroySyncHooks.updateStructures = (incomingState = {}) => {
+    const applyEntries = (targetMap, entries) => {
+      if (!targetMap || typeof targetMap.clear !== 'function') return;
+      targetMap.clear();
+      if (Array.isArray(entries)) entries.forEach(([key, value]) => targetMap.set(key, value));
+    };
+    applyEntries(overlayByJunction, incomingState.overlayByJunction);
+    applyEntries(castleByJunction, incomingState.castleByJunction);
+    applyEntries(outpostByJunction, incomingState.outpostByJunction);
+    try {
+      renderJunctionOverlays();
+      renderInfluenceZones();
+      refreshStatsModal();
+    } catch (err) {
+      console.warn('Sync render error:', err);
+    }
+  };
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
   const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
@@ -3680,6 +3707,7 @@ function generateAndRender() {
   overlayByJunction.set(key, player);
   registerAmenagementForPlayer(player, key, colorIdx);
     renderJunctionOverlays();
+    broadcastGameState();
   }
 
   function removeAmenagementOwner(key) {
@@ -3687,12 +3715,14 @@ function generateAndRender() {
     if (previousOwner == null) {
       overlayByJunction.delete(key);
       amenagementColorByKey.delete(key);
+      broadcastGameState();
       return;
     }
     const colorIdx = amenagementColorByKey.get(key);
     overlayByJunction.delete(key);
     unregisterAmenagementForPlayer(previousOwner, key, colorIdx);
     renderJunctionOverlays();
+    broadcastGameState();
   }
 
   function findCastleKeyForPlayer(player) {
@@ -3798,14 +3828,19 @@ function generateAndRender() {
     const idx = playerIndex(player);
     if (idx === -1) return;
 
+    const finalizeCastleChange = () => {
+      renderJunctionOverlays();
+      renderInfluenceZones();
+      refreshStatsModal();
+      broadcastGameState();
+    };
+
     const currentCastleOwner = castleByJunction.get(key) ?? null;
     if (currentCastleOwner != null) {
       if (currentCastleOwner !== player) return;
       castleByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -3814,9 +3849,7 @@ function generateAndRender() {
       if (currentOutpostOwner !== player) return;
       outpostByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -3835,9 +3868,7 @@ function generateAndRender() {
       castleByJunction.set(key, player);
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -3853,9 +3884,7 @@ function generateAndRender() {
     outpostByJunction.set(key, player);
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-    renderJunctionOverlays();
-    renderInfluenceZones();
-    refreshStatsModal();
+    finalizeCastleChange();
   }
 
   function renderCastleOverlays() {
