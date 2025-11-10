@@ -290,7 +290,19 @@ function quotasHamiltonCap(total, weights, caps) {
   return base;
 }
 
-
+/**
+ * Assigne des combinaisons de couleurs aux tuiles selon les quotas Hamilton
+ * 
+ * Algorithme de répartition en 3 phases :
+ * 1. Monochromatiques (3 unités par tuile) - priorité haute
+ * 2. Bicolores majeures (2+1 unités par tuile) - priorité moyenne  
+ * 3. Répartition des unités restantes entre bicolores mineures et tricolores
+ * 
+ * @param {number[]} types - Types de tuiles (1=mono, 2=bi, 3=tri)
+ * @param {number[]} colorUnitTargets - Quotas d'unités par couleur (somme = 3N)
+ * @param {function} rng - Générateur de nombres aléatoires
+ * @returns {Array} Combinaisons assignées aux tuiles
+ */
 function assignTileCombos(types, colorUnitTargets, rng) {
   // Phase 0: Compter les types de tuiles
   const N = types.length;
@@ -1270,23 +1282,45 @@ function seedMarketSlotsFromDeck(state) {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ORIENTED_INDEX_FOR_TRIANGLE = [4, 5, 0, 1, 2, 3];
 
-
+/**
+ * Crée un élément SVG avec le namespace approprié
+ * @param {string} tagName - Nom de la balise SVG
+ * @returns {Element} Élément SVG créé
+ */
 function createSVGElement(tagName) {
   return document.createElementNS(SVG_NS, tagName);
 }
 
-
+/**
+ * Crée un path pour un triangle formé par le centre et deux points
+ * @param {{x: number, y: number}} center - Point central
+ * @param {{x: number, y: number}} a - Premier point
+ * @param {{x: number, y: number}} b - Deuxième point
+ * @returns {string} Path SVG du triangle
+ */
 function createTrianglePath(center, a, b) {
   return `M ${center.x} ${center.y} L ${a.x} ${a.y} L ${b.x} ${b.y} Z`;
 }
 
-
+/**
+ * Crée un path pour un outline hexagonal arrondi
+ * @param {number} x - Coordonnée x du centre
+ * @param {number} y - Coordonnée y du centre
+ * @param {number} radius - Rayon de l'hexagone
+ * @param {number} cornerRadius - Rayon d'arrondi (défaut: 0.18)
+ * @returns {string} Path SVG de l'hexagone arrondi
+ */
 function createHexOutlinePath(x, y, radius, cornerRadius = 0.18) {
   // Délègue à la fonction roundedHexPathAt de core.js
   return roundedHexPathAt(x, y, radius, cornerRadius);
 }
 
-
+/**
+ * Crée un élément SVG avec des attributs
+ * @param {string} tagName - Nom de la balise SVG
+ * @param {Object} attributes - Attributs à définir
+ * @returns {Element} Élément SVG créé avec attributs
+ */
 function createSVGElementWithAttributes(tagName, attributes = {}) {
   const element = createSVGElement(tagName);
   Object.entries(attributes).forEach(([key, value]) => {
@@ -1295,7 +1329,14 @@ function createSVGElementWithAttributes(tagName, attributes = {}) {
   return element;
 }
 
-
+/**
+ * Crée un path de triangle SVG avec un centre et deux points
+ * @param {{x: number, y: number}} center - Point central
+ * @param {{x: number, y: number}} a - Premier point
+ * @param {{x: number, y: number}} b - Deuxième point
+ * @param {Object} attributes - Attributs supplémentaires
+ * @returns {Element} Élément path SVG
+ */
 function createTrianglePathElement(center, a, b, attributes = {}) {
   const path = createSVGElement('path');
   path.setAttribute('d', createTrianglePath(center, a, b));
@@ -1305,7 +1346,14 @@ function createTrianglePathElement(center, a, b, attributes = {}) {
   return path;
 }
 
-
+/**
+ * Crée un outline hexagonal SVG
+ * @param {number} x - Coordonnée x du centre
+ * @param {number} y - Coordonnée y du centre
+ * @param {number} radius - Rayon de l'hexagone
+ * @param {Object} attributes - Attributs supplémentaires
+ * @returns {Element} Élément path SVG
+ */
 function createHexOutlineElement(x, y, radius, attributes = {}) {
   const path = createSVGElement('path');
   path.setAttribute('d', createHexOutlinePath(x, y, radius));
@@ -1470,11 +1518,16 @@ function applyGameState(syncState) {
       svg.__state.overlayByJunction = new Map(svgState.overlayByJunction || []);
       svg.__state.castleByJunction = new Map(svgState.castleByJunction || []);
       svg.__state.outpostByJunction = new Map(svgState.outpostByJunction || []);
-      
+
+      // Mettre à jour les structures globales utilisées par le rendu
       // Synchroniser les configurations
       if (svgState.colors) svg.__state.colors = svgState.colors;
       if (svgState.typesPct) svg.__state.typesPct = svgState.typesPct;
       if (svgState.colorPct) svg.__state.colorPct = svgState.colorPct;
+
+      if (typeof window !== 'undefined' && window.__pairleroySyncHooks?.updateStructures) {
+        window.__pairleroySyncHooks.updateStructures(svgState);
+      }
     }
     
     // Rendre à nouveau l'affichage
@@ -4424,6 +4477,126 @@ function applyMarketEdits(slotIdx) {
   hideMarketEditSection();
 }
 
+function buyBuildingContract(slotIdx) {
+  const slotState = marketState?.slots?.[slotIdx];
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+  
+  if (!def) {
+    console.warn('Aucune définition de bâtiment trouvée pour le slot', slotIdx);
+    return;
+  }
+  
+  const player = turnState.activePlayer;
+  const pIdx = playerIndex(player);
+  
+  if (pIdx === -1) {
+    console.warn('Joueur invalide', player);
+    return;
+  }
+  
+  // Vérifier si le joueur a assez de ressources pour acheter le contrat
+  const playerRes = playerResources[pIdx];
+  const cost = def.cost || {};
+  
+  // Vérifier chaque ressource
+  let canAfford = true;
+  const missingResources = [];
+  
+  RESOURCE_ORDER.forEach((resource) => {
+    const required = cost[resource] || 0;
+    const available = playerRes.stock[resource] || 0;
+    if (required > available) {
+      canAfford = false;
+      missingResources.push(`${resource}: ${required - available} manquant`);
+    }
+  });
+  
+  // Vérifier les points
+  const requiredPoints = cost.points || 0;
+  const availablePoints = playerScores[pIdx] || 0;
+  if (requiredPoints > availablePoints) {
+    canAfford = false;
+    missingResources.push(`Points: ${requiredPoints - availablePoints} manquant`);
+  }
+  
+  // Vérifier les couronnes
+  const requiredCrowns = cost.crowns || 0;
+  const availableCrowns = playerRes.crowns || 0;
+  if (requiredCrowns > availableCrowns) {
+    canAfford = false;
+    missingResources.push(`Couronnes: ${requiredCrowns - availableCrowns} manquant`);
+  }
+  
+  if (!canAfford) {
+    alert(`Ressources insuffisantes pour acheter "${def.name}":\n${missingResources.join('\n')}`);
+    return;
+  }
+  
+  // Déduire le coût
+  RESOURCE_ORDER.forEach((resource) => {
+    const required = cost[resource] || 0;
+    if (required > 0) {
+      playerRes.stock[resource] = (playerRes.stock[resource] || 0) - required;
+    }
+  });
+  
+  if (requiredPoints > 0) {
+    playerScores[pIdx] = Math.max(0, playerScores[pIdx] - requiredPoints);
+  }
+  
+  if (requiredCrowns > 0) {
+    playerRes.crowns = Math.max(0, playerRes.crowns - requiredCrowns);
+  }
+  
+  // Ajouter le bâtiment aux possessions du joueur
+  if (!playerRes.buildings) {
+    playerRes.buildings = new Set();
+  }
+  playerRes.buildings.add(def.id);
+  
+  // Appliquer les récompenses
+  const reward = def.reward || {};
+  
+  if (Number.isFinite(reward.points) && reward.points !== 0) {
+    awardPoints(player, reward.points, `building:${def.id}`);
+  }
+  
+  if (Number.isFinite(reward.crowns) && reward.crowns !== 0) {
+    playerRes.crowns = (playerRes.crowns || 0) + reward.crowns;
+  }
+  
+  // Ajouter les ressources de stock si disponibles
+  if (reward.stock) {
+    RESOURCE_ORDER.forEach((resource) => {
+      const amount = reward.stock[resource] || 0;
+      if (amount > 0) {
+        playerRes.stock[resource] = (playerRes.stock[resource] || 0) + amount;
+      }
+    });
+  }
+  
+  // Retirer la carte du marché
+  if (marketState.slots && marketState.slots[slotIdx]) {
+    marketState.slots[slotIdx] = null;
+    refillMarketSlot(marketState, slotIdx);
+  }
+  
+  // Rafraîchir l'affichage
+  renderMarketDisplay();
+  renderPersonalBoard();
+  renderGameHud();
+  
+  // Message de confirmation
+  alert(`Contrat de bâtiment "${def.name}" acheté avec succès !`);
+  
+  // Fermer la section d'édition
+  hideMarketEditSection();
+  
+  // Synchroniser avec les autres onglets
+  broadcastGameState();
+}
+
+
 function summarizeMarketCost(cost) {
   if (!cost) return '';
   const parts = [];
@@ -4496,10 +4669,14 @@ function renderPlacementPreview(tileIdx) {
   const rotation = normalizeRotationStep(combo, combo.rotationStep);
   const oriented = orientedSideColors(combo, rotation);
   const can = canPlace(tileIdx, oriented);
-  const fillColors = mapSideColorIndices(oriented, colors);
+  const paletteColors = (svg?.__state?.colors && Array.isArray(svg.__state.colors))
+    ? svg.__state.colors
+    : activeColors;
+  const fillColors = mapSideColorIndices(oriented, paletteColors);
   const tile = tiles[tileIdx];
-  const center = axialToPixel(tile.q, tile.r, size);
-  const verts = hexVerticesAt(center.x, center.y, size - 0.6);
+  const boardSize = svg?.__state?.size ?? 32;
+  const center = axialToPixel(tile.q, tile.r, boardSize);
+  const verts = hexVerticesAt(center.x, center.y, Math.max(4, boardSize - 0.6));
   for (let i = 0; i < 6; i++) {
     const a = verts[i];
     const b = verts[(i + 1) % 6];
@@ -4509,7 +4686,7 @@ function renderPlacementPreview(tileIdx) {
     });
     previewLayer.appendChild(p);
   }
-  const outline = createHexOutlineElement(center.x, center.y, size);
+  const outline = createHexOutlineElement(center.x, center.y, boardSize);
   outline.setAttribute('fill', 'none');
   outline.setAttribute('stroke', can ? '#2e7d32' : '#c62828');
   outline.setAttribute('stroke-width', '2.2');
@@ -4689,6 +4866,24 @@ function generateAndRender() {
   const overlayByJunction = new Map();
   const castleByJunction = new Map();
   const outpostByJunction = new Map();
+  window.__pairleroySyncHooks = window.__pairleroySyncHooks || {};
+  window.__pairleroySyncHooks.updateStructures = (incomingState = {}) => {
+    const applyEntries = (targetMap, entries) => {
+      if (!targetMap || typeof targetMap.clear !== 'function') return;
+      targetMap.clear();
+      if (Array.isArray(entries)) entries.forEach(([key, value]) => targetMap.set(key, value));
+    };
+    applyEntries(overlayByJunction, incomingState.overlayByJunction);
+    applyEntries(castleByJunction, incomingState.castleByJunction);
+    applyEntries(outpostByJunction, incomingState.outpostByJunction);
+    try {
+      renderJunctionOverlays();
+      renderInfluenceZones();
+      refreshStatsModal();
+    } catch (err) {
+      console.warn('Sync render error:', err);
+    }
+  };
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
   const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
@@ -4998,6 +5193,7 @@ function generateAndRender() {
   overlayByJunction.set(key, player);
   registerAmenagementForPlayer(player, key, colorIdx);
     renderJunctionOverlays();
+    broadcastGameState();
   }
 
   function removeAmenagementOwner(key) {
@@ -5005,12 +5201,14 @@ function generateAndRender() {
     if (previousOwner == null) {
       overlayByJunction.delete(key);
       amenagementColorByKey.delete(key);
+      broadcastGameState();
       return;
     }
     const colorIdx = amenagementColorByKey.get(key);
     overlayByJunction.delete(key);
     unregisterAmenagementForPlayer(previousOwner, key, colorIdx);
     renderJunctionOverlays();
+    broadcastGameState();
   }
 
   function findCastleKeyForPlayer(player) {
@@ -5116,14 +5314,19 @@ function generateAndRender() {
     const idx = playerIndex(player);
     if (idx === -1) return;
 
+    const finalizeCastleChange = () => {
+      renderJunctionOverlays();
+      renderInfluenceZones();
+      refreshStatsModal();
+      broadcastGameState();
+    };
+
     const currentCastleOwner = castleByJunction.get(key) ?? null;
     if (currentCastleOwner != null) {
       if (currentCastleOwner !== player) return;
       castleByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -5132,9 +5335,7 @@ function generateAndRender() {
       if (currentOutpostOwner !== player) return;
       outpostByJunction.delete(key);
       cleanupAmenagementsForPlayer(player);
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -5153,9 +5354,7 @@ function generateAndRender() {
       castleByJunction.set(key, player);
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
+      finalizeCastleChange();
       return;
     }
 
@@ -5171,9 +5370,7 @@ function generateAndRender() {
     outpostByJunction.set(key, player);
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-    renderJunctionOverlays();
-    renderInfluenceZones();
-    refreshStatsModal();
+    finalizeCastleChange();
   }
 
   function renderCastleOverlays() {
@@ -6682,12 +6879,21 @@ function bindUI() {
 
   // Event listeners pour l'édition des bâtiments
   const applyBtn = document.getElementById('apply-changes');
+  const buyContractBtn = document.getElementById('buy-contract');
   const cancelBtn = document.getElementById('cancel-edit');
   
   if (applyBtn) {
     applyBtn.addEventListener('click', () => {
       if (hoveredMarketSlot != null) {
         applyMarketEdits(hoveredMarketSlot);
+      }
+    });
+  }
+  
+  if (buyContractBtn) {
+    buyContractBtn.addEventListener('click', () => {
+      if (hoveredMarketSlot != null) {
+        buyBuildingContract(hoveredMarketSlot);
       }
     });
   }

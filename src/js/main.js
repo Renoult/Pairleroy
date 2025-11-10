@@ -3111,6 +3111,126 @@ function applyMarketEdits(slotIdx) {
   hideMarketEditSection();
 }
 
+function buyBuildingContract(slotIdx) {
+  const slotState = marketState?.slots?.[slotIdx];
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+  
+  if (!def) {
+    console.warn('Aucune définition de bâtiment trouvée pour le slot', slotIdx);
+    return;
+  }
+  
+  const player = turnState.activePlayer;
+  const pIdx = playerIndex(player);
+  
+  if (pIdx === -1) {
+    console.warn('Joueur invalide', player);
+    return;
+  }
+  
+  // Vérifier si le joueur a assez de ressources pour acheter le contrat
+  const playerRes = playerResources[pIdx];
+  const cost = def.cost || {};
+  
+  // Vérifier chaque ressource
+  let canAfford = true;
+  const missingResources = [];
+  
+  RESOURCE_ORDER.forEach((resource) => {
+    const required = cost[resource] || 0;
+    const available = playerRes.stock[resource] || 0;
+    if (required > available) {
+      canAfford = false;
+      missingResources.push(`${resource}: ${required - available} manquant`);
+    }
+  });
+  
+  // Vérifier les points
+  const requiredPoints = cost.points || 0;
+  const availablePoints = playerScores[pIdx] || 0;
+  if (requiredPoints > availablePoints) {
+    canAfford = false;
+    missingResources.push(`Points: ${requiredPoints - availablePoints} manquant`);
+  }
+  
+  // Vérifier les couronnes
+  const requiredCrowns = cost.crowns || 0;
+  const availableCrowns = playerRes.crowns || 0;
+  if (requiredCrowns > availableCrowns) {
+    canAfford = false;
+    missingResources.push(`Couronnes: ${requiredCrowns - availableCrowns} manquant`);
+  }
+  
+  if (!canAfford) {
+    alert(`Ressources insuffisantes pour acheter "${def.name}":\n${missingResources.join('\n')}`);
+    return;
+  }
+  
+  // Déduire le coût
+  RESOURCE_ORDER.forEach((resource) => {
+    const required = cost[resource] || 0;
+    if (required > 0) {
+      playerRes.stock[resource] = (playerRes.stock[resource] || 0) - required;
+    }
+  });
+  
+  if (requiredPoints > 0) {
+    playerScores[pIdx] = Math.max(0, playerScores[pIdx] - requiredPoints);
+  }
+  
+  if (requiredCrowns > 0) {
+    playerRes.crowns = Math.max(0, playerRes.crowns - requiredCrowns);
+  }
+  
+  // Ajouter le bâtiment aux possessions du joueur
+  if (!playerRes.buildings) {
+    playerRes.buildings = new Set();
+  }
+  playerRes.buildings.add(def.id);
+  
+  // Appliquer les récompenses
+  const reward = def.reward || {};
+  
+  if (Number.isFinite(reward.points) && reward.points !== 0) {
+    awardPoints(player, reward.points, `building:${def.id}`);
+  }
+  
+  if (Number.isFinite(reward.crowns) && reward.crowns !== 0) {
+    playerRes.crowns = (playerRes.crowns || 0) + reward.crowns;
+  }
+  
+  // Ajouter les ressources de stock si disponibles
+  if (reward.stock) {
+    RESOURCE_ORDER.forEach((resource) => {
+      const amount = reward.stock[resource] || 0;
+      if (amount > 0) {
+        playerRes.stock[resource] = (playerRes.stock[resource] || 0) + amount;
+      }
+    });
+  }
+  
+  // Retirer la carte du marché
+  if (marketState.slots && marketState.slots[slotIdx]) {
+    marketState.slots[slotIdx] = null;
+    refillMarketSlot(marketState, slotIdx);
+  }
+  
+  // Rafraîchir l'affichage
+  renderMarketDisplay();
+  renderPersonalBoard();
+  renderGameHud();
+  
+  // Message de confirmation
+  alert(`Contrat de bâtiment "${def.name}" acheté avec succès !`);
+  
+  // Fermer la section d'édition
+  hideMarketEditSection();
+  
+  // Synchroniser avec les autres onglets
+  broadcastGameState();
+}
+
+
 function summarizeMarketCost(cost) {
   if (!cost) return '';
   const parts = [];
@@ -5393,12 +5513,21 @@ function bindUI() {
 
   // Event listeners pour l'édition des bâtiments
   const applyBtn = document.getElementById('apply-changes');
+  const buyContractBtn = document.getElementById('buy-contract');
   const cancelBtn = document.getElementById('cancel-edit');
   
   if (applyBtn) {
     applyBtn.addEventListener('click', () => {
       if (hoveredMarketSlot != null) {
         applyMarketEdits(hoveredMarketSlot);
+      }
+    });
+  }
+  
+  if (buyContractBtn) {
+    buyContractBtn.addEventListener('click', () => {
+      if (hoveredMarketSlot != null) {
+        buyBuildingContract(hoveredMarketSlot);
       }
     });
   }
