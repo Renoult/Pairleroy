@@ -1,4 +1,4 @@
-﻿// Fichier: src/js/main.js
+// Fichier: src/js/main.js
 // Description: Orchestration de l'application (lecture config, generation de la grille, interactions UI).
 
 
@@ -18,6 +18,19 @@ ringsByDistance.forEach((ring) => {
 
 const PLAYER_IDS = [1, 2, 3, 4, 5, 6];
 const PLAYER_COUNT = PLAYER_IDS.length;
+const MIN_PLAYER_COUNT = 2;
+let activePlayerCount = PLAYER_COUNT;
+function clampPlayerCount(value) {
+  const base = Number(value);
+  if (!Number.isFinite(base)) return activePlayerCount;
+  return Math.min(PLAYER_COUNT, Math.max(MIN_PLAYER_COUNT, Math.round(base)));
+}
+function getActivePlayerIds() {
+  return PLAYER_IDS.slice(0, activePlayerCount);
+}
+function getFirstActivePlayerId() {
+  return getActivePlayerIds()[0] ?? PLAYER_IDS[0];
+}
 const PLAYER_CRESTS = {
   1: 'crests/belier.svg',
   2: 'crests/cerf.svg',
@@ -47,28 +60,133 @@ const AMENAGEMENT_RESOURCE_TYPES = [
 const AMENAGEMENT_RESOURCE_LABELS = DEFAULT_COLOR_LABELS.slice();
 const POINTS_PER_CROWN = 16;
 
-// Système de synchronisation entre onglets
+const APP_VERSION = '1.4.0';
+if (typeof window !== 'undefined') {
+  window.__PAIRLEROY_VERSION = APP_VERSION;
+}
+
+// Syst�me de synchronisation entre onglets
 const TAB_SYNC_CHANNEL_NAME = 'pairleroy_game_sync';
 const tabChannel = new BroadcastChannel(TAB_SYNC_CHANNEL_NAME);
 
 let currentTabId = generateTabId();
 let lastSyncTime = 0;
 let isSyncing = false;
+const INITIAL_SYNC_REQUEST_DELAY_MS = 250;
+const INITIAL_SYNC_RETRY_DELAY_MS = 750;
+const MAX_INITIAL_SYNC_ATTEMPTS = 6;
+let initialSyncTimer = null;
+let initialSyncAttempts = 0;
+let initialSyncCompleted = false;
+let pendingStructureState = null;
 
-// Générer un ID unique pour cet onglet
+function extractEntriesList(source) {
+  if (!source) return [];
+  if (source instanceof Map) return Array.from(source.entries());
+  if (Array.isArray(source)) return source.map(([key, value]) => [key, value]);
+  if (typeof source === 'object' && source != null && typeof source.entries === 'function') {
+    return Array.from(source.entries());
+  }
+  return [];
+}
+
+function snapshotStructureState(structureLike = {}) {
+  return {
+    overlayByJunction: extractEntriesList(structureLike.overlayByJunction),
+    castleByJunction: extractEntriesList(structureLike.castleByJunction),
+    outpostByJunction: extractEntriesList(structureLike.outpostByJunction),
+  };
+}
+
+function rememberPendingStructures(structureLike = {}) {
+  const snapshot = snapshotStructureState(structureLike);
+  pendingStructureState = snapshot;
+  return snapshot;
+}
+
+function applyPendingStructuresToBoard() {
+  if (!pendingStructureState) return false;
+  if (typeof window === 'undefined') return false;
+  const updater = window.__pairleroySyncHooks?.updateStructures;
+  if (typeof updater !== 'function') return false;
+  updater(pendingStructureState);
+  pendingStructureState = null;
+  return true;
+}
+
+function syncMapEntries(targetMap, entries) {
+  if (!targetMap || typeof targetMap.clear !== 'function') return;
+  targetMap.clear();
+  if (Array.isArray(entries)) entries.forEach(([key, value]) => targetMap.set(key, value));
+}
+
+// G�n�rer un ID unique pour cet onglet
 function generateTabId() {
   return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-// État complet du jeu pour synchronisation
+function scheduleInitialSyncRequest() {
+  if (initialSyncCompleted) return;
+  if (initialSyncAttempts >= MAX_INITIAL_SYNC_ATTEMPTS) return;
+  if (initialSyncTimer) clearTimeout(initialSyncTimer);
+  const delay = initialSyncAttempts === 0
+    ? INITIAL_SYNC_REQUEST_DELAY_MS
+    : INITIAL_SYNC_RETRY_DELAY_MS;
+  initialSyncTimer = setTimeout(() => {
+    if (initialSyncCompleted) return;
+    initialSyncAttempts += 1;
+    tabChannel.postMessage({
+      type: 'syncRequest',
+      tabId: currentTabId,
+      timestamp: Date.now(),
+      version: APP_VERSION,
+    });
+    if (!initialSyncCompleted && initialSyncAttempts < MAX_INITIAL_SYNC_ATTEMPTS) {
+      scheduleInitialSyncRequest();
+    }
+  }, delay);
+}
+
+function respondToSyncRequest(request) {
+  if (!request || request.tabId === currentTabId) return;
+  const sendState = () => {
+    const state = getGameState();
+    if (!state) return;
+    tabChannel.postMessage({
+      type: 'gameState',
+      data: state,
+      targetTabId: request.tabId,
+      version: APP_VERSION,
+    });
+  };
+  if (isSyncing) {
+    setTimeout(sendState, 50);
+  } else {
+    sendState();
+  }
+}
+
+function updateVersionBadge() {
+  const badge = document.getElementById('app-version');
+  if (!badge) return;
+  const label = `v${APP_VERSION}`;
+  badge.textContent = label;
+  badge.setAttribute('data-version', APP_VERSION);
+  badge.setAttribute('title', `Version ${APP_VERSION}`);
+}
+
+// �tat complet du jeu pour synchronisation
 function getGameState() {
   const svg = document.querySelector('#board-container svg');
   const state = svg?.__state || {};
+  const structureSnapshot = snapshotStructureState(state);
   
   const gameState = {
     tabId: currentTabId,
     timestamp: Date.now(),
+    version: APP_VERSION,
     data: {
+      activePlayerCount,
       placements: placements.slice(),
       placedCount: placedCount,
       turnState: { ...turnState },
@@ -76,16 +194,16 @@ function getGameState() {
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
-      // Inclure les données des colons
+      // Inclure les donn�es des colons
       colonPositions: colonPositions.slice(),
       colonMoveRemaining: colonMoveRemaining.slice(),
       colonPlacementUsed: colonPlacementUsed.slice(),
-      // Inclure les données d'aménagement
+      // Inclure les donn�es d'am�nagement
       amenagementColorByKey: amenagementColorByKey ? Array.from(amenagementColorByKey.entries()) : [],
       svgState: {
-        overlayByJunction: state.overlayByJunction ? Array.from(state.overlayByJunction.entries()) : [],
-        castleByJunction: state.castleByJunction ? Array.from(state.castleByJunction.entries()) : [],
-        outpostByJunction: state.outpostByJunction ? Array.from(state.outpostByJunction.entries()) : [],
+        overlayByJunction: structureSnapshot.overlayByJunction,
+        castleByJunction: structureSnapshot.castleByJunction,
+        outpostByJunction: structureSnapshot.outpostByJunction,
         colors: state.colors,
         typesPct: state.typesPct,
         colorPct: state.colorPct
@@ -95,9 +213,15 @@ function getGameState() {
   return gameState;
 }
 
-// Appliquer l'état reçu à l'onglet actuel
+// Appliquer l'�tat re�u � l'onglet actuel
 function applyGameState(syncState) {
   if (!syncState || !syncState.data || syncState.tabId === currentTabId) return;
+  if (syncState.version && syncState.version !== APP_VERSION) {
+    console.warn('Version mismatch detected. Local:', APP_VERSION, 'Incoming:', syncState.version);
+  }
+  if (Number.isFinite(syncState.data.activePlayerCount)) {
+    applyPlayerCountChange(syncState.data.activePlayerCount, { broadcast: false });
+  }
   
   isSyncing = true;
   
@@ -106,27 +230,27 @@ function applyGameState(syncState) {
     placements = syncState.data.placements.slice();
     placedCount = syncState.data.placedCount;
     
-    // Synchroniser l'état du tour
+    // Synchroniser l'�tat du tour
     Object.assign(turnState, syncState.data.turnState);
     
     // Synchroniser les scores
     playerScores = syncState.data.playerScores.slice();
     
-    // Synchroniser la sélection de palette
+    // Synchroniser la s�lection de palette
     selectedPalette = syncState.data.selectedPalette;
     setSelectedPalette(selectedPalette);
     
-    // Synchroniser la tuile survolée
+    // Synchroniser la tuile survol�e
     hoveredTileIdx = syncState.data.hoveredTileIdx;
     const svg = getBoardSvg();
     if (svg && svg.__state) {
       svg.__state.hoveredTile = hoveredTileIdx;
     }
     
-    // Synchroniser le joueur colon sélectionné
+    // Synchroniser le joueur colon s�lectionn�
     selectedColonPlayer = syncState.data.selectedColonPlayer;
     
-    // Synchroniser les données des colons
+    // Synchroniser les donn�es des colons
     if (Array.isArray(syncState.data.colonPositions)) {
       colonPositions = syncState.data.colonPositions.slice();
     }
@@ -137,7 +261,7 @@ function applyGameState(syncState) {
       colonPlacementUsed = syncState.data.colonPlacementUsed.slice();
     }
     
-    // Synchroniser les couleurs d'aménagement
+    // Synchroniser les couleurs d'am�nagement
     if (syncState.data.amenagementColorByKey && Array.isArray(syncState.data.amenagementColorByKey)) {
       amenagementColorByKey.clear();
       syncState.data.amenagementColorByKey.forEach(([key, value]) => {
@@ -145,29 +269,37 @@ function applyGameState(syncState) {
       });
     }
     
-    // Synchroniser l'état SVG
-    const svgState = syncState.data.svgState;
+    // Synchroniser l'�tat SVG
+    const svgState = syncState.data.svgState || {};
+    const normalizedStructures = rememberPendingStructures(svgState);
     if (svg && svg.__state) {
-      // Toujours réinitialiser les Maps, même si vides
-      svg.__state.overlayByJunction = new Map(svgState.overlayByJunction || []);
-      svg.__state.castleByJunction = new Map(svgState.castleByJunction || []);
-      svg.__state.outpostByJunction = new Map(svgState.outpostByJunction || []);
+      // Toujours r�initialiser les Maps, m�me si vides
+      syncMapEntries(svg.__state.overlayByJunction, normalizedStructures.overlayByJunction);
+      syncMapEntries(svg.__state.castleByJunction, normalizedStructures.castleByJunction);
+      syncMapEntries(svg.__state.outpostByJunction, normalizedStructures.outpostByJunction);
 
-      // Mettre à jour les structures globales utilisées par le rendu
+      // Mettre � jour les structures globales utilis�es par le rendu
       // Synchroniser les configurations
       if (svgState.colors) svg.__state.colors = svgState.colors;
       if (svgState.typesPct) svg.__state.typesPct = svgState.typesPct;
       if (svgState.colorPct) svg.__state.colorPct = svgState.colorPct;
 
       if (typeof window !== 'undefined' && window.__pairleroySyncHooks?.updateStructures) {
-        window.__pairleroySyncHooks.updateStructures(svgState);
+        window.__pairleroySyncHooks.updateStructures(normalizedStructures);
+        pendingStructureState = null;
       }
     }
+    applyPendingStructuresToBoard();
     
-    // Rendre à nouveau l'affichage
+    // Rendre � nouveau l'affichage
     renderAll();
     
     lastSyncTime = syncState.timestamp;
+    initialSyncCompleted = true;
+    if (initialSyncTimer) {
+      clearTimeout(initialSyncTimer);
+      initialSyncTimer = null;
+    }
     
   } catch (error) {
     console.error('Erreur lors de la synchronisation:', error);
@@ -176,37 +308,42 @@ function applyGameState(syncState) {
   }
 }
 
-// Envoyer l'état aux autres onglets
-function broadcastGameState() {
+// Envoyer l'�tat aux autres onglets
+function broadcastGameState(options = {}) {
   if (isSyncing) return;
   
   const state = getGameState();
-  tabChannel.postMessage({
+  if (!state) return;
+  const payload = {
     type: 'gameState',
-    data: state
-  });
+    data: state,
+    version: APP_VERSION,
+  };
+  if (options.targetTabId) payload.targetTabId = options.targetTabId;
+  tabChannel.postMessage(payload);
 }
 
-// Écouter les messages de synchronisation
+// �couter les messages de synchronisation
 tabChannel.addEventListener('message', (event) => {
   const message = event.data;
+  if (!message) return;
+  if (message.type === 'syncRequest') {
+    respondToSyncRequest(message);
+    return;
+  }
+  if (message.type !== 'gameState') return;
+  if (message.targetTabId && message.targetTabId !== currentTabId) return;
 
-  
-  if (message.type === 'gameState') {
-    const incomingState = message.data;
+  const incomingState = message.data;
+  if (!incomingState || incomingState.tabId === currentTabId) return;
 
-    
-    // Synchroniser seulement si les données sont plus récentes
-    if (incomingState.timestamp > lastSyncTime) {
-
-      applyGameState(incomingState);
-    } else {
-
-    }
+  // Synchroniser seulement si les donn�es sont plus r�centes
+  if (incomingState.timestamp > lastSyncTime) {
+    applyGameState(incomingState);
   }
 });
 
-// Fonction pour rendre tous les éléments de l'interface
+// Fonction pour rendre tous les �l�ments de l'interface
 function renderAll() {
   const svg = document.querySelector('#board-container svg');
   if (!svg) return;
@@ -227,13 +364,13 @@ function renderAll() {
       try {
         renderTileFill(idx, placement.sideColors, svg, state.tiles, state.size, state.colors);
       } catch (e) {
-        // Fonction renderTileFill peut ne pas être accessible dans ce scope
+        // Fonction renderTileFill peut ne pas �tre accessible dans ce scope
       }
     });
   }
   
-  // Forcer le re-rendu de TOUS les overlays et éléments visuels
-  // On force même si les fonctions existent déjà
+  // Forcer le re-rendu de TOUS les overlays et �l�ments visuels
+  // On force m�me si les fonctions existent d�j�
   try {
     if (state.renderJunctionOverlays) {
       state.renderJunctionOverlays();
@@ -258,7 +395,7 @@ function renderAll() {
     console.warn('Erreur renderOutpostOverlays:', e);
   }
   
-  // Réactualiser les marqueurs de colon
+  // R�actualiser les marqueurs de colon
   if (typeof updateColonMarkersPositions === 'function') {
     try {
       updateColonMarkersPositions();
@@ -267,14 +404,14 @@ function renderAll() {
     }
   }
   
-  // Réactualiser l'interface de jeu
+  // R�actualiser l'interface de jeu
   try {
     renderGameHud();
   } catch (e) {
     console.warn('Erreur renderGameHud:', e);
   }
   
-  // Réactualiser les statistiques si visibles
+  // R�actualiser les statistiques si visibles
   if (statsModalVisible) {
     try {
       refreshStatsModal();
@@ -283,7 +420,7 @@ function renderAll() {
     }
   }
   
-  // Réactualiser la palette si la fonction est disponible
+  // R�actualiser la palette si la fonction est disponible
   if (state.regenPalette) {
     try {
       state.regenPalette();
@@ -292,7 +429,7 @@ function renderAll() {
     }
   }
   
-  // Réactualiser la prévisualisation de placement
+  // R�actualiser la pr�visualisation de placement
   if (typeof renderPlacementPreview === 'function') {
     try {
       renderPlacementPreview(null);
@@ -353,6 +490,7 @@ const DEFAULT_GAME_SETTINGS = Object.freeze({
   amenagementCost: 0,
   influenceRadius: 1,
   requireCastleAdjacencyForCastles: true,
+  playerCount: PLAYER_COUNT,
 });
 
 const gameSettings = {
@@ -364,11 +502,13 @@ const gameSettings = {
   amenagementCost: DEFAULT_GAME_SETTINGS.amenagementCost,
   influenceRadius: DEFAULT_GAME_SETTINGS.influenceRadius,
   requireCastleAdjacencyForCastles: DEFAULT_GAME_SETTINGS.requireCastleAdjacencyForCastles,
+  playerCount: DEFAULT_GAME_SETTINGS.playerCount,
 };
 
 if (typeof window !== 'undefined') {
   window.__pairleroySettings = gameSettings;
 }
+activePlayerCount = clampPlayerCount(gameSettings.playerCount);
 
 let colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
 let colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
@@ -414,10 +554,42 @@ let playerScores = Array.from({ length: PLAYER_COUNT }, () => 0);
 let playerResources = Array.from({ length: PLAYER_COUNT }, () => createEmptyPlayerResource());
 
 const turnState = {
-  activePlayer: PLAYER_IDS[0],
+  activePlayer: getFirstActivePlayerId(),
   tilesPlacedByPlayer: Array.from({ length: PLAYER_COUNT }, () => 0),
   turnNumber: 1,
 };
+
+function applyPlayerCountChange(nextCount, { broadcast = false } = {}) {
+  const clamped = clampPlayerCount(nextCount);
+  if (clamped === activePlayerCount) return false;
+  const previous = activePlayerCount;
+  activePlayerCount = clamped;
+  gameSettings.playerCount = clamped;
+  for (let idx = previous; idx < activePlayerCount; idx++) {
+    colonPositions[idx] = DEFAULT_CENTER_TILE_INDEX;
+    colonMoveRemaining[idx] = gameSettings.colonStepsPerTurn;
+    colonPlacementUsed[idx] = false;
+    turnState.tilesPlacedByPlayer[idx] = 0;
+  }
+  for (let idx = activePlayerCount; idx < PLAYER_COUNT; idx++) {
+    colonPositions[idx] = DEFAULT_CENTER_TILE_INDEX;
+    colonMoveRemaining[idx] = gameSettings.colonStepsPerTurn;
+    colonPlacementUsed[idx] = false;
+    turnState.tilesPlacedByPlayer[idx] = 0;
+  }
+  if (!isValidPlayer(turnState.activePlayer)) {
+    turnState.activePlayer = getFirstActivePlayerId();
+  }
+  if (selectedColonPlayer && !isValidPlayer(selectedColonPlayer)) {
+    selectedColonPlayer = null;
+  }
+  renderColonMarkers();
+  updateColonMarkersPositions();
+  renderGameHud();
+  syncSettingsPanelInputs();
+  if (broadcast) broadcastGameState();
+  return true;
+}
 
 let marketState = createInitialMarketState();
 let hoveredMarketSlot = null;
@@ -440,6 +612,9 @@ const marketDetailElements = {
   cost: null,
   reward: null,
   description: null,
+  editToggle: null,
+  acquireButton: null,
+  editSection: null,
 };
 
 const personalBoardElements = {
@@ -470,6 +645,8 @@ let marketRegionMonitorBound = false;
 let marketRectSnapshot = null;
 let lastPointerPosition = null;
 let palettePointerInside = false;
+let marketEditMode = false;
+let marketEditSlot = null;
 
 function getMarketBounds() {
   const svg = getBoardSvg();
@@ -864,7 +1041,7 @@ function initTopbarControls() {
 const amenagementColorByKey = new Map();
 
 function isValidPlayer(player) {
-  return Number.isInteger(player) && player >= 1 && player <= PLAYER_COUNT;
+  return Number.isInteger(player) && player >= 1 && player <= activePlayerCount;
 }
 
 function playerIndex(player) {
@@ -896,6 +1073,7 @@ function snapshotGameSettings() {
     amenagementCost: gameSettings.amenagementCost,
     influenceRadius: gameSettings.influenceRadius,
     requireCastleAdjacencyForCastles: gameSettings.requireCastleAdjacencyForCastles,
+    playerCount: gameSettings.playerCount,
   };
 }
 
@@ -935,6 +1113,10 @@ function applyGameSettingsDiff(previous) {
     influenceMap.clear();
   }
 
+  if (gameSettings.playerCount !== previous.playerCount) {
+    applyPlayerCountChange(gameSettings.playerCount);
+  }
+
   const svg = getBoardSvg();
   if (gameSettings.requireCastleAdjacencyForCastles !== previous.requireCastleAdjacencyForCastles) {
     svg?.__state?.renderJunctionOverlays?.();
@@ -967,6 +1149,14 @@ function updateGameSettings(changes = {}) {
     );
     if (next !== gameSettings.colonStepsPerTurn) {
       gameSettings.colonStepsPerTurn = next;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'playerCount')) {
+    const next = clampPlayerCount(changes.playerCount);
+    if (next !== gameSettings.playerCount) {
+      gameSettings.playerCount = next;
       changed = true;
     }
   }
@@ -1050,6 +1240,7 @@ function updateGameSettings(changes = {}) {
     if (typeof window !== 'undefined') {
       window.__pairleroySettings = gameSettings;
     }
+    broadcastGameState();
   }
   return changed;
 }
@@ -1159,6 +1350,12 @@ function ensureSettingsPanel() {
   const neighborGrid = createSection('Points par voisins');
 
   const inputs = {
+    playerCount: createNumberSettingControl(turnGrid, {
+      label: 'Nombre de joueurs',
+      setting: 'playerCount',
+      min: MIN_PLAYER_COUNT,
+      max: PLAYER_COUNT,
+    }),
     tilePlacements: createNumberSettingControl(turnGrid, {
       label: 'Placements par tour',
       setting: 'tilePlacementsPerTurn',
@@ -1239,6 +1436,9 @@ function syncSettingsPanelInputs() {
     : DEFAULT_GAME_SETTINGS.neighborPoints;
   if (elements.inputs.tilePlacements) {
     elements.inputs.tilePlacements.value = String(gameSettings.tilePlacementsPerTurn);
+  }
+  if (elements.inputs.playerCount) {
+    elements.inputs.playerCount.value = String(gameSettings.playerCount);
   }
   if (elements.inputs.colonSteps) {
     elements.inputs.colonSteps.value = String(gameSettings.colonStepsPerTurn);
@@ -1443,8 +1643,118 @@ function ensureMarketDetailElements() {
     marketDetailElements.cost = document.getElementById('market-details-cost');
     marketDetailElements.reward = document.getElementById('market-details-reward');
     marketDetailElements.description = document.getElementById('market-details-description');
+    marketDetailElements.editToggle = document.getElementById('market-edit-toggle');
+    marketDetailElements.acquireButton = document.getElementById('market-acquire');
+    marketDetailElements.editSection = document.getElementById('market-edit-section');
   }
   return marketDetailElements;
+}
+
+function getMarketSlotDefinition(slotIdx) {
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return { slotState: null, def: null };
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  const def = slotState ? getMarketCardDefinition(slotState.id) : null;
+  return { slotState, def };
+}
+
+function populateMarketEditForm(def) {
+  if (!def) return;
+  const editSection = document.getElementById('market-edit-section');
+  if (!editSection) return;
+  document.getElementById('edit-name').value = def.name || '';
+  document.getElementById('edit-titre').value = def.description || '';
+  const cost = def.cost || {};
+  document.getElementById('edit-cost-wood').value = cost.wood || 0;
+  document.getElementById('edit-cost-bread').value = cost.bread || 0;
+  document.getElementById('edit-cost-fabric').value = cost.fabric || 0;
+  document.getElementById('edit-cost-labor').value = cost.labor || 0;
+  document.getElementById('edit-cost-points').value = cost.points || 0;
+  document.getElementById('edit-cost-crowns').value = cost.crowns || 0;
+  const reward = def.reward || {};
+  document.getElementById('edit-reward-wood').value = reward.stock?.wood || 0;
+  document.getElementById('edit-reward-bread').value = reward.stock?.bread || 0;
+  document.getElementById('edit-reward-fabric').value = reward.stock?.fabric || 0;
+  document.getElementById('edit-reward-labor').value = reward.stock?.labor || 0;
+  document.getElementById('edit-reward-points').value = reward.points || 0;
+  document.getElementById('edit-reward-crowns').value = reward.crowns || 0;
+}
+
+function updateMarketEditToggle(slotIdx) {
+  const elements = ensureMarketDetailElements();
+  if (!elements.editToggle) return;
+  const isCurrent = marketEditMode && marketEditSlot === slotIdx;
+  elements.editToggle.textContent = isCurrent ? 'Terminer' : 'Modifier';
+  elements.editToggle.disabled = !Number.isInteger(slotIdx) || slotIdx < 0 || !getMarketSlotDefinition(slotIdx).def;
+}
+
+function updateMarketActionButtons(slotIdx, def) {
+  const elements = ensureMarketDetailElements();
+  const acquireButton = elements.acquireButton;
+  const player = turnState.activePlayer;
+  if (acquireButton) {
+    let label = 'Acqu�rir';
+    let disabled = true;
+    let title = '';
+    if (def && isValidPlayer(player)) {
+      const info = getMarketDistanceInfo(slotIdx, player);
+      const distance = info?.distance ?? null;
+      if (Number.isFinite(distance)) {
+        label += distance > 0 ? ` (${distance} PV)` : ' (gratuit)';
+      }
+      if (!info || (!info.sameRow && !info.sameCol)) {
+        title = 'D�placez votre pion orthogonalement � cette case';
+      } else {
+        const score = getPlayerScore(player);
+        if (distance > score) {
+          title = 'Points insuffisants pour acqu�rir ce contrat';
+        } else {
+          disabled = false;
+        }
+      }
+    }
+    acquireButton.textContent = label;
+    acquireButton.disabled = disabled;
+    acquireButton.title = title;
+  }
+  updateMarketEditToggle(slotIdx);
+}
+
+function startMarketEditMode(slotIdx) {
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return false;
+  const { def } = getMarketSlotDefinition(slotIdx);
+  if (!def) return false;
+  populateMarketEditForm(def);
+  const elements = ensureMarketDetailElements();
+  if (elements.editSection) {
+    elements.editSection.style.display = 'block';
+  }
+  marketEditMode = true;
+  marketEditSlot = slotIdx;
+  updateMarketEditToggle(slotIdx);
+  return true;
+}
+
+function exitMarketEditMode() {
+  if (!marketEditMode) return;
+  marketEditMode = false;
+  marketEditSlot = null;
+  const elements = ensureMarketDetailElements();
+  if (elements.editSection) {
+    elements.editSection.style.display = 'none';
+  }
+  updateMarketEditToggle(hoveredMarketSlot);
+}
+
+function toggleMarketEditMode() {
+  if (marketEditMode && marketEditSlot === hoveredMarketSlot) {
+    exitMarketEditMode();
+    return;
+  }
+  if (Number.isInteger(hoveredMarketSlot)) {
+    if (!startMarketEditMode(hoveredMarketSlot)) {
+      exitMarketEditMode();
+    }
+  }
 }
 
 function ensurePersonalBoardElements() {
@@ -1613,7 +1923,7 @@ function renderPersonalBoard() {
   const container = elements.container;
   if (!container) return;
 
-  const activePlayer = turnState.activePlayer ?? PLAYER_IDS[0];
+  const activePlayer = turnState.activePlayer ?? getFirstActivePlayerId();
   const idx = playerIndex(activePlayer);
   const record = idx !== -1 ? playerResources[idx] : null;
 
@@ -1785,7 +2095,7 @@ function renderPersonalBoard() {
         buildBtn.textContent = 'Construire';
         buildBtn.disabled = !buildStatus.canBuild;
         buildBtn.title = buildStatus.canBuild
-          ? 'Construire ce bâtiment'
+          ? 'Construire ce b�timent'
           : buildStatus.reason || 'Conditions non remplies';
         if (buildStatus.canBuild) {
           buildBtn.addEventListener('click', () => attemptBuildFromContract(cardId));
@@ -1898,7 +2208,7 @@ function renderColonMarkers() {
   colonMarkers = new Map();
   const { size } = svg.__state;
   const radius = size * 0.3;
-  PLAYER_IDS.forEach((player) => {
+  getActivePlayerIds().forEach((player) => {
     const idx = playerIndex(player);
     if (idx === -1) return;
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1928,6 +2238,7 @@ function updateColonMarkersPositions() {
   colonPositions.forEach((tileIdx, idx) => {
     if (!Number.isInteger(tileIdx)) return;
     const player = PLAYER_IDS[idx];
+    if (!isValidPlayer(player)) return;
     const arr = occupancy.get(tileIdx) ?? [];
     arr.push(player);
     occupancy.set(tileIdx, arr);
@@ -2282,7 +2593,7 @@ function resetGameDataForNewBoard() {
   influenceMap.clear();
   resetTurnCounters();
   turnState.turnNumber = 1;
-  turnState.activePlayer = PLAYER_IDS[0];
+  turnState.activePlayer = getFirstActivePlayerId();
   amenagementColorByKey.clear();
   const svg = getBoardSvg();
   const castleMap = svg?.__state?.castleByJunction ?? null;
@@ -2321,9 +2632,12 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
   const currentIdx = playerIndex(turnState.activePlayer);
   if (currentIdx === -1) return;
   turnState.tilesPlacedByPlayer[currentIdx] = 0;
-  const nextIdx = (currentIdx + 1) % PLAYER_COUNT;
+  const activeIds = getActivePlayerIds();
+  if (activeIds.length === 0) return;
+  const nextIdx = (currentIdx + 1) % activeIds.length;
   if (nextIdx === 0) turnState.turnNumber += 1;
-  turnState.activePlayer = PLAYER_IDS[nextIdx];
+  const nextPlayer = activeIds[nextIdx];
+  turnState.activePlayer = nextPlayer;
   colonMoveRemaining[currentIdx] = gameSettings.colonStepsPerTurn;
   colonPlacementUsed[currentIdx] = false;
   colonMoveRemaining[nextIdx] = gameSettings.colonStepsPerTurn;
@@ -2337,7 +2651,8 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
 function renderScoreboard(target) {
   if (!target) return;
   target.innerHTML = '';
-  PLAYER_IDS.forEach((player) => {
+  const players = getActivePlayerIds();
+  players.forEach((player) => {
     const idx = playerIndex(player);
     const scoreValue = playerScores[idx] || 0;
     const card = document.createElement('button');
@@ -2386,6 +2701,12 @@ function renderGameHud() {
   updateColonMarkersPositions();
   if (svg?.__state?.renderCastleOverlays) svg.__state.renderCastleOverlays();
   renderMarketDisplay();
+  if (Number.isInteger(hoveredMarketSlot)) {
+    const { def } = getMarketSlotDefinition(hoveredMarketSlot);
+    updateMarketActionButtons(hoveredMarketSlot, def);
+  } else {
+    updateMarketActionButtons(null, null);
+  }
 }
 
 function renderMarketDisplay() {
@@ -2782,7 +3103,7 @@ function evaluateContractBuildAvailability(player, record, def, providedStock = 
 }
 
 function attemptBuildFromContract(cardId) {
-  const player = turnState.activePlayer ?? PLAYER_IDS[0];
+  const player = turnState.activePlayer ?? getFirstActivePlayerId();
   const idx = playerIndex(player);
   if (idx === -1) return;
   const record = playerResources[idx];
@@ -2818,7 +3139,7 @@ function attemptBuildFromContract(cardId) {
   debugLog('contract-build', { player, card: cardId });
 }
 
-function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
+function getMarketDistanceInfo(slotIdx, player = turnState.activePlayer) {
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return null;
   if (!isValidPlayer(player)) return null;
   const svg = getBoardSvg();
@@ -2839,32 +3160,58 @@ function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
   const rowB = Number(cell.row ?? 0);
   const colB = Number(cell.col ?? 0);
   const distance = Math.abs(rowA - rowB) + Math.abs(colA - colB);
-  return Number.isFinite(distance) ? distance : null;
+  if (!Number.isFinite(distance)) return null;
+  return {
+    distance,
+    sameRow: rowA === rowB,
+    sameCol: colA === colB,
+    rowA,
+    colA,
+    rowB,
+    colB,
+  };
+}
+
+function computeMarketDistance(slotIdx, player = turnState.activePlayer) {
+  const info = getMarketDistanceInfo(slotIdx, player);
+  return info ? info.distance : null;
 }
 
 function handleMarketCardPurchase(event) {
   const target = event.currentTarget;
   const slotIdx = Number(target?.dataset?.slot ?? -1);
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
-  const slotState = marketState?.slots?.[slotIdx] ?? null;
-  if (!slotState) return;
-  const def = getMarketCardDefinition(slotState.id);
-  if (!def) return;
-  const player = turnState.activePlayer;
-  if (!isValidPlayer(player)) return;
+  purchaseMarketSlot(slotIdx);
+}
+
+function purchaseMarketSlot(slotIdx, { player = turnState.activePlayer } = {}) {
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return false;
+  if (!isValidPlayer(player)) return false;
   const playerIdx = playerIndex(player);
-  if (playerIdx === -1) return;
+  if (playerIdx === -1) return false;
   const record = playerResources[playerIdx];
-  if (!record) return;
+  if (!record) return false;
+  if (marketEditMode && marketEditSlot === slotIdx) {
+    exitMarketEditMode();
+  }
+  const slotState = marketState?.slots?.[slotIdx] ?? null;
+  if (!slotState) return false;
+  const def = getMarketCardDefinition(slotState.id);
+  if (!def) return false;
   if (record.contracts.has(def.id) || record.buildings.has(def.id)) {
     debugLog('market-already-acquired', { player, card: def.id });
-    return;
+    return false;
   }
-  const distance = computeMarketDistance(slotIdx, player);
-  const cost = Number.isFinite(distance) && distance > 0 ? distance : 0;
+  const info = getMarketDistanceInfo(slotIdx, player);
+  if (!info) return false;
+  if (!info.sameRow && !info.sameCol) {
+    debugLog('market-non-orthogonal', { player, card: def.id, slotIdx, info });
+    return false;
+  }
+  const cost = Number.isFinite(info.distance) && info.distance > 0 ? info.distance : 0;
   if (cost > 0 && !spendPoints(player, cost, 'market-plan')) {
-    debugLog('market-insufficient-pv', { player, card: def.id, cost, distance });
-    return;
+    debugLog('market-insufficient-pv', { player, card: def.id, cost });
+    return false;
   }
   marketState.slots[slotIdx] = null;
   if (Array.isArray(marketState.discardPile)) marketState.discardPile.push(def.id);
@@ -2872,8 +3219,12 @@ function handleMarketCardPurchase(event) {
   hoveredMarketSlot = null;
   lockedMarketSlot = null;
   registerContractForPlayer(player, def.id);
+  renderMarketDisplay();
+  renderGameHud();
   updateMarketDetailPanel(null);
-  debugLog('market-claimed', { player, card: def.id, cost, distance });
+  broadcastGameState();
+  debugLog('market-claimed', { player, card: def.id, cost });
+  return true;
 }
 
 function setHoveredMarketSlot(slotIdx, element = null, options = {}) {
@@ -2953,11 +3304,9 @@ function showMarketDetailsPlaceholder() {
   elements.cost.textContent = '--';
   elements.reward.textContent = '--';
   elements.description.textContent = 'Cliquez sur une carte du marche pour afficher les details et double-cliquez pour l\'acquerir.';
-  
-  // Cacher la section d'édition
-  hideMarketEditSection();
+  exitMarketEditMode();
+  updateMarketActionButtons(null, null);
 }
-
 function updateMarketDetailPanel(slotIdx) {
   const elements = ensureMarketDetailElements();
   if (!elements.container) return;
@@ -2980,74 +3329,45 @@ function updateMarketDetailPanel(slotIdx) {
   elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
   elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
   elements.description.textContent = def.description || '--';
-  
-  // Afficher la section d'édition pour les bâtiments
-  showMarketEditSection(slotIdx, def);
-}
 
-function showMarketEditSection(slotIdx, def) {
-  const editSection = document.getElementById('market-edit-section');
-  if (!editSection || !def) return;
-  
-  // Remplir les champs de base
-  document.getElementById('edit-name').value = def.name || '';
-  document.getElementById('edit-titre').value = def.description || '';
-  
-  // Remplir les champs de coût individuels
-  const cost = def.cost || {};
-  document.getElementById('edit-cost-wood').value = cost.wood || 0;
-  document.getElementById('edit-cost-bread').value = cost.bread || 0;
-  document.getElementById('edit-cost-fabric').value = cost.fabric || 0;
-  document.getElementById('edit-cost-labor').value = cost.labor || 0;
-  document.getElementById('edit-cost-points').value = cost.points || 0;
-  document.getElementById('edit-cost-crowns').value = cost.crowns || 0;
-  
-  // Remplir les champs de récompense individuels
-  const reward = def.reward || {};
-  document.getElementById('edit-reward-wood').value = reward.stock?.wood || 0;
-  document.getElementById('edit-reward-bread').value = reward.stock?.bread || 0;
-  document.getElementById('edit-reward-fabric').value = reward.stock?.fabric || 0;
-  document.getElementById('edit-reward-labor').value = reward.stock?.labor || 0;
-  document.getElementById('edit-reward-points').value = reward.points || 0;
-  document.getElementById('edit-reward-crowns').value = reward.crowns || 0;
-  
-  // Afficher la section d'édition
-  editSection.style.display = 'block';
-}
-
-function hideMarketEditSection() {
-  const editSection = document.getElementById('market-edit-section');
-  if (editSection) {
-    editSection.style.display = 'none';
+  updateMarketActionButtons(slotIdx, def);
+  if (marketEditMode) {
+    if (marketEditSlot === slotIdx) {
+      populateMarketEditForm(def);
+      const editSection = ensureMarketDetailElements().editSection ?? document.getElementById('market-edit-section');
+      if (editSection) editSection.style.display = 'block';
+    } else {
+      exitMarketEditMode();
+    }
   }
 }
 
 function getCostValue(cost) {
   if (!cost) return 0;
-  // Extraire le coût principal (premier élément non nul)
+  // Extraire le co�t principal (premier �l�ment non nul)
   const firstResource = Object.keys(cost)[0];
   return cost[firstResource] || 0;
 }
 
 function getRewardValue(reward) {
   if (!reward) return 0;
-  // Extraire la récompense principale (premier élément non nul)
+  // Extraire la r�compense principale (premier �l�ment non nul)
   const firstKey = Object.keys(reward)[0];
   return reward[firstKey] || 0;
 }
 
-function applyMarketEdits(slotIdx) {
+function applyMarketEdits(slotIdx = marketEditSlot) {
   const elements = ensureMarketDetailElements();
+  if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
   const slotState = marketState?.slots?.[slotIdx];
   const def = slotState ? getMarketCardDefinition(slotState.id) : null;
-  
   if (!def) return;
   
-  // Récupérer les nouvelles valeurs de base
+  // R�cup�rer les nouvelles valeurs de base
   const newName = document.getElementById('edit-name').value;
   const newDescription = document.getElementById('edit-titre').value;
   
-  // Construire le nouvel objet de coût
+  // Construire le nouvel objet de co�t
   const newCost = {
     wood: Number(document.getElementById('edit-cost-wood').value) || 0,
     bread: Number(document.getElementById('edit-cost-bread').value) || 0,
@@ -3057,7 +3377,7 @@ function applyMarketEdits(slotIdx) {
     crowns: Number(document.getElementById('edit-cost-crowns').value) || 0
   };
   
-  // Construire le nouvel objet de récompense
+  // Construire le nouvel objet de r�compense
   const newReward = {
     points: Number(document.getElementById('edit-reward-points').value) || 0,
     crowns: Number(document.getElementById('edit-reward-crowns').value) || 0,
@@ -3084,7 +3404,7 @@ function applyMarketEdits(slotIdx) {
     changed = true;
   }
   
-  // Vérifier si le coût a changé
+  // V�rifier si le co�t a chang�
   const costChanged = Object.keys(newCost).some(key => (def.cost?.[key] || 0) !== newCost[key]);
   if (costChanged) {
     def.cost = newCost;
@@ -3092,7 +3412,7 @@ function applyMarketEdits(slotIdx) {
     changed = true;
   }
   
-  // Vérifier si la récompense a changé
+  // V�rifier si la r�compense a chang�
   const rewardChanged = (def.reward?.points || 0) !== newReward.points || 
                         (def.reward?.crowns || 0) !== newReward.crowns ||
                         Object.keys(newReward.stock).some(key => (def.reward?.stock?.[key] || 0) !== newReward.stock[key]);
@@ -3102,13 +3422,13 @@ function applyMarketEdits(slotIdx) {
     changed = true;
   }
   
-  // Rafraîchir l'affichage de la carte du marché
+  // Rafra�chir l'affichage de la carte du march�
   if (changed) {
-    renderMarketCards();
+    renderMarketDisplay();
+    updateMarketDetailPanel(slotIdx);
+    broadcastGameState();
   }
-  
-  // Cacher la section d'édition
-  hideMarketEditSection();
+  exitMarketEditMode();
 }
 
 function buyBuildingContract(slotIdx) {
@@ -3232,7 +3552,7 @@ let previewLayer;
 
 // Fonctions UI globales
 function renderPlacementPreview(tileIdx) {
-  // Toujours rechercher l'élément #preview actuel
+  // Toujours rechercher l'�l�ment #preview actuel
   const svg = getBoardSvg();
   previewLayer = svg?.querySelector('#preview');
   
@@ -3461,6 +3781,7 @@ function generateAndRender() {
       console.warn('Sync render error:', err);
     }
   };
+  applyPendingStructuresToBoard();
   const squareGridMeta = svg.__squareGrid ?? null;
   const squareCells = Array.isArray(squareGridMeta?.cells) ? squareGridMeta.cells : [];
   const squareTrack = (Array.isArray(squareGridMeta?.track) && squareGridMeta.track.length > 0)
@@ -3553,7 +3874,11 @@ function generateAndRender() {
     const occupancy = new Map();
     PLAYER_IDS.forEach((player) => {
       const idx = playerIndex(player);
-      if (idx === -1) return;
+      if (idx === -1) {
+        const marker = squarePlayerMarkers.get(player);
+        if (marker) marker.style.display = 'none';
+        return;
+      }
       const marker = squarePlayerMarkers.get(player);
       if (!marker) return;
       const trackLength = squareTrack.length;
@@ -3678,7 +4003,7 @@ function generateAndRender() {
   function inferAmenagementOwner(entry, placingPlayer = null) {
     if (!entry) return null;
     const influenceDetails = [];
-    PLAYER_IDS.forEach((player) => {
+    getActivePlayerIds().forEach((player) => {
       if (!playerHasInfluenceForEntry(player, entry)) return;
       const nearest = nearestInfluenceForEntry(player, entry);
       if (!nearest) return;
@@ -3707,10 +4032,12 @@ function generateAndRender() {
     if (bestPlayers.length === 1) return bestPlayers[0];
     const pickNextCandidate = (startPlayer, pool) => {
       if (!Array.isArray(pool) || pool.length === 0) return null;
-      let idx = isValidPlayer(startPlayer) ? playerIndex(startPlayer) : -1;
+      const active = getActivePlayerIds();
+      if (active.length === 0) return null;
+      let idx = active.indexOf(startPlayer);
       if (idx === -1) idx = 0;
-      for (let offset = 1; offset <= PLAYER_COUNT; offset++) {
-        const candidate = PLAYER_IDS[(idx + offset) % PLAYER_COUNT];
+      for (let offset = 1; offset <= active.length; offset++) {
+        const candidate = active[(idx + offset) % active.length];
         if (pool.includes(candidate)) return candidate;
       }
       return null;
@@ -4056,17 +4383,17 @@ function generateAndRender() {
   function renderInfluenceZones() {
     const layer = svg.__influenceLayer ?? svg.querySelector('#influence-zones');
     if (!layer) {
-      console.log('❌ Layer influence-zones introuvable');
+      console.log('? Layer influence-zones introuvable');
       return;
     }
-    console.log('✅ Layer influence-zones trouvé');
+    console.log('? Layer influence-zones trouv�');
     layer.innerHTML = '';
     const radiusSetting = Number.isFinite(gameSettings.influenceRadius)
       ? gameSettings.influenceRadius
       : DEFAULT_GAME_SETTINGS.influenceRadius;
-    // Forcer un rayon minimum de 1 pour garantir la visibilité
+    // Forcer un rayon minimum de 1 pour garantir la visibilit�
     const radiusLimit = Math.max(1, radiusSetting);
-    console.log('🔍 Rayon d\'influence:', radiusLimit, '(setting:', radiusSetting, ')');
+    console.log('?? Rayon d\'influence:', radiusLimit, '(setting:', radiusSetting, ')');
     
     const influencedTilesByPlayer = new Map();
     const influenceCentersByPlayer = new Map();
@@ -4098,10 +4425,10 @@ function generateAndRender() {
       }
     });
     
-    console.log('🏰 Châteaux trouvés:', castleByJunction.size, 'Avant-postes:', outpostByJunction.size, 'Seeds total:', seeds.length);
+    console.log('?? Ch�teaux trouv�s:', castleByJunction.size, 'Avant-postes:', outpostByJunction.size, 'Seeds total:', seeds.length);
     
     if (seeds.length === 0) {
-      console.log('❌ Aucune seed trouvée pour les zones d\'influence');
+      console.log('? Aucune seed trouv�e pour les zones d\'influence');
       return;
     }
     
@@ -4198,7 +4525,7 @@ function generateAndRender() {
           else boundaryMap.set(key, { start, end });
         }
       });
-      console.log('📐 Influence boundary: segments', boundaryMap.size, 'for player', player, 'tileSet size', tileSet.size);
+      console.log('?? Influence boundary: segments', boundaryMap.size, 'for player', player, 'tileSet size', tileSet.size);
       if (boundaryMap.size === 0) return;
       const segments = Array.from(boundaryMap.values());
       const EPSILON = 1e-2;
@@ -4348,23 +4675,23 @@ function generateAndRender() {
             });
             loops.push(filteredSelection);
             console.log(
-              '🌀 Fallback loop built with per-center selection (unique vertices:',
+              '?? Fallback loop built with per-center selection (unique vertices:',
               filteredSelection.length,
               ') for player',
               player,
             );
           } else {
-            console.log('⚠️ Fallback loop skipped (pas assez de sommets uniques)');
+            console.log('?? Fallback loop skipped (pas assez de sommets uniques)');
           }
         } else {
-          console.log('⚠️ Fallback loop skipped (pas assez de sommets)');
+          console.log('?? Fallback loop skipped (pas assez de sommets)');
         }
       }
 
       const shadowStroke = colorWithAlpha('#000000', 0.3);
-      console.log('🎨 Couleur du joueur', player, '-> idx:', idx, '-> color:', baseColor);
+      console.log('?? Couleur du joueur', player, '-> idx:', idx, '-> color:', baseColor);
 
-      console.log('🧊 Outline loops for', player, ':', loops.length);
+      console.log('?? Outline loops for', player, ':', loops.length);
       loops.forEach((loop) => {
         if (!Array.isArray(loop) || loop.length < 3) return;
         const simplified = [];
@@ -4424,7 +4751,7 @@ function generateAndRender() {
         layer.appendChild(highlightPath);
       });
     });
-    console.log('🎉 Zones d\'influence rendues avec succès');
+    console.log('?? Zones d\'influence rendues avec succ�s');
   }
 
   gridSideColors = new Array(tiles.length).fill(null);
@@ -4534,9 +4861,9 @@ function generateAndRender() {
   }
   renderJunctionOverlays();
 
-  let paletteCombos = [];
-  let selectedPalette = -1;
-  let hoveredTileIdx = null;
+  paletteCombos = [];
+  selectedPalette = -1;
+  hoveredTileIdx = null;
 
   const paletteEl = document.getElementById('palette-items');
 
@@ -5056,7 +5383,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   }
   svg.addEventListener('click', handlePointerUpClick);
 
-  // Réattacher les événements de souris pour la prévisualisation
+  // R�attacher les �v�nements de souris pour la pr�visualisation
   attachTileListeners();
   
   // Afficher les zones d'influence
@@ -5065,6 +5392,8 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
   boardInitialized = true;
   serializeConfigToURL(cfg);
   refreshStatsModal();
+  broadcastGameState();
+  scheduleInitialSyncRequest();
 }
 
 const STATS_KEYS = new Set(['s', 't', 'a']);
@@ -5173,16 +5502,16 @@ function refreshStatsModal() {
   const elements = ensureStatsModal();
   const body = elements.body;
   
-  // Vérifier et sécuriser l'accès aux données
+  // V�rifier et s�curiser l'acc�s aux donn�es
   const svg = document.querySelector('#board-container svg');
   const state = svg?.__state || {};
   
-  // Statistiques générales
+  // Statistiques g�n�rales
   const placed = placedCount || 0;
   const remaining = Math.max(0, TILE_COUNT - placed);
   const completionPercentage = ((placed / TILE_COUNT) * 100).toFixed(1);
   
-  // Statistiques de répartition des combos
+  // Statistiques de r�partition des combos
   const counts = { 1: 0, 2: 0, 3: 0 };
   const colorCounts = [0, 0, 0, 0]; // Pour 4 couleurs max
   
@@ -5194,7 +5523,7 @@ function refreshStatsModal() {
       const t = placement.combo.type;
       if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
       
-      // Compter par couleur (utiliser les couleurs mappées)
+      // Compter par couleur (utiliser les couleurs mapp�es)
       if (Array.isArray(placement.colors)) {
         placement.colors.forEach(colorIdx => {
           if (colorIdx >= 0 && colorIdx < colorCounts.length) {
@@ -5219,7 +5548,7 @@ function refreshStatsModal() {
     totalCombos > 0 ? ((count / totalCombos) * 100).toFixed(1) : '0.0'
   );
   
-  // Statistiques des blasons (overlays et châteaux)
+  // Statistiques des blasons (overlays et ch�teaux)
   const crestCounts = [0, 0, 0, 0, 0, 0];
   const overlayMap = state.overlayByJunction || null;
   const castleMap = state.castleByJunction || null;
@@ -5239,7 +5568,7 @@ function refreshStatsModal() {
     .map((value, idx) => `<div>J${idx + 1}</div><div>${value}</div>`)
     .join('');
 
-  // Créer les lignes pour les couleurs avec leurs pourcentages
+  // Cr�er les lignes pour les couleurs avec leurs pourcentages
   const colors = state.colors || ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'];
   const colorRows = colorCounts.map((count, idx) => {
     const colorName = colors[idx] || `Couleur ${idx + 1}`;
@@ -5248,20 +5577,20 @@ function refreshStatsModal() {
   }).join('');
 
   body.innerHTML = `
-    <div class="stats-section-title">Général</div>
+    <div class="stats-section-title">G�n�ral</div>
     <div class="stats-grid">
-      <div>Tuiles posées</div><div>${placed}</div>
+      <div>Tuiles pos�es</div><div>${placed}</div>
       <div>Tuiles restantes</div><div>${remaining}</div>
       <div>Avancement</div><div>${completionPercentage}%</div>
       <div>Total combos</div><div>${totalCombos}</div>
     </div>
-    <div class="stats-section-title">Répartition des Combos</div>
+    <div class="stats-section-title">R�partition des Combos</div>
     <div class="stats-grid">
       <div>Mono (1 couleur)</div><div>${counts[1] ?? 0} (${comboPercentages[1]}%)</div>
       <div>Bi (2 couleurs)</div><div>${counts[2] ?? 0} (${comboPercentages[2]}%)</div>
       <div>Tri (3 couleurs)</div><div>${counts[3] ?? 0} (${comboPercentages[3]}%)</div>
     </div>
-    <div class="stats-section-title">Répartition par Couleur</div>
+    <div class="stats-section-title">R�partition par Couleur</div>
     <div class="stats-grid">
       ${colorRows}
     </div>
@@ -5307,6 +5636,7 @@ function handleStatsKeyUp(event) {
 }
 
 function bindUI() {
+  updateVersionBadge();
   initTopbarControls();
   initCollapsedHudInteractions();
   ensureMarketDetailElements();
@@ -5454,15 +5784,15 @@ function bindUI() {
     }
   });
 
-  // Event listeners pour l'édition des bâtiments
+  // Event listeners pour l'�dition des b�timents
   const applyBtn = document.getElementById('apply-changes');
   const buyContractBtn = document.getElementById('buy-contract');
   const cancelBtn = document.getElementById('cancel-edit');
   
   if (applyBtn) {
     applyBtn.addEventListener('click', () => {
-      if (hoveredMarketSlot != null) {
-        applyMarketEdits(hoveredMarketSlot);
+      if (marketEditMode) {
+        applyMarketEdits(marketEditSlot ?? hoveredMarketSlot);
       }
     });
   }
@@ -5477,7 +5807,22 @@ function bindUI() {
   
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
-      hideMarketEditSection();
+      exitMarketEditMode();
+    });
+  }
+
+  const editToggleBtn = document.getElementById('market-edit-toggle');
+  if (editToggleBtn) {
+    editToggleBtn.addEventListener('click', () => {
+      toggleMarketEditMode();
+    });
+  }
+
+  const acquireBtnEl = document.getElementById('market-acquire');
+  if (acquireBtnEl) {
+    acquireBtnEl.addEventListener('click', () => {
+      const slotIdx = Number.isInteger(hoveredMarketSlot) ? hoveredMarketSlot : marketEditSlot;
+      if (Number.isInteger(slotIdx)) purchaseMarketSlot(slotIdx);
     });
   }
 
@@ -5577,10 +5922,10 @@ function ensureMarketRegionMonitor() {
       if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
         lastPointerPosition = { x: event.clientX, y: event.clientY };
       }
-      // Ne plus supprimer les détails du marché pour les interactions avec la palette
+      // Ne plus supprimer les d�tails du march� pour les interactions avec la palette
       marketPointerInside = false;
       marketRectSnapshot = null;
-      // Garder les détails du marché visibles
+      // Garder les d�tails du march� visibles
     };
     const handlePaletteLeave = (event) => {
       const nextTarget = event?.relatedTarget;

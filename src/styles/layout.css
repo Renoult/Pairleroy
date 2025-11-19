@@ -444,6 +444,22 @@ body.topbar-collapsed #collapsed-hud.collapsed-hud--dragging {
   text-align: center;
 }
 
+.app-version-badge {
+  margin-left: auto;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
 .turn-indicator {
   font-weight: 700;
   font-size: 15px;
@@ -890,6 +906,36 @@ body.personal-board-collapsed #personal-board,
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-secondary);
+}
+
+.market-details__actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.market-details__actions button {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.market-details__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.market-details__actions button:not(:disabled):hover {
+  background: var(--panel-strong, #f2f2f2);
 }
 
 .market-details--hidden {

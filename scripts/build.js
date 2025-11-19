@@ -21,7 +21,7 @@ const isProd = process.argv.includes('--prod');
 const isAnalyze = process.argv.includes('--analyze');
 const isDev = !isProd && !isAnalyze;
 
-const buildVersion = '1.2.0';
+const buildVersion = '1.4.0';
 const timestamp = new Date().toISOString();
 
 const jsOrder = [

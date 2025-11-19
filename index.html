@@ -88,6 +88,7 @@
         </div>
       </div>
       <div id="scoreboard" class="scoreboard" aria-label="Scores des joueurs"></div>
+      <div id="app-version" class="app-version-badge" aria-label="Version de l'application" aria-live="polite"></div>
     </header>
 
     <div id="topbar-volet" class="topbar-volet" role="group" aria-label="Commandes de la barre superieure">
@@ -125,6 +126,10 @@
         <p class="market-details__description" id="market-details-description">
           Passez la souris sur une carte du marché pour voir son effet.
         </p>
+        <div class="market-details__actions">
+          <button id="market-acquire" type="button" disabled>Acquérir</button>
+          <button id="market-edit-toggle" type="button" disabled>Modifier</button>
+        </div>
         
         <!-- Section d'édition des bâtiments -->
         <div id="market-edit-section" class="market-edit-section" style="display: none;">
