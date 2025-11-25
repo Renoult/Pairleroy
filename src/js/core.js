@@ -149,7 +149,7 @@ function computeJunctionMap(tiles, size) {
     for (const vi of [0, 2, 4]) {
       const vx = verts[vi].x;
       const vy = verts[vi].y;
-      const key = `${Math.round(vx * 1000)},${Math.round(vy * 1000)}`;
+      const key = `${Math.round((vx / size) * 1000)},${Math.round((vy / size) * 1000)}`;
       const prev = acc.get(key);
       if (prev) {
         prev.entries.push({ tileIdx: idx, vertex: vi });
@@ -308,10 +308,10 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const monoTileCount = types.filter((k) => k === 1).length;
   const biTileCount = types.filter((k) => k === 2).length;
   const triTileCount = types.filter((k) => k === 3).length;
-  
+
   // Variable de travail pour les unités de couleurs restantes
   const colorUnitTargetsRemaining = colorUnitTargets.slice(); // sum = 3N
-  
+
   // Phase 1: Attribuer les monochromatiques (3 unités par tuile)
   // Calcul des limites supérieures basées sur les unités disponibles
   const monoCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 3));
@@ -319,23 +319,23 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const monoComboCount = quotasHamiltonCap(monoTileCount, colorUnitTargetsRemaining, monoCap);
   // Déduire les unités utilisées pour les monochromatiques
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 3 * monoComboCount[i];
-  
+
   // Phase 2: Attribuer les bicolores majeures (2+1 unités par tuile)
   const biCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 2));
   const biMajorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, biCap);
   // Déduire les unités utilisées pour les bicolores majeures
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 2 * biMajorComboCount[i];
-  
+
   // Phase 3: Répartir les unités restantes entre bicolores mineures et tricolores
   const totalRem = colorUnitTargetsRemaining.reduce((a, b) => a + b, 0);
   // Vérification: unités restantes = B tuiles bi + 3*T tuiles tri
   if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('Incohérence unités restantes');
-  
+
   // Répartir d'abord les bicolores mineures (1+2 unités par tuile)
   const biMinorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, colorUnitTargetsRemaining);
   // Les unités tricolores sont le reste après les bicolores mineures
   const triComboCount = colorUnitTargetsRemaining.map((v, i) => v - biMinorComboCount[i]);
-  
+
   // Ajustement pour assurer au moins 3 couleurs disponibles pour les tricolores
   if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) {
     for (let i = 0; i < 4 && triComboCount.filter((v) => v > 0).length < 3; i++) {

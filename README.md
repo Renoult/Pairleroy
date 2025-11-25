@@ -26,9 +26,12 @@ npm run build        # build de developpement, sorties lisibles
 npm run build:prod   # build de production minifie dans dist/
 npm run build:analyze# calcule les tailles sans re-ecrire les fichiers
 npm run clean        # supprime le contenu de dist/
+npm run start        # sert le site sur l'interface 172.22.22.90:3000
 ```
 
 > Remarque : le build script concatene simplement les sources dans l'ordre defini dans `scripts/build.js`. Aucun transpileur n'est requis a ce stade.
+
+Pour exposer l'application a d'autres machines du reseau local, lancez `npm run start` puis utilisez l'IP de la machine hote (par exemple `http://172.22.22.90:3000`). Vous pouvez changer l'interface ou le port via `npm run start -- --listen tcp://ADRESSE:PORT` si necessaire.
 
 ## Scripts npm
 

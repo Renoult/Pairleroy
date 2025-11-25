@@ -208,28 +208,16 @@ function createInitialMarketState() {
   return {
     deck,
     drawPile: shuffleArray(deck.map((card) => ({ ...card }))),
-    discardPile: [],
     slots: createEmptyMarketSlots(),
     revealedThisTurn: new Set(),
   };
 }
 
-function replenishMarketDrawPile(state) {
-  if (!state || !Array.isArray(state.discardPile) || state.discardPile.length === 0) return;
-  const refreshed = state.discardPile
-    .map((cardId) => getMarketCardDefinition(cardId))
-    .filter((card) => card && card.type === MARKET_CARD_TYPES.BUILDING)
-    .map((card) => ({ ...card }));
-  shuffleArray(refreshed);
-  if (!Array.isArray(state.drawPile)) state.drawPile = [];
-  state.drawPile.push(...refreshed);
-  state.discardPile = [];
-}
+
 
 function drawMarketCard(state) {
   if (!state) return null;
   if (!Array.isArray(state.drawPile)) state.drawPile = [];
-  if (state.drawPile.length === 0) replenishMarketDrawPile(state);
   const next = state.drawPile.shift() ?? null;
   return next ? { ...next } : null;
 }

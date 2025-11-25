@@ -150,7 +150,7 @@ function computeJunctionMap(tiles, size) {
     for (const vi of [0, 2, 4]) {
       const vx = verts[vi].x;
       const vy = verts[vi].y;
-      const key = `${Math.round(vx * 1000)},${Math.round(vy * 1000)}`;
+      const key = `${Math.round((vx / size) * 1000)},${Math.round((vy / size) * 1000)}`;
       const prev = acc.get(key);
       if (prev) {
         prev.entries.push({ tileIdx: idx, vertex: vi });
@@ -309,10 +309,10 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const monoTileCount = types.filter((k) => k === 1).length;
   const biTileCount = types.filter((k) => k === 2).length;
   const triTileCount = types.filter((k) => k === 3).length;
-  
+
   // Variable de travail pour les unités de couleurs restantes
   const colorUnitTargetsRemaining = colorUnitTargets.slice(); // sum = 3N
-  
+
   // Phase 1: Attribuer les monochromatiques (3 unités par tuile)
   // Calcul des limites supérieures basées sur les unités disponibles
   const monoCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 3));
@@ -320,23 +320,23 @@ function assignTileCombos(types, colorUnitTargets, rng) {
   const monoComboCount = quotasHamiltonCap(monoTileCount, colorUnitTargetsRemaining, monoCap);
   // Déduire les unités utilisées pour les monochromatiques
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 3 * monoComboCount[i];
-  
+
   // Phase 2: Attribuer les bicolores majeures (2+1 unités par tuile)
   const biCap = colorUnitTargetsRemaining.map((u) => Math.floor(u / 2));
   const biMajorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, biCap);
   // Déduire les unités utilisées pour les bicolores majeures
   for (let i = 0; i < 4; i++) colorUnitTargetsRemaining[i] -= 2 * biMajorComboCount[i];
-  
+
   // Phase 3: Répartir les unités restantes entre bicolores mineures et tricolores
   const totalRem = colorUnitTargetsRemaining.reduce((a, b) => a + b, 0);
   // Vérification: unités restantes = B tuiles bi + 3*T tuiles tri
   if (totalRem !== biTileCount + 3 * triTileCount) throw new Error('Incohérence unités restantes');
-  
+
   // Répartir d'abord les bicolores mineures (1+2 unités par tuile)
   const biMinorComboCount = quotasHamiltonCap(biTileCount, colorUnitTargetsRemaining, colorUnitTargetsRemaining);
   // Les unités tricolores sont le reste après les bicolores mineures
   const triComboCount = colorUnitTargetsRemaining.map((v, i) => v - biMinorComboCount[i]);
-  
+
   // Ajustement pour assurer au moins 3 couleurs disponibles pour les tricolores
   if (triTileCount > 0 && triComboCount.filter((v) => v > 0).length < 3) {
     for (let i = 0; i < 4 && triComboCount.filter((v) => v > 0).length < 3; i++) {
@@ -1228,28 +1228,16 @@ function createInitialMarketState() {
   return {
     deck,
     drawPile: shuffleArray(deck.map((card) => ({ ...card }))),
-    discardPile: [],
     slots: createEmptyMarketSlots(),
     revealedThisTurn: new Set(),
   };
 }
 
-function replenishMarketDrawPile(state) {
-  if (!state || !Array.isArray(state.discardPile) || state.discardPile.length === 0) return;
-  const refreshed = state.discardPile
-    .map((cardId) => getMarketCardDefinition(cardId))
-    .filter((card) => card && card.type === MARKET_CARD_TYPES.BUILDING)
-    .map((card) => ({ ...card }));
-  shuffleArray(refreshed);
-  if (!Array.isArray(state.drawPile)) state.drawPile = [];
-  state.drawPile.push(...refreshed);
-  state.discardPile = [];
-}
+
 
 function drawMarketCard(state) {
   if (!state) return null;
   if (!Array.isArray(state.drawPile)) state.drawPile = [];
-  if (state.drawPile.length === 0) replenishMarketDrawPile(state);
   const next = state.drawPile.shift() ?? null;
   return next ? { ...next } : null;
 }
@@ -1546,7 +1534,7 @@ function getGameState() {
   const svg = document.querySelector('#board-container svg');
   const state = svg?.__state || {};
   const structureSnapshot = snapshotStructureState(state);
-  
+
   const gameState = {
     tabId: currentTabId,
     timestamp: Date.now(),
@@ -1588,34 +1576,34 @@ function applyGameState(syncState) {
   if (Number.isFinite(syncState.data.activePlayerCount)) {
     applyPlayerCountChange(syncState.data.activePlayerCount, { broadcast: false });
   }
-  
+
   isSyncing = true;
-  
+
   try {
     // Synchroniser les placements
     placements = syncState.data.placements.slice();
     placedCount = syncState.data.placedCount;
-    
+
     // Synchroniser l'�tat du tour
     Object.assign(turnState, syncState.data.turnState);
-    
+
     // Synchroniser les scores
     playerScores = syncState.data.playerScores.slice();
-    
+
     // Synchroniser la s�lection de palette
     selectedPalette = syncState.data.selectedPalette;
     setSelectedPalette(selectedPalette);
-    
+
     // Synchroniser la tuile survol�e
     hoveredTileIdx = syncState.data.hoveredTileIdx;
     const svg = getBoardSvg();
     if (svg && svg.__state) {
       svg.__state.hoveredTile = hoveredTileIdx;
     }
-    
+
     // Synchroniser le joueur colon s�lectionn�
     selectedColonPlayer = syncState.data.selectedColonPlayer;
-    
+
     // Synchroniser les donn�es des colons
     if (Array.isArray(syncState.data.colonPositions)) {
       colonPositions = syncState.data.colonPositions.slice();
@@ -1626,7 +1614,7 @@ function applyGameState(syncState) {
     if (Array.isArray(syncState.data.colonPlacementUsed)) {
       colonPlacementUsed = syncState.data.colonPlacementUsed.slice();
     }
-    
+
     // Synchroniser les couleurs d'am�nagement
     if (syncState.data.amenagementColorByKey && Array.isArray(syncState.data.amenagementColorByKey)) {
       amenagementColorByKey.clear();
@@ -1634,7 +1622,7 @@ function applyGameState(syncState) {
         amenagementColorByKey.set(key, value);
       });
     }
-    
+
     // Synchroniser l'�tat SVG
     const svgState = syncState.data.svgState || {};
     const normalizedStructures = rememberPendingStructures(svgState);
@@ -1656,17 +1644,17 @@ function applyGameState(syncState) {
       }
     }
     applyPendingStructuresToBoard();
-    
+
     // Rendre � nouveau l'affichage
     renderAll();
-    
+
     lastSyncTime = syncState.timestamp;
     initialSyncCompleted = true;
     if (initialSyncTimer) {
       clearTimeout(initialSyncTimer);
       initialSyncTimer = null;
     }
-    
+
   } catch (error) {
     console.error('Erreur lors de la synchronisation:', error);
   } finally {
@@ -1677,7 +1665,7 @@ function applyGameState(syncState) {
 // Envoyer l'�tat aux autres onglets
 function broadcastGameState(options = {}) {
   if (isSyncing) return;
-  
+
   const state = getGameState();
   if (!state) return;
   const payload = {
@@ -1713,10 +1701,10 @@ tabChannel.addEventListener('message', (event) => {
 function renderAll() {
   const svg = document.querySelector('#board-container svg');
   if (!svg) return;
-  
+
   const state = svg.__state;
   if (!state) return;
-  
+
   // Re-rendre les placements de tuiles sur la grille
   if (Array.isArray(placements) && typeof renderTileFill === 'function') {
     placements.forEach((placement, idx) => {
@@ -1734,7 +1722,7 @@ function renderAll() {
       }
     });
   }
-  
+
   // Forcer le re-rendu de TOUS les overlays et �l�ments visuels
   // On force m�me si les fonctions existent d�j�
   try {
@@ -1744,7 +1732,7 @@ function renderAll() {
   } catch (e) {
     console.warn('Erreur renderJunctionOverlays:', e);
   }
-  
+
   try {
     if (state.renderCastleOverlays) {
       state.renderCastleOverlays();
@@ -1752,7 +1740,7 @@ function renderAll() {
   } catch (e) {
     console.warn('Erreur renderCastleOverlays:', e);
   }
-  
+
   try {
     if (state.renderOutpostOverlays) {
       state.renderOutpostOverlays();
@@ -1760,7 +1748,7 @@ function renderAll() {
   } catch (e) {
     console.warn('Erreur renderOutpostOverlays:', e);
   }
-  
+
   // R�actualiser les marqueurs de colon
   if (typeof updateColonMarkersPositions === 'function') {
     try {
@@ -1769,14 +1757,14 @@ function renderAll() {
       console.warn('Erreur updateColonMarkersPositions:', e);
     }
   }
-  
+
   // R�actualiser l'interface de jeu
   try {
     renderGameHud();
   } catch (e) {
     console.warn('Erreur renderGameHud:', e);
   }
-  
+
   // R�actualiser les statistiques si visibles
   if (statsModalVisible) {
     try {
@@ -1785,7 +1773,7 @@ function renderAll() {
       console.warn('Erreur refreshStatsModal:', e);
     }
   }
-  
+
   // R�actualiser la palette si la fonction est disponible
   if (state.regenPalette) {
     try {
@@ -1794,7 +1782,7 @@ function renderAll() {
       console.warn('Erreur regenPalette:', e);
     }
   }
-  
+
   // R�actualiser la pr�visualisation de placement
   if (typeof renderPlacementPreview === 'function') {
     try {
@@ -2201,7 +2189,7 @@ function onCollapsedHudPointerMove(event) {
     collapsedHudDragState.dragging = true;
     try {
       collapsedHud.setPointerCapture(event.pointerId);
-    } catch (_) {}
+    } catch (_) { }
     collapsedHud.classList.add('collapsed-hud--dragging');
   }
   const proposedTop = collapsedHudDragState.originTop + dy;
@@ -2239,7 +2227,7 @@ function finishCollapsedHudDrag({ cancel = false } = {}) {
       if (collapsedHud.hasPointerCapture?.(pointerId)) {
         collapsedHud.releasePointerCapture(pointerId);
       }
-    } catch (_) {}
+    } catch (_) { }
     collapsedHud.classList.remove('collapsed-hud--dragging');
   }
   collapsedHudDragState = null;
@@ -3830,14 +3818,14 @@ let cachedParsedColors = [null, null, null, null];
 
 function updateColorPercentageStyles() {
   let colorsChanged = false;
-  
+
   for (let idx = 1; idx <= 4; idx++) {
     const percentInput = document.getElementById(`pct-c${idx}`);
     if (!percentInput) continue;
-    
+
     const cacheIdx = idx - 1;
     const currentValue = activeColors[cacheIdx] || DEFAULT_COLOR_HEX[cacheIdx];
-    
+
     let rgb;
     if (cachedColorValues[cacheIdx] === currentValue) {
       rgb = cachedParsedColors[cacheIdx];
@@ -3847,7 +3835,7 @@ function updateColorPercentageStyles() {
       cachedParsedColors[cacheIdx] = rgb;
       colorsChanged = true;
     }
-    
+
     if (!rgb) {
       percentInput.style.backgroundColor = '';
       percentInput.style.borderColor = '';
@@ -3858,7 +3846,7 @@ function updateColorPercentageStyles() {
     percentInput.style.borderColor = currentValue;
     percentInput.style.color = idealTextColor(rgb);
   }
-  
+
   if (colorsChanged) {
     renderGameHud();
   }
@@ -4197,8 +4185,8 @@ function renderMarketDisplay() {
           setHoveredMarketSlot(slotIdx, targetGroup, { viaPointer: true, lockSelection: true });
           handleMarketCardPurchase({
             currentTarget: targetGroup,
-            preventDefault: () => {},
-            stopPropagation: () => {},
+            preventDefault: () => { },
+            stopPropagation: () => { },
           });
         });
       }
@@ -4580,7 +4568,7 @@ function purchaseMarketSlot(slotIdx, { player = turnState.activePlayer } = {}) {
     return false;
   }
   marketState.slots[slotIdx] = null;
-  if (Array.isArray(marketState.discardPile)) marketState.discardPile.push(def.id);
+
   refillMarketSlot(marketState, slotIdx);
   hoveredMarketSlot = null;
   lockedMarketSlot = null;
@@ -4728,11 +4716,11 @@ function applyMarketEdits(slotIdx = marketEditSlot) {
   const slotState = marketState?.slots?.[slotIdx];
   const def = slotState ? getMarketCardDefinition(slotState.id) : null;
   if (!def) return;
-  
+
   // R�cup�rer les nouvelles valeurs de base
   const newName = document.getElementById('edit-name').value;
   const newDescription = document.getElementById('edit-titre').value;
-  
+
   // Construire le nouvel objet de co�t
   const newCost = {
     wood: Number(document.getElementById('edit-cost-wood').value) || 0,
@@ -4742,7 +4730,7 @@ function applyMarketEdits(slotIdx = marketEditSlot) {
     points: Number(document.getElementById('edit-cost-points').value) || 0,
     crowns: Number(document.getElementById('edit-cost-crowns').value) || 0
   };
-  
+
   // Construire le nouvel objet de r�compense
   const newReward = {
     points: Number(document.getElementById('edit-reward-points').value) || 0,
@@ -4754,22 +4742,22 @@ function applyMarketEdits(slotIdx = marketEditSlot) {
       labor: Number(document.getElementById('edit-reward-labor').value) || 0
     }
   };
-  
+
   // Appliquer les modifications
   let changed = false;
-  
+
   if (newName !== def.name) {
     def.name = newName;
     elements.name.textContent = newName;
     changed = true;
   }
-  
+
   if (newDescription !== def.description) {
     def.description = newDescription;
     elements.description.textContent = newDescription;
     changed = true;
   }
-  
+
   // V�rifier si le co�t a chang�
   const costChanged = Object.keys(newCost).some(key => (def.cost?.[key] || 0) !== newCost[key]);
   if (costChanged) {
@@ -4777,17 +4765,17 @@ function applyMarketEdits(slotIdx = marketEditSlot) {
     elements.cost.textContent = summarizeMarketCost(def.cost) || '--';
     changed = true;
   }
-  
+
   // V�rifier si la r�compense a chang�
-  const rewardChanged = (def.reward?.points || 0) !== newReward.points || 
-                        (def.reward?.crowns || 0) !== newReward.crowns ||
-                        Object.keys(newReward.stock).some(key => (def.reward?.stock?.[key] || 0) !== newReward.stock[key]);
+  const rewardChanged = (def.reward?.points || 0) !== newReward.points ||
+    (def.reward?.crowns || 0) !== newReward.crowns ||
+    Object.keys(newReward.stock).some(key => (def.reward?.stock?.[key] || 0) !== newReward.stock[key]);
   if (rewardChanged) {
     def.reward = newReward;
     elements.reward.textContent = summarizeMarketReward(def.reward) || '--';
     changed = true;
   }
-  
+
   // Rafra�chir l'affichage de la carte du march�
   if (changed) {
     renderMarketDisplay();
@@ -4800,62 +4788,60 @@ function applyMarketEdits(slotIdx = marketEditSlot) {
 function buyBuildingContract(slotIdx) {
   // Cette fonction fait la même chose que le double-clic sur une carte du marché
   // Elle enregistre le contrat pour le joueur (ne construit pas immédiatement le bâtiment)
-  
+
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return;
-  
+
   const slotState = marketState?.slots?.[slotIdx] ?? null;
   if (!slotState) return;
-  
+
   const def = getMarketCardDefinition(slotState.id);
   if (!def) return;
-  
+
   const player = turnState.activePlayer;
   if (!isValidPlayer(player)) return;
-  
+
   const playerIdx = playerIndex(player);
   if (playerIdx === -1) return;
-  
+
   const record = playerResources[playerIdx];
   if (!record) return;
-  
+
   // Vérifier si le joueur possède déjà ce contrat ou bâtiment
   if (record.contracts.has(def.id) || record.buildings.has(def.id)) {
     alert(`Vous possédez déjà "${def.name}".`);
     debugLog('market-already-acquired', { player, card: def.id });
     return;
   }
-  
+
   // Calculer la distance et le coût en points
   const distance = computeMarketDistance(slotIdx, player);
   const cost = Number.isFinite(distance) && distance > 0 ? distance : 0;
-  
+
   // Dépenser les points selon la distance
   if (cost > 0 && !spendPoints(player, cost, 'market-plan')) {
     alert(`Points insuffisants pour acquérir "${def.name}". Coût: ${cost} PV.`);
     debugLog('market-insufficient-pv', { player, card: def.id, cost, distance });
     return;
   }
-  
+
   // Retirer la carte du marché
   marketState.slots[slotIdx] = null;
-  if (Array.isArray(marketState.discardPile)) {
-    marketState.discardPile.push(def.id);
-  }
-  
+
+
   // Remplir le slot avec une nouvelle carte
   refillMarketSlot(marketState, slotIdx);
-  
+
   // Réinitialiser les sélections
   hoveredMarketSlot = null;
   lockedMarketSlot = null;
-  
+
   // Enregistrer le CONTRAT pour le joueur (pas le bâtiment construit)
   registerContractForPlayer(player, def.id);
-  
+
   // Mettre à jour l'affichage
   updateMarketDetailPanel(null);
   hideMarketEditSection();
-  
+
   debugLog('market-claimed', { player, card: def.id, cost, distance });
 }
 
@@ -4921,7 +4907,7 @@ function renderPlacementPreview(tileIdx) {
   // Toujours rechercher l'�l�ment #preview actuel
   const svg = getBoardSvg();
   previewLayer = svg?.querySelector('#preview');
-  
+
   if (!previewLayer) return;
   previewLayer.innerHTML = '';
   hoveredTileIdx = tileIdx;
@@ -4943,9 +4929,9 @@ function renderPlacementPreview(tileIdx) {
   for (let i = 0; i < 6; i++) {
     const a = verts[i];
     const b = verts[(i + 1) % 6];
-    const p = createTrianglePathElement(center, a, b, { 
-      fill: fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]], 
-      'fill-opacity': '0.6' 
+    const p = createTrianglePathElement(center, a, b, {
+      fill: fillColors[ORIENTED_INDEX_FOR_TRIANGLE[i]],
+      'fill-opacity': '0.6'
     });
     previewLayer.appendChild(p);
   }
@@ -5448,20 +5434,20 @@ function generateAndRender() {
   function assignAmenagementOwner(key, player) {
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
-  if (!playerHasInfluenceForEntry(player, entry)) return;
-  const previousOwner = overlayByJunction.get(key) ?? null;
-  if (previousOwner === player) return;
-  const previousColor = amenagementColorByKey.get(key);
-  const colorIdx = dominantColorForJunction(entry);
-  if (!chargeAmenagementPlacement(player)) {
-    debugLog('amenagement-cost-unpaid', { key, player });
-    return;
-  }
-  if (isValidPlayer(previousOwner) && previousOwner !== player) {
-    unregisterAmenagementForPlayer(previousOwner, key, previousColor);
-  }
-  overlayByJunction.set(key, player);
-  registerAmenagementForPlayer(player, key, colorIdx);
+    if (!playerHasInfluenceForEntry(player, entry)) return;
+    const previousOwner = overlayByJunction.get(key) ?? null;
+    if (previousOwner === player) return;
+    const previousColor = amenagementColorByKey.get(key);
+    const colorIdx = dominantColorForJunction(entry);
+    if (!chargeAmenagementPlacement(player)) {
+      debugLog('amenagement-cost-unpaid', { key, player });
+      return;
+    }
+    if (isValidPlayer(previousOwner) && previousOwner !== player) {
+      unregisterAmenagementForPlayer(previousOwner, key, previousColor);
+    }
+    overlayByJunction.set(key, player);
+    registerAmenagementForPlayer(player, key, colorIdx);
     renderJunctionOverlays();
     broadcastGameState();
   }
@@ -5760,7 +5746,7 @@ function generateAndRender() {
     // Forcer un rayon minimum de 1 pour garantir la visibilit�
     const radiusLimit = Math.max(1, radiusSetting);
     console.log('?? Rayon d\'influence:', radiusLimit, '(setting:', radiusSetting, ')');
-    
+
     const influencedTilesByPlayer = new Map();
     const influenceCentersByPlayer = new Map();
     const tilesByCenter = new Map();
@@ -5790,15 +5776,15 @@ function generateAndRender() {
         registerInfluenceCenter(player, key, entry);
       }
     });
-    
+
     console.log('?? Ch�teaux trouv�s:', castleByJunction.size, 'Avant-postes:', outpostByJunction.size, 'Seeds total:', seeds.length);
-    
+
     if (seeds.length === 0) {
       console.log('? Aucune seed trouv�e pour les zones d\'influence');
       return;
     }
-    
-    
+
+
     seeds.forEach(({ player, entry, centerKey }) => {
       const idx = playerIndex(player);
       if (idx === -1) return;
@@ -6326,68 +6312,68 @@ function generateAndRender() {
       hasNeighbor = true;
       const oppositeDir = (dir + 3) % 6;
       if (neighborColors[oppositeDir] !== candidateColors[dir]) return false;
-  }
-  return hasNeighbor || placedCount === 0;
-}
-
-function neighborPlacementCount(tileIdx) {
-  const neighbors = tileNeighbors[tileIdx] || [];
-  let count = 0;
-  for (let i = 0; i < neighbors.length; i++) {
-    const neighborIdx = neighbors[i];
-    if (neighborIdx >= 0 && placements[neighborIdx]) count++;
-  }
-  return count;
-}
-
-function pointsForNeighborCount(count) {
-  if (!Number.isFinite(count) || count <= 0) {
-    return 0;
-  }
-  const table = Array.isArray(gameSettings.neighborPoints) && gameSettings.neighborPoints.length
-    ? gameSettings.neighborPoints
-    : DEFAULT_GAME_SETTINGS.neighborPoints;
-  const idx = Math.min(table.length - 1, Math.max(0, Math.floor(count)));
-  const value = table[idx];
-  return Number.isFinite(value) ? value : 0;
-}
-
-function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, options = {}) {
-  const sideColorValues = mapSideColorIndices(sideColors, colors);
-  gridSideColors[tileIdx] = sideColorValues;
-  placements[tileIdx] = {
-    player: isValidPlayer(player) ? player : null,
-    combo,
-    rotationStep,
-    sideColors: sideColors.slice(),
-    colors: sideColorValues.slice(),
-  };
-  emptyTiles.delete(tileIdx);
-  placedCount++;
-
-  renderTileFill(tileIdx, sideColors, svg, tiles, size, colors);
-  updateClearButtonState();
-  const trackResources = options.trackResources !== false;
-  const idx = isValidPlayer(player) ? playerIndex(player) : -1;
-  const isColonPlacement = trackResources && idx !== -1 && colonPositions[idx] === tileIdx;
-  const colonBonusAvailable = isColonPlacement && !colonPlacementUsed[idx];
-  if (trackResources && idx !== -1) {
-    adjustPlayerTileResources(player, combo, 1);
-    if (colonBonusAvailable) {
-      colonPlacementUsed[idx] = true;
-    } else {
-      const current = turnState.tilesPlacedByPlayer[idx] ?? 0;
-      turnState.tilesPlacedByPlayer[idx] = current + 1;
-      const neighborCount = neighborPlacementCount(tileIdx);
-      const points = pointsForNeighborCount(neighborCount);
-      if (points > 0) awardPoints(player, points, `neighbor:${neighborCount}`);
     }
-    renderGameHud();
+    return hasNeighbor || placedCount === 0;
   }
-  evaluateAmenagementsAround(tileIdx, { placingPlayer: player });
-  refreshStatsModal();
-  return true;
-}
+
+  function neighborPlacementCount(tileIdx) {
+    const neighbors = tileNeighbors[tileIdx] || [];
+    let count = 0;
+    for (let i = 0; i < neighbors.length; i++) {
+      const neighborIdx = neighbors[i];
+      if (neighborIdx >= 0 && placements[neighborIdx]) count++;
+    }
+    return count;
+  }
+
+  function pointsForNeighborCount(count) {
+    if (!Number.isFinite(count) || count <= 0) {
+      return 0;
+    }
+    const table = Array.isArray(gameSettings.neighborPoints) && gameSettings.neighborPoints.length
+      ? gameSettings.neighborPoints
+      : DEFAULT_GAME_SETTINGS.neighborPoints;
+    const idx = Math.min(table.length - 1, Math.max(0, Math.floor(count)));
+    const value = table[idx];
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, options = {}) {
+    const sideColorValues = mapSideColorIndices(sideColors, colors);
+    gridSideColors[tileIdx] = sideColorValues;
+    placements[tileIdx] = {
+      player: isValidPlayer(player) ? player : null,
+      combo,
+      rotationStep,
+      sideColors: sideColors.slice(),
+      colors: sideColorValues.slice(),
+    };
+    emptyTiles.delete(tileIdx);
+    placedCount++;
+
+    renderTileFill(tileIdx, sideColors, svg, tiles, size, colors);
+    updateClearButtonState();
+    const trackResources = options.trackResources !== false;
+    const idx = isValidPlayer(player) ? playerIndex(player) : -1;
+    const isColonPlacement = trackResources && idx !== -1 && colonPositions[idx] === tileIdx;
+    const colonBonusAvailable = isColonPlacement && !colonPlacementUsed[idx];
+    if (trackResources && idx !== -1) {
+      adjustPlayerTileResources(player, combo, 1);
+      if (colonBonusAvailable) {
+        colonPlacementUsed[idx] = true;
+      } else {
+        const current = turnState.tilesPlacedByPlayer[idx] ?? 0;
+        turnState.tilesPlacedByPlayer[idx] = current + 1;
+        const neighborCount = neighborPlacementCount(tileIdx);
+        const points = pointsForNeighborCount(neighborCount);
+        if (points > 0) awardPoints(player, points, `neighbor:${neighborCount}`);
+      }
+      renderGameHud();
+    }
+    evaluateAmenagementsAround(tileIdx, { placingPlayer: player });
+    refreshStatsModal();
+    return true;
+  }
 
   function tryPlaceComboOnTile(tileIdx, combo, player = turnState.activePlayer, options = {}) {
     if (!combo) return false;
@@ -6474,7 +6460,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     if (panCaptured) {
       try {
         svg.releasePointerCapture(event.pointerId);
-      } catch (_) {}
+      } catch (_) { }
     }
     panPointerId = null;
     panCaptured = false;
@@ -6517,7 +6503,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
     renderJunctionOverlays();
     updateClearButtonState();
     refreshStatsModal();
-    
+
     // Synchroniser avec les autres onglets
     broadcastGameState();
   }
@@ -6553,7 +6539,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
       setSelectedPalette(-1);
       renderPlacementPreview(null);
       clearColonSelection();
-      
+
       // Synchroniser avec les autres onglets
       broadcastGameState();
     } else {
@@ -6751,7 +6737,7 @@ function commitPlacement(tileIdx, combo, rotationStep, sideColors, player, optio
 
   // R�attacher les �v�nements de souris pour la pr�visualisation
   attachTileListeners();
-  
+
   // Afficher les zones d'influence
   renderInfluenceZones();
 
@@ -6812,7 +6798,7 @@ function ensureStatsModal() {
     modal.style.bottom = 'auto';
     try {
       header.setPointerCapture(event.pointerId);
-    } catch (_) {}
+    } catch (_) { }
   });
 
   const handleDragMove = (event) => {
@@ -6829,7 +6815,7 @@ function ensureStatsModal() {
     if (!statsDragState || event.pointerId !== statsDragState.pointerId) return;
     try {
       header.releasePointerCapture(event.pointerId);
-    } catch (_) {}
+    } catch (_) { }
     statsDragState = null;
   };
 
@@ -6867,28 +6853,28 @@ function refreshStatsModal() {
   if (!statsModalVisible) return;
   const elements = ensureStatsModal();
   const body = elements.body;
-  
+
   // V�rifier et s�curiser l'acc�s aux donn�es
   const svg = document.querySelector('#board-container svg');
   const state = svg?.__state || {};
-  
+
   // Statistiques g�n�rales
   const placed = placedCount || 0;
   const remaining = Math.max(0, TILE_COUNT - placed);
   const completionPercentage = ((placed / TILE_COUNT) * 100).toFixed(1);
-  
+
   // Statistiques de r�partition des combos
   const counts = { 1: 0, 2: 0, 3: 0 };
   const colorCounts = [0, 0, 0, 0]; // Pour 4 couleurs max
-  
+
   if (Array.isArray(placements)) {
     placements.forEach((placement) => {
       if (!placement?.combo) return;
-      
+
       // Compter par type de combo
       const t = placement.combo.type;
       if (t === 1 || t === 2 || t === 3) counts[t] = (counts[t] || 0) + 1;
-      
+
       // Compter par couleur (utiliser les couleurs mapp�es)
       if (Array.isArray(placement.colors)) {
         placement.colors.forEach(colorIdx => {
@@ -6899,26 +6885,26 @@ function refreshStatsModal() {
       }
     });
   }
-  
+
   // Calculer le total des combos
   let totalCombos = counts[1] + counts[2] + counts[3];
-  
+
   // Calculer les pourcentages
   const comboPercentages = {
     1: totalCombos > 0 ? ((counts[1] / totalCombos) * 100).toFixed(1) : '0.0',
     2: totalCombos > 0 ? ((counts[2] / totalCombos) * 100).toFixed(1) : '0.0',
     3: totalCombos > 0 ? ((counts[3] / totalCombos) * 100).toFixed(1) : '0.0'
   };
-  
-  const colorPercentages = colorCounts.map(count => 
+
+  const colorPercentages = colorCounts.map(count =>
     totalCombos > 0 ? ((count / totalCombos) * 100).toFixed(1) : '0.0'
   );
-  
+
   // Statistiques des blasons (overlays et ch�teaux)
   const crestCounts = [0, 0, 0, 0, 0, 0];
   const overlayMap = state.overlayByJunction || null;
   const castleMap = state.castleByJunction || null;
-  
+
   if (overlayMap && typeof overlayMap.forEach === 'function') {
     for (const player of overlayMap.values()) {
       if (player >= 1 && player <= 6) crestCounts[player - 1]++;
@@ -7030,7 +7016,7 @@ function bindUI() {
     if (holdPointerId != null) {
       try {
         generateBtn.releasePointerCapture(holdPointerId);
-      } catch (_) {}
+      } catch (_) { }
       holdPointerId = null;
     }
     keyboardHoldActive = false;
@@ -7055,7 +7041,7 @@ function bindUI() {
     holdPointerId = event.pointerId;
     try {
       generateBtn.setPointerCapture(event.pointerId);
-    } catch (_) {}
+    } catch (_) { }
     generateAndRender();
     holdDelayId = setTimeout(() => {
       if (holdPointerId !== event.pointerId) return;
@@ -7154,7 +7140,7 @@ function bindUI() {
   const applyBtn = document.getElementById('apply-changes');
   const buyContractBtn = document.getElementById('buy-contract');
   const cancelBtn = document.getElementById('cancel-edit');
-  
+
   if (applyBtn) {
     applyBtn.addEventListener('click', () => {
       if (marketEditMode) {
@@ -7162,7 +7148,7 @@ function bindUI() {
       }
     });
   }
-  
+
   if (buyContractBtn) {
     buyContractBtn.addEventListener('click', () => {
       if (hoveredMarketSlot != null) {
@@ -7170,7 +7156,7 @@ function bindUI() {
       }
     });
   }
-  
+
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
       exitMarketEditMode();

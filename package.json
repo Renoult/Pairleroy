@@ -5,6 +5,7 @@
   "description": "Generateur de grille hexagonale Pairleroy",
   "main": "dist/app.js",
   "scripts": {
+    "start": "npx serve -l tcp://172.22.22.90:3000 .",
     "build": "node ./scripts/build.js",
     "build:dev": "node ./scripts/build.js",
     "build:prod": "node ./scripts/build.js --prod",
