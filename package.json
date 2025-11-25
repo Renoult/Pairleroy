@@ -5,13 +5,17 @@
   "description": "Generateur de grille hexagonale Pairleroy",
   "main": "dist/app.js",
   "scripts": {
-    "start": "npx serve -l tcp://172.22.22.90:3000 .",
+    "start": "node scripts/server.js",
     "build": "node ./scripts/build.js",
     "build:dev": "node ./scripts/build.js",
     "build:prod": "node ./scripts/build.js --prod",
     "build:analyze": "node ./scripts/build.js --analyze",
     "clean": "node ./scripts/clean.js",
     "optimize:svg": "node ./scripts/optimize-svg.js"
+  },
+  "dependencies": {
+    "serve-handler": "^6.1.5",
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "svgo": "^3.0.5"

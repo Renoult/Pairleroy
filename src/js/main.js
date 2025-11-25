@@ -65,9 +65,16 @@ if (typeof window !== 'undefined') {
   window.__PAIRLEROY_VERSION = APP_VERSION;
 }
 
-// Syst�me de synchronisation entre onglets
+// Systeme de synchronisation entre onglets / machines (BroadcastChannel + WebSocket local)
 const TAB_SYNC_CHANNEL_NAME = 'pairleroy_game_sync';
-const tabChannel = new BroadcastChannel(TAB_SYNC_CHANNEL_NAME);
+const WS_SYNC_PATH = '/sync';
+const WS_RECONNECT_DELAY_MS = 1000;
+
+const tabChannel = (typeof window !== 'undefined' && 'BroadcastChannel' in window)
+  ? new BroadcastChannel(TAB_SYNC_CHANNEL_NAME)
+  : null;
+let wsSync = null;
+let wsReconnectTimer = null;
 
 let currentTabId = generateTabId();
 let lastSyncTime = 0;
@@ -79,6 +86,94 @@ let initialSyncTimer = null;
 let initialSyncAttempts = 0;
 let initialSyncCompleted = false;
 let pendingStructureState = null;
+
+function postSyncMessage(payload) {
+  if (!payload) return;
+  if (tabChannel) {
+    try {
+      tabChannel.postMessage(payload);
+    } catch (err) {
+      console.error('BroadcastChannel post failed', err);
+    }
+  }
+  if (wsSync && typeof WebSocket !== 'undefined' && wsSync.readyState === WebSocket.OPEN) {
+    try {
+      wsSync.send(JSON.stringify(payload));
+    } catch (err) {
+      console.error('WebSocket post failed', err);
+    }
+  }
+}
+
+function handleSyncPayload(message) {
+  if (!message) return;
+  if (message.type === 'syncRequest') {
+    respondToSyncRequest(message);
+    return;
+  }
+  if (message.type !== 'gameState') return;
+  if (message.targetTabId && message.targetTabId !== currentTabId) return;
+
+  const incomingState = message.data;
+  if (!incomingState || incomingState.tabId === currentTabId) return;
+
+  // Synchroniser seulement si les données sont plus récentes
+  if (incomingState.timestamp > lastSyncTime) {
+    applyGameState(incomingState);
+  }
+}
+
+function connectWebSocketSync() {
+  if (typeof window === 'undefined' || typeof WebSocket === 'undefined') return;
+  if (wsSync && wsSync.readyState === WebSocket.OPEN) return;
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${protocol}://${window.location.host}${WS_SYNC_PATH}`;
+
+  try {
+    wsSync = new WebSocket(url);
+  } catch (err) {
+    console.warn('WebSocket connection failed to start', err);
+    return;
+  }
+
+  wsSync.addEventListener('open', () => {
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+    // Demander l'état dès que la connexion réseau est ouverte
+  });
+
+  wsSync.addEventListener('close', () => {
+    if (wsReconnectTimer) return;
+    wsReconnectTimer = setTimeout(() => {
+      wsReconnectTimer = null;
+      connectWebSocketSync();
+    }, WS_RECONNECT_DELAY_MS);
+  });
+
+  wsSync.addEventListener('message', (event) => {
+    const processPayload = (raw) => {
+      try {
+        const parsed = JSON.parse(raw);
+        handleSyncPayload(parsed);
+      } catch (err) {
+        console.warn('Invalid sync payload from WebSocket', err);
+      }
+    };
+
+    const { data } = event;
+    if (typeof data === 'string') {
+      processPayload(data);
+    } else if (data instanceof Blob && typeof data.text === 'function') {
+      data.text().then(processPayload).catch((err) => {
+        console.warn('Invalid Blob payload from WebSocket', err);
+      });
+    } else {
+      console.warn('Unsupported WebSocket payload type', typeof data);
+    }
+  });
+}
 
 function extractEntriesList(source) {
   if (!source) return [];
@@ -135,7 +230,7 @@ function scheduleInitialSyncRequest() {
   initialSyncTimer = setTimeout(() => {
     if (initialSyncCompleted) return;
     initialSyncAttempts += 1;
-    tabChannel.postMessage({
+    postSyncMessage({
       type: 'syncRequest',
       tabId: currentTabId,
       timestamp: Date.now(),
@@ -152,7 +247,7 @@ function respondToSyncRequest(request) {
   const sendState = () => {
     const state = getGameState();
     if (!state) return;
-    tabChannel.postMessage({
+    postSyncMessage({
       type: 'gameState',
       data: state,
       targetTabId: request.tabId,
@@ -320,28 +415,15 @@ function broadcastGameState(options = {}) {
     version: APP_VERSION,
   };
   if (options.targetTabId) payload.targetTabId = options.targetTabId;
-  tabChannel.postMessage(payload);
+  postSyncMessage(payload);
 }
 
-// �couter les messages de synchronisation
-tabChannel.addEventListener('message', (event) => {
-  const message = event.data;
-  if (!message) return;
-  if (message.type === 'syncRequest') {
-    respondToSyncRequest(message);
-    return;
-  }
-  if (message.type !== 'gameState') return;
-  if (message.targetTabId && message.targetTabId !== currentTabId) return;
-
-  const incomingState = message.data;
-  if (!incomingState || incomingState.tabId === currentTabId) return;
-
-  // Synchroniser seulement si les donn�es sont plus r�centes
-  if (incomingState.timestamp > lastSyncTime) {
-    applyGameState(incomingState);
-  }
-});
+// Ecouter les messages de synchronisation
+if (tabChannel) {
+  tabChannel.addEventListener('message', (event) => {
+    handleSyncPayload(event.data);
+  });
+}
 
 // Fonction pour rendre tous les �l�ments de l'interface
 function renderAll() {
@@ -3547,6 +3629,47 @@ let hoveredTileIdx = null;
 
 // Variables d'affichage et de zoom
 let previewLayer;
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+let panPointerId = null;
+let panCaptured = false;
+let panStart = null;
+let panStartOffset = null;
+let panMoved = false;
+let panWasActive = false;
+
+function currentPaletteColors() {
+  const svg = getBoardSvg();
+  const paletteColors = svg?.__state?.colors;
+  if (Array.isArray(paletteColors)) return paletteColors;
+  return activeColors;
+}
+
+function canPlace(tileIdx, sideColors) {
+  if (gridSideColors[tileIdx]) return false;
+  const paletteColors = currentPaletteColors();
+  const candidateColors = mapSideColorIndices(sideColors, paletteColors);
+  let hasNeighbor = false;
+  const neighborIndices = tileNeighbors[tileIdx] || [];
+  for (let dir = 0; dir < 6; dir++) {
+    const neighborIdx = neighborIndices[dir];
+    if (neighborIdx === -1) continue;
+    const neighborColorsRaw = gridSideColors[neighborIdx];
+    if (!neighborColorsRaw) continue;
+    let neighborColors;
+    if (typeof neighborColorsRaw[0] === 'string') {
+      neighborColors = neighborColorsRaw;
+    } else {
+      neighborColors = mapSideColorIndices(neighborColorsRaw, paletteColors);
+      gridSideColors[neighborIdx] = neighborColors;
+    }
+    hasNeighbor = true;
+    const oppositeDir = (dir + 3) % 6;
+    if (neighborColors[oppositeDir] !== candidateColors[dir]) return false;
+  }
+  return hasNeighbor || placedCount === 0;
+}
 
 // Fonctions UI globales
 function renderPlacementPreview(tileIdx) {
@@ -4760,15 +4883,15 @@ function generateAndRender() {
   panSuppressClick = false;
   updateClearButtonState();
 
-  let zoom = 1;
-  let panX = 0;
-  let panY = 0;
-  let panPointerId = null;
-  let panCaptured = false;
-  let panStart = null;
-  let panStartOffset = null;
-  let panMoved = false;
-  let panWasActive = false;
+  zoom = 1;
+  panX = 0;
+  panY = 0;
+  panPointerId = null;
+  panCaptured = false;
+  panStart = null;
+  panStartOffset = null;
+  panMoved = false;
+  panWasActive = false;
 
   const viewport = svg.querySelector('#viewport');
   previewLayer = svg.querySelector('#preview');
@@ -4936,30 +5059,6 @@ function generateAndRender() {
     setSelectedPalette(-1);
     refreshStatsModal();
     return paletteCombos;
-  }
-
-  function canPlace(tileIdx, sideColors) {
-    if (gridSideColors[tileIdx]) return false;
-    const candidateColors = mapSideColorIndices(sideColors, colors);
-    let hasNeighbor = false;
-    const neighborIndices = tileNeighbors[tileIdx];
-    for (let dir = 0; dir < 6; dir++) {
-      const neighborIdx = neighborIndices[dir];
-      if (neighborIdx === -1) continue;
-      const neighborColorsRaw = gridSideColors[neighborIdx];
-      if (!neighborColorsRaw) continue;
-      let neighborColors;
-      if (typeof neighborColorsRaw[0] === 'string') {
-        neighborColors = neighborColorsRaw;
-      } else {
-        neighborColors = mapSideColorIndices(neighborColorsRaw, colors);
-        gridSideColors[neighborIdx] = neighborColors;
-      }
-      hasNeighbor = true;
-      const oppositeDir = (dir + 3) % 6;
-      if (neighborColors[oppositeDir] !== candidateColors[dir]) return false;
-    }
-    return hasNeighbor || placedCount === 0;
   }
 
   function neighborPlacementCount(tileIdx) {
@@ -5395,6 +5494,7 @@ function generateAndRender() {
   boardInitialized = true;
   serializeConfigToURL(cfg);
   refreshStatsModal();
+  connectWebSocketSync();
   broadcastGameState();
   scheduleInitialSyncRequest();
 }

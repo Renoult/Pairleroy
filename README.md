@@ -26,12 +26,16 @@ npm run build        # build de developpement, sorties lisibles
 npm run build:prod   # build de production minifie dans dist/
 npm run build:analyze# calcule les tailles sans re-ecrire les fichiers
 npm run clean        # supprime le contenu de dist/
-npm run start        # sert le site sur l'interface 172.22.22.90:3000
+npm run start        # sert le site + WebSocket de synchro sur 172.22.22.90:3000
 ```
 
 > Remarque : le build script concatene simplement les sources dans l'ordre defini dans `scripts/build.js`. Aucun transpileur n'est requis a ce stade.
 
-Pour exposer l'application a d'autres machines du reseau local, lancez `npm run start` puis utilisez l'IP de la machine hote (par exemple `http://172.22.22.90:3000`). Vous pouvez changer l'interface ou le port via `npm run start -- --listen tcp://ADRESSE:PORT` si necessaire.
+Pour exposer l'application a d'autres machines du reseau local :
+- Lancez `npm run start` sur la machine hote. Cela sert les fichiers statiques **et** un relais WebSocket (`/sync`) sur `http://172.22.22.90:3000`.
+- Depuis les autres PC du meme reseau, ouvrez `http://172.22.22.90:3000`. Les etats de partie se synchronisent via le WebSocket.
+- Vous pouvez changer l'IP/port en definissant les variables d'environnement `HOST` et `PORT` avant de lancer la commande (ex: PowerShell `\\$env:HOST='192.168.1.50'; \\$env:PORT='3000'; npm run start`).
+- Pensez a autoriser le port 3000 dans le pare-feu Windows si necessaire (`netsh advfirewall firewall add rule name="Pairleroy 3000" dir=in action=allow protocol=TCP localport=3000`).
 
 ## Scripts npm
 
