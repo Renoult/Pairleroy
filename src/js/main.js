@@ -18,7 +18,7 @@ ringsByDistance.forEach((ring) => {
 
 const PLAYER_IDS = [1, 2, 3, 4, 5, 6];
 const PLAYER_COUNT = PLAYER_IDS.length;
-const MIN_PLAYER_COUNT = 2;
+const MIN_PLAYER_COUNT = 1;
 let activePlayerCount = PLAYER_COUNT;
 function clampPlayerCount(value) {
   const base = Number(value);
@@ -41,12 +41,12 @@ const PLAYER_CRESTS = {
 };
 
 const PLAYER_COLON_COLORS = [
-  '#d46a6a',
-  '#4d82c3',
-  '#5abf83',
-  '#c785d9',
-  '#e0ad4b',
-  '#6cc2be',
+  '#fafafaff',
+  '#0b0b0bff',
+  '#bc0808ff',
+  '#e4ce26ff',
+  '#00ac06ff',
+  '#0f64a6ff',
 ];
 
 const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
@@ -640,6 +640,49 @@ const turnState = {
   tilesPlacedByPlayer: Array.from({ length: PLAYER_COUNT }, () => 0),
   turnNumber: 1,
 };
+
+let localPlayerId = null;
+
+function initLocalPlayerIdentity() {
+  if (typeof window === 'undefined') return;
+
+  // 1. Check URL param
+  const params = new URLSearchParams(window.location.search);
+  const urlPlayer = params.get('player');
+  if (urlPlayer && isValidPlayer(Number(urlPlayer))) {
+    localPlayerId = Number(urlPlayer);
+    // Persist to session storage
+    try {
+      window.sessionStorage.setItem('pairleroy_local_player', String(localPlayerId));
+    } catch (e) { }
+    return;
+  }
+
+  // 2. Check Session Storage
+  try {
+    const stored = window.sessionStorage.getItem('pairleroy_local_player');
+    if (stored && isValidPlayer(Number(stored))) {
+      localPlayerId = Number(stored);
+      return;
+    }
+  } catch (e) { }
+
+  // 3. Prompt User
+  let input = null;
+  while (!isValidPlayer(input)) {
+    const raw = window.prompt(`Choisissez votre identité (1-${activePlayerCount}) :`, '1');
+    if (raw === null) {
+      // User cancelled, default to 1 to avoid infinite loop or broken state
+      input = 1;
+    } else {
+      input = Number(raw);
+    }
+  }
+  localPlayerId = input;
+  try {
+    window.sessionStorage.setItem('pairleroy_local_player', String(localPlayerId));
+  } catch (e) { }
+}
 
 function applyPlayerCountChange(nextCount, { broadcast = false } = {}) {
   const clamped = clampPlayerCount(nextCount);
@@ -1628,7 +1671,10 @@ function handleSettingsKeyUp(event) {
 function bindEndTurnButton(button) {
   if (!button || button.__pairleroyBound) return;
   button.__pairleroyBound = true;
-  button.addEventListener('click', () => endCurrentTurn({ reason: 'manual' }));
+  button.addEventListener('click', () => {
+    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
+    endCurrentTurn({ reason: 'manual' });
+  });
 }
 
 function ensureHudElements() {
@@ -2260,9 +2306,10 @@ function handleColonMarkerClick(event) {
   const marker = event.currentTarget;
   const player = Number(marker.dataset.player);
   if (!isValidPlayer(player)) return;
-  if (player !== turnState.activePlayer) {
-    setActivePlayer(player);
-  }
+  // Removed manual switching
+  // if (player !== turnState.activePlayer) {
+  //   setActivePlayer(player);
+  // }
   const idx = playerIndex(player);
   if (idx === -1) return;
 
@@ -2369,6 +2416,7 @@ function clearColonSelection() {
 }
 
 function attemptColonMoveTo(tileIdx) {
+  if (localPlayerId !== turnState.activePlayer) return false; // Enforce turn
   if (!isValidPlayer(selectedColonPlayer)) return false;
   const player = selectedColonPlayer;
   if (player !== turnState.activePlayer) {
@@ -2747,9 +2795,10 @@ function renderScoreboard(target) {
     card.setAttribute('aria-label', labelText);
     card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     card.classList.toggle('scorecard--active', isActive);
-    card.addEventListener('click', () => {
-      if (player !== turnState.activePlayer) setActivePlayer(player);
-    });
+    // Removed manual player switching on click
+    // card.addEventListener('click', () => {
+    //   if (player !== turnState.activePlayer) setActivePlayer(player);
+    // });
 
     const crestSvg = createScorecardIcon(player);
     card.appendChild(crestSvg);
@@ -2770,7 +2819,7 @@ function renderGameHud() {
   renderScoreboard(collapsedScoreboard);
   renderPersonalBoard();
   if (turnIndicator) {
-    turnIndicator.textContent = `Tour ${turnState.turnNumber} - Joueur ${turnState.activePlayer}`;
+    turnIndicator.textContent = `Tour ${turnState.turnNumber} - Vous êtes Joueur ${localPlayerId}`;
   }
   const svg = document.querySelector('#board-container svg');
   if (svg?.__state?.updateSquareIndicator) {
@@ -3267,6 +3316,7 @@ function handleMarketCardPurchase(event) {
 }
 
 function purchaseMarketSlot(slotIdx, { player = turnState.activePlayer } = {}) {
+  if (localPlayerId !== turnState.activePlayer) return false; // Enforce turn
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return false;
   if (!isValidPlayer(player)) return false;
   const playerIdx = playerIndex(player);
@@ -4201,6 +4251,7 @@ function generateAndRender() {
   }
 
   function assignAmenagementOwner(key, player) {
+    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
     if (!playerHasInfluenceForEntry(player, entry)) return;
@@ -4333,6 +4384,7 @@ function generateAndRender() {
   }
 
   function toggleCastleAtJunction(key, player) {
+    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
     if (!isJunctionReady(entry)) return;
@@ -5100,22 +5152,31 @@ function generateAndRender() {
     updateClearButtonState();
     const trackResources = options.trackResources !== false;
     const idx = isValidPlayer(player) ? playerIndex(player) : -1;
-    const isColonPlacement = trackResources && idx !== -1 && colonPositions[idx] === tileIdx;
-    const colonBonusAvailable = isColonPlacement && !colonPlacementUsed[idx];
+    const colonBonusAvailable = options.isColonPlacement === true;
+
+    // DEBUG: Log placement info
+    console.log('🔵 PLACEMENT DEBUG:', {
+      tileIdx,
+      player,
+      isColonPlacement: options.isColonPlacement,
+      colonBonusAvailable,
+      colonPosition: idx !== -1 ? colonPositions[idx] : 'N/A',
+      colonPlacementUsed: idx !== -1 ? colonPlacementUsed[idx] : 'N/A'
+    });
+
     if (trackResources && idx !== -1) {
       adjustPlayerTileResources(player, combo, 1);
       if (colonBonusAvailable) {
         colonPlacementUsed[idx] = true;
-        // Placement gratuit sous le colon : ne consomme pas le compteur de tuiles,
-        // mais doit tout de même rapporter les points de voisinage.
-        const neighborCount = neighborPlacementCount(tileIdx);
-        const points = pointsForNeighborCount(neighborCount);
-        if (points > 0) awardPoints(player, points, `neighbor:${neighborCount}`);
+        console.log('✅ COLON PLACEMENT: No points, no counter decrement');
+        // Placement gratuit sous le colon : ne consomme pas le compteur de tuiles
+        // et ne rapporte PAS de points
       } else {
         const current = turnState.tilesPlacedByPlayer[idx] ?? 0;
         turnState.tilesPlacedByPlayer[idx] = current + 1;
         const neighborCount = neighborPlacementCount(tileIdx);
         const points = pointsForNeighborCount(neighborCount);
+        console.log('📍 NORMAL PLACEMENT:', { neighborCount, points, counterBefore: current, counterAfter: current + 1 });
         if (points > 0) awardPoints(player, points, `neighbor:${neighborCount}`);
       }
       renderGameHud();
@@ -5261,6 +5322,7 @@ function generateAndRender() {
   function handleTilePlacement(tileIdx) {
     if (panSuppressClick) return;
     if (selectedPalette < 0) return;
+    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     const player = turnState.activePlayer;
     const pIdx = playerIndex(player);
     if (pIdx !== -1) {
@@ -5279,7 +5341,23 @@ function generateAndRender() {
     const usedIndex = selectedPalette;
     const combo = paletteCombos[usedIndex];
     if (!combo) return;
-    if (tryPlaceComboOnTile(tileIdx, combo, player)) {
+    // Pass colon placement info to prevent scoring
+    const isColonTile = pIdx !== -1 && colonPositions[pIdx] === tileIdx;
+    const colonFreeAvailable = isColonTile && !colonPlacementUsed[pIdx];
+    const options = colonFreeAvailable ? { isColonPlacement: true } : {};
+
+    // DEBUG: Log what we're about to pass
+    console.log('🟢 HANDLE TILE PLACEMENT:', {
+      tileIdx,
+      pIdx,
+      colonPosition: pIdx !== -1 ? colonPositions[pIdx] : 'N/A',
+      isColonTile,
+      colonPlacementUsed: pIdx !== -1 ? colonPlacementUsed[pIdx] : 'N/A',
+      colonFreeAvailable,
+      optionsPassedToTry: options
+    });
+
+    if (tryPlaceComboOnTile(tileIdx, combo, player, options)) {
       const replacement = sampleCombo(typesPct, colorPct, rng);
       const steps = rotationStepsForCombo(replacement);
       replacement.rotationStep = steps[0] ?? 0;
@@ -5497,6 +5575,9 @@ function generateAndRender() {
   connectWebSocketSync();
   broadcastGameState();
   scheduleInitialSyncRequest();
+
+  initLocalPlayerIdentity();
+  renderGameHud(); // Update HUD to show local identity
 }
 
 const STATS_KEYS = new Set(['s', 't', 'a']);
