@@ -41,12 +41,12 @@ const PLAYER_CRESTS = {
 };
 
 const PLAYER_COLON_COLORS = [
-  '#d46a6a',
-  '#4d82c3',
-  '#5abf83',
-  '#c785d9',
-  '#e0ad4b',
-  '#6cc2be',
+  '#ffffffff',
+  '#000000ff',
+  '#980202ff',
+  '#d5b200ff',
+  '#036800ff',
+  '#0049a2ff',
 ];
 
 const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
