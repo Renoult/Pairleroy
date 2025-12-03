@@ -1655,6 +1655,7 @@ function getGameState() {
       colonPlacementUsed: colonPlacementUsed.slice(),
       // Inclure les donn�es d'am�nagement
       amenagementColorByKey: amenagementColorByKey ? Array.from(amenagementColorByKey.entries()) : [],
+      marketState: serializeMarketState(marketState),
       svgState: {
         overlayByJunction: structureSnapshot.overlayByJunction,
         castleByJunction: structureSnapshot.castleByJunction,
@@ -1725,6 +1726,13 @@ function applyGameState(syncState) {
       syncState.data.amenagementColorByKey.forEach(([key, value]) => {
         amenagementColorByKey.set(key, value);
       });
+    }
+
+    // Synchroniser l'�tat du march�
+    if (syncState.data.marketState) {
+      marketState = deserializeMarketState(syncState.data.marketState);
+      hoveredMarketSlot = null;
+      lockedMarketSlot = null;
     }
 
     // Synchroniser l'�tat SVG
@@ -2018,6 +2026,66 @@ function serializePlayerResource(record) {
 
 function serializePlayerResources() {
   return playerResources.map((record) => serializePlayerResource(record));
+}
+
+function cloneMarketCard(card) {
+  if (!card || typeof card !== 'object') return null;
+  const cloned = {
+    id: card.id,
+    type: card.type,
+    name: card.name,
+    icon: card.icon,
+    tags: Array.isArray(card.tags) ? card.tags.slice() : undefined,
+  };
+  if (card.cost && typeof card.cost === 'object') cloned.cost = { ...card.cost };
+  if (card.reward && typeof card.reward === 'object') {
+    cloned.reward = { ...card.reward };
+    if (card.reward.stock && typeof card.reward.stock === 'object') {
+      cloned.reward.stock = { ...card.reward.stock };
+    }
+  }
+  return cloned;
+}
+
+function serializeMarketState(state) {
+  if (!state) return null;
+  return {
+    deck: Array.isArray(state.deck) ? state.deck.map(cloneMarketCard).filter(Boolean) : [],
+    drawPile: Array.isArray(state.drawPile) ? state.drawPile.map(cloneMarketCard).filter(Boolean) : [],
+    slots: Array.isArray(state.slots)
+      ? state.slots.map((slot) => (slot && slot.id ? { id: slot.id, status: slot.status || 'available' } : null))
+      : [],
+    revealedThisTurn: Array.from(state.revealedThisTurn || []),
+  };
+}
+
+function deserializeMarketState(snapshot) {
+  const fallback = createInitialMarketState();
+  const fallbackDeck = Array.isArray(fallback.deck) ? fallback.deck.map(cloneMarketCard).filter(Boolean) : [];
+  const fallbackDrawPile = Array.isArray(fallback.drawPile)
+    ? fallback.drawPile.map(cloneMarketCard).filter(Boolean)
+    : [];
+  const fallbackSlots = Array.isArray(fallback.slots) ? fallback.slots.map((slot) => slot || null) : [];
+
+  if (!snapshot || typeof snapshot !== 'object') {
+    return {
+      deck: fallbackDeck,
+      drawPile: fallbackDrawPile,
+      slots: fallbackSlots,
+      revealedThisTurn: new Set(fallback.revealedThisTurn || []),
+    };
+  }
+
+  return {
+    deck: Array.isArray(snapshot.deck) ? snapshot.deck.map(cloneMarketCard).filter(Boolean) : fallbackDeck,
+    drawPile: Array.isArray(snapshot.drawPile)
+      ? snapshot.drawPile.map(cloneMarketCard).filter(Boolean)
+      : fallbackDrawPile,
+    slots: Array.isArray(snapshot.slots)
+      ? snapshot.slots.map((slot) => (slot && slot.id ? { id: slot.id, status: slot.status || 'available' } : null))
+      : fallbackSlots,
+    revealedThisTurn: new Set(Array.isArray(snapshot.revealedThisTurn) ? snapshot.revealedThisTurn : []),
+  };
 }
 
 function deserializePlayerResource(snapshot) {
@@ -4301,6 +4369,8 @@ function endCurrentTurn({ reason = 'auto' } = {}) {
   selectedColonPlayer = null;
   updateColonMarkersPositions();
   renderGameHud();
+  // Diffuser l'état pour synchroniser le changement de tour sur les autres onglets
+  broadcastGameState();
   debugLog('endCurrentTurn', { reason, activePlayer: turnState.activePlayer, turn: turnState.turnNumber });
 }
 
@@ -5148,8 +5218,11 @@ function buyBuildingContract(slotIdx) {
   registerContractForPlayer(player, def.id);
 
   // Mettre à jour l'affichage
+  renderMarketDisplay();
+  renderGameHud();
   updateMarketDetailPanel(null);
   hideMarketEditSection();
+  broadcastGameState();
 
   debugLog('market-claimed', { player, card: def.id, cost, distance });
 }
@@ -6762,8 +6835,7 @@ function generateAndRender() {
     if (trackResources && idx !== -1) {
       adjustPlayerTileResources(player, combo, 1);
       if (colonBonusAvailable) {
-        colonPlacementUsed[idx] = true;
-        console.log('✅ COLON PLACEMENT: No points, no counter decrement');
+        console.log('\u2705 COLON PLACEMENT: No points, no counter decrement');
         // Placement gratuit sous le colon : ne consomme pas le compteur de tuiles
         // et ne rapporte PAS de points
       } else {
@@ -6922,7 +6994,7 @@ function generateAndRender() {
     const pIdx = playerIndex(player);
     if (pIdx !== -1) {
       const isColonTile = colonPositions[pIdx] === tileIdx;
-      const colonFreeAvailable = isColonTile && !colonPlacementUsed[pIdx];
+      const colonFreeAvailable = isColonTile; // placement libre tant que le colon reste sur la case
       const placedThisTurn = turnState.tilesPlacedByPlayer[pIdx] ?? 0;
       const limit = Math.max(0, Number.isFinite(gameSettings.tilePlacementsPerTurn)
         ? gameSettings.tilePlacementsPerTurn
