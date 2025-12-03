@@ -858,7 +858,7 @@ function buildSVG({ width, height, size, tiles, combos, colors }) {
 
   const getCell = (row, col) => squareCells[row * gridCols + col];
   const squareTrack = [];
-  let trackValue = 1;
+  let trackValue = 0;
   const pushTrackCell = (cell) => {
     if (!cell || !cell.isBorder || cell.isCorner) return;
     cell.value = trackValue++;
