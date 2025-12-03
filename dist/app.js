@@ -5598,19 +5598,49 @@ function generateAndRender() {
 
   function dominantColorForJunction(entry) {
     if (!entry) return null;
+    // Heuristique: prendre la couleur du coin qui touche le carrefour sur la tuile la plus "bas-gauche"
+    // (y maximal, puis x minimal), en tenant compte de la rotation via sideColors orientées.
+    if (Array.isArray(entry.entries) && entry.entries.length > 0) {
+      let chosen = null;
+      entry.entries.forEach((e) => {
+        const tile = tiles[e.tileIdx];
+        if (!tile) return;
+        const { x, y } = axialToPixel(tile.q, tile.r, size);
+        if (
+          !chosen
+          || y > chosen.y
+          || (y === chosen.y && x < chosen.x)
+        ) {
+          chosen = { ...e, x, y };
+        }
+      });
+      if (chosen) {
+        const placement = placements[chosen.tileIdx];
+        const sides = placement?.sideColors;
+        if (Array.isArray(sides) && sides.length === 6) {
+          const wedgeIdx = ORIENTED_INDEX_FOR_TRIANGLE[chosen.vertex] ?? chosen.vertex;
+          const colorIdx = sides[wedgeIdx];
+          if (Number.isInteger(colorIdx)) return colorIdx;
+        }
+      }
+    }
+
+    // Fallback: majorité des couleurs posées autour du carrefour
     const counts = new Map();
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((tileIdx) => {
       const placement = placements[tileIdx];
-      const combo = placement?.combo;
-      if (!combo || !Array.isArray(combo.colors) || combo.colors.length === 0) return;
-      const primary = combo.colors[0];
-      counts.set(primary, (counts.get(primary) || 0) + 1);
+      const sides = placement?.sideColors;
+      if (!Array.isArray(sides) || sides.length === 0) return;
+      sides.forEach((colorIdx) => {
+        if (!Number.isInteger(colorIdx)) return;
+        counts.set(colorIdx, (counts.get(colorIdx) || 0) + 1);
+      });
     });
     let best = null;
     let bestCount = 0;
     counts.forEach((count, colorIdx) => {
-      if (count > bestCount) {
+      if (count > bestCount || (count === bestCount && (best == null || colorIdx < best))) {
         best = colorIdx;
         bestCount = count;
       }
