@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import handler from 'serve-handler';
 import { WebSocketServer, WebSocket } from 'ws';
 
-const HOST = process.env.HOST || '172.22.22.90';
+const HOST = process.env.HOST || 'localhost';
 const PORT = Number(process.env.PORT || 3000);
 const WS_PATH = '/sync';
 
