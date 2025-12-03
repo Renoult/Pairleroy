@@ -1641,6 +1641,7 @@ function getGameState() {
       placedCount: placedCount,
       turnState: { ...turnState },
       playerScores: playerScores.slice(),
+      playerResources: serializePlayerResources(),
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
@@ -1685,6 +1686,9 @@ function applyGameState(syncState) {
 
     // Synchroniser les scores
     playerScores = syncState.data.playerScores.slice();
+    if (Array.isArray(syncState.data.playerResources)) {
+      playerResources = deserializePlayerResources(syncState.data.playerResources);
+    }
 
     // Synchroniser la s�lection de palette
     selectedPalette = syncState.data.selectedPalette;
@@ -1987,6 +1991,76 @@ function createEmptyPlayerResource() {
   };
 }
 
+function serializePlayerResource(record) {
+  if (!record) return null;
+  return {
+    tileColors: Array.from(record.tileColors?.entries?.() || []),
+    amenagements: Array.from(record.amenagements || []),
+    amenagementColors: Array.from(record.amenagementColors?.entries?.() || []),
+    stock: {
+      [RESOURCE_TYPES.WOOD]: record.stock?.[RESOURCE_TYPES.WOOD] || 0,
+      [RESOURCE_TYPES.BREAD]: record.stock?.[RESOURCE_TYPES.BREAD] || 0,
+      [RESOURCE_TYPES.FABRIC]: record.stock?.[RESOURCE_TYPES.FABRIC] || 0,
+      [RESOURCE_TYPES.LABOR]: record.stock?.[RESOURCE_TYPES.LABOR] || 0,
+    },
+    buildings: Array.from(record.buildings || []),
+    contracts: Array.from(record.contracts || []),
+    crowns: record.crowns || 0,
+  };
+}
+
+function serializePlayerResources() {
+  return playerResources.map((record) => serializePlayerResource(record));
+}
+
+function deserializePlayerResource(snapshot) {
+  const record = createEmptyPlayerResource();
+  if (!snapshot || typeof snapshot !== 'object') return record;
+  const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
+  if (snapshot.tileColors) {
+    try {
+      record.tileColors = new Map(snapshot.tileColors.map(([k, v]) => [Number(k), safeNumber(v)]));
+    } catch (_) { }
+  }
+  if (snapshot.amenagements) {
+    try {
+      record.amenagements = new Set(snapshot.amenagements);
+    } catch (_) { }
+  }
+  if (snapshot.amenagementColors) {
+    try {
+      record.amenagementColors = new Map(snapshot.amenagementColors.map(([k, v]) => [Number(k), safeNumber(v)]));
+    } catch (_) { }
+  }
+  if (snapshot.stock && typeof snapshot.stock === 'object') {
+    record.stock[RESOURCE_TYPES.WOOD] = safeNumber(snapshot.stock[RESOURCE_TYPES.WOOD]);
+    record.stock[RESOURCE_TYPES.BREAD] = safeNumber(snapshot.stock[RESOURCE_TYPES.BREAD]);
+    record.stock[RESOURCE_TYPES.FABRIC] = safeNumber(snapshot.stock[RESOURCE_TYPES.FABRIC]);
+    record.stock[RESOURCE_TYPES.LABOR] = safeNumber(snapshot.stock[RESOURCE_TYPES.LABOR]);
+  }
+  if (snapshot.buildings) {
+    try {
+      record.buildings = new Set(snapshot.buildings);
+    } catch (_) { }
+  }
+  if (snapshot.contracts) {
+    try {
+      record.contracts = new Set(snapshot.contracts);
+    } catch (_) { }
+  }
+  record.crowns = safeNumber(snapshot.crowns);
+  return record;
+}
+
+function deserializePlayerResources(list) {
+  if (!Array.isArray(list)) return playerResources;
+  const next = Array.from({ length: PLAYER_COUNT }, (_, idx) => {
+    const snap = list[idx] ?? null;
+    return deserializePlayerResource(snap);
+  });
+  return next;
+}
+
 let playerScores = Array.from({ length: PLAYER_COUNT }, () => 0);
 let playerResources = Array.from({ length: PLAYER_COUNT }, () => createEmptyPlayerResource());
 
@@ -2101,6 +2175,9 @@ function applyPlayerCountChange(nextCount, { broadcast = false } = {}) {
   if (!isValidPlayer(localPlayerId)) {
     setLocalPlayerIdentity(getFirstActivePlayerId(), { silent: true });
   }
+  if (!isValidPlayer(personalBoardPlayerId)) {
+    personalBoardPlayerId = null;
+  }
   renderColonMarkers();
   updateColonMarkersPositions();
   renderGameHud();
@@ -2203,6 +2280,7 @@ function setMarketDetailsSuppressed(suppressed) {
 
 let topbarCollapsed = false;
 let personalBoardCollapsed = false;
+let personalBoardPlayerId = null;
 let topbarElements = null;
 let collapsedHudOffset = { top: 64, left: null, right: 16 };
 const COLLAPSED_HUD_STORAGE_KEY = 'pairleroyCollapsedHudPosition';
@@ -2474,6 +2552,16 @@ function setPersonalBoardCollapsed(collapsed) {
 
 function togglePersonalBoardCollapsed() {
   setPersonalBoardCollapsed(!personalBoardCollapsed);
+}
+
+function focusPersonalBoardOnPlayer(player, { autoExpand = true } = {}) {
+  if (!isValidPlayer(player)) return;
+  personalBoardPlayerId = player;
+  if (autoExpand) {
+    setPersonalBoardCollapsed(false);
+  } else {
+    renderPersonalBoard();
+  }
 }
 
 function setMarketDetailsCollapsed(collapsed) {
@@ -3465,20 +3553,21 @@ function renderPersonalBoard() {
   const container = elements.container;
   if (!container) return;
 
-  const activePlayer = turnState.activePlayer ?? getFirstActivePlayerId();
-  const idx = playerIndex(activePlayer);
+  const fallbackPlayer = isValidPlayer(turnState.activePlayer) ? turnState.activePlayer : getFirstActivePlayerId();
+  const boardPlayer = isValidPlayer(personalBoardPlayerId) ? personalBoardPlayerId : fallbackPlayer;
+  const idx = playerIndex(boardPlayer);
   const record = idx !== -1 ? playerResources[idx] : null;
 
-  container.dataset.player = String(activePlayer);
+  container.dataset.player = String(boardPlayer);
 
-  if (elements.playerLabel) elements.playerLabel.textContent = `Joueur ${activePlayer}`;
+  if (elements.playerLabel) elements.playerLabel.textContent = `Joueur ${boardPlayer}`;
   if (elements.subtitle) elements.subtitle.textContent = `Tour ${turnState.turnNumber}`;
 
   if (elements.crest) {
-    const crestUrl = PLAYER_CRESTS[activePlayer] || '';
+    const crestUrl = PLAYER_CRESTS[boardPlayer] || '';
     if (crestUrl) {
       elements.crest.src = crestUrl;
-      elements.crest.alt = `Blason joueur ${activePlayer}`;
+      elements.crest.alt = `Blason joueur ${boardPlayer}`;
       elements.crest.hidden = false;
     } else {
       elements.crest.removeAttribute('src');
@@ -3487,7 +3576,7 @@ function renderPersonalBoard() {
     }
   }
 
-  if (elements.pointsValue) elements.pointsValue.textContent = String(getPlayerScore(activePlayer));
+  if (elements.pointsValue) elements.pointsValue.textContent = String(getPlayerScore(boardPlayer));
 
   const crowns = record?.crowns ?? 0;
   if (elements.crownsValue) elements.crownsValue.textContent = String(crowns);
@@ -3628,18 +3717,19 @@ function renderPersonalBoard() {
         }
         const costBreakdown = createContractCostBreakdown(def?.cost, amenagementStock);
         if (costBreakdown) item.appendChild(costBreakdown);
-        const buildStatus = evaluateContractBuildAvailability(activePlayer, record, def, amenagementStock);
+        const buildStatus = evaluateContractBuildAvailability(boardPlayer, record, def, amenagementStock);
         const actions = document.createElement('div');
         actions.className = 'personal-board__contract-actions';
         const buildBtn = document.createElement('button');
         buildBtn.type = 'button';
         buildBtn.className = 'personal-board__contract-build';
         buildBtn.textContent = 'Construire';
-        buildBtn.disabled = !buildStatus.canBuild;
+        const isLocalTurn = boardPlayer === localPlayerId && boardPlayer === turnState.activePlayer;
+        buildBtn.disabled = !buildStatus.canBuild || !isLocalTurn;
         buildBtn.title = buildStatus.canBuild
-          ? 'Construire ce b�timent'
+          ? (isLocalTurn ? 'Construire ce batiment' : 'Disponible uniquement a votre tour')
           : buildStatus.reason || 'Conditions non remplies';
-        if (buildStatus.canBuild) {
+        if (buildStatus.canBuild && isLocalTurn) {
           buildBtn.addEventListener('click', () => attemptBuildFromContract(cardId));
         }
         actions.appendChild(buildBtn);
@@ -4155,6 +4245,7 @@ function resetGameDataForNewBoard() {
   colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
   colonPlacementUsed = Array.from({ length: PLAYER_COUNT }, () => false);
   selectedColonPlayer = null;
+  personalBoardPlayerId = null;
   updateColonMarkersPositions();
   renderGameHud();
   updateMarketDetailPanel(null);
@@ -4209,10 +4300,13 @@ function renderScoreboard(target) {
     card.setAttribute('aria-label', labelText);
     card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     card.classList.toggle('scorecard--active', isActive);
-    // Removed manual player switching on click
-    // card.addEventListener('click', () => {
-    //   if (player !== turnState.activePlayer) setActivePlayer(player);
-    // });
+    if (!card.__pairleroyBoardClick) {
+      card.__pairleroyBoardClick = true;
+      card.addEventListener('click', (event) => {
+        event.preventDefault();
+        focusPersonalBoardOnPlayer(player, { autoExpand: true });
+      });
+    }
 
     const crestSvg = createScorecardIcon(player);
     card.appendChild(crestSvg);
@@ -4650,6 +4744,7 @@ function evaluateContractBuildAvailability(player, record, def, providedStock = 
 
 function attemptBuildFromContract(cardId) {
   const player = turnState.activePlayer ?? getFirstActivePlayerId();
+  if (localPlayerId !== player) return;
   const idx = playerIndex(player);
   if (idx === -1) return;
   const record = playerResources[idx];
