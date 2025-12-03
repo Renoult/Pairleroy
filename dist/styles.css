@@ -123,27 +123,27 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 .tile-icon__segments--mono .tile-icon__segment--mono {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--bi .tile-icon__segment--bi-major {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--bi .tile-icon__segment--bi-minor {
-  fill: #b8b1a7;
+  fill: #5ca89aff;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-a {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-b {
-  fill: #64b5f6;
+  fill: #5ca89aff;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-c {
-  fill: #81c784;
+  fill: #05790b99;
 }
 
 .tile-type-label input {
@@ -406,27 +406,27 @@ input[type="number"] {
 }
 
 .tile-icon__segments--mono .tile-icon__segment--mono {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--bi .tile-icon__segment--bi-major {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--bi .tile-icon__segment--bi-minor {
-  fill: #b8b1a7;
+  fill: #5ca89aff;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-a {
-  fill: #d46a6a;
+  fill: #e57373;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-b {
-  fill: #64b5f6;
+  fill: #5ca89aff;
 }
 
 .tile-icon__segments--tri .tile-icon__segment--tri-c {
-  fill: #81c784;
+  fill: #05790b99;
 }
 
 .tile-type-label input {

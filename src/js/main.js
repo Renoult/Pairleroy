@@ -1,4 +1,4 @@
-// Fichier: src/js/main.js
+﻿// Fichier: src/js/main.js
 // Description: Orchestration de l'application (lecture config, generation de la grille, interactions UI).
 
 
@@ -50,7 +50,8 @@ const PLAYER_COLON_COLORS = [
   '#0049a2ff',
 ];
 
-const DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
+const DEFAULT_COLOR_HEX = ['#e57373', '#5ca89aff', '#05790b99', '#ffd54f'];
+const LEGACY_DEFAULT_COLOR_HEX = ['#e57373', '#64b5f6', '#81c784', '#ffd54f'];
 const DEFAULT_COLOR_LABELS = ['Main-d\u2019\u0153uvre', 'Tissu', 'Pain', 'Bois'];
 const AMENAGEMENT_RESOURCE_TYPES = [
   RESOURCE_TYPES.LABOR,
@@ -191,6 +192,9 @@ function snapshotStructureState(structureLike = {}) {
     overlayByJunction: extractEntriesList(structureLike.overlayByJunction),
     castleByJunction: extractEntriesList(structureLike.castleByJunction),
     outpostByJunction: extractEntriesList(structureLike.outpostByJunction),
+    castleCostLedger: extractEntriesList(structureLike.castleCostLedger),
+    outpostCostLedger: extractEntriesList(structureLike.outpostCostLedger),
+    amenagementCostLedger: extractEntriesList(structureLike.amenagementCostLedger),
   };
 }
 
@@ -377,6 +381,9 @@ function applyGameState(syncState) {
       syncMapEntries(svg.__state.overlayByJunction, normalizedStructures.overlayByJunction);
       syncMapEntries(svg.__state.castleByJunction, normalizedStructures.castleByJunction);
       syncMapEntries(svg.__state.outpostByJunction, normalizedStructures.outpostByJunction);
+      syncMapEntries(svg.__state.castleCostLedger, normalizedStructures.castleCostLedger);
+      syncMapEntries(svg.__state.outpostCostLedger, normalizedStructures.outpostCostLedger);
+      syncMapEntries(svg.__state.amenagementCostLedger, normalizedStructures.amenagementCostLedger);
 
       // Mettre � jour les structures globales utilis�es par le rendu
       // Synchroniser les configurations
@@ -1291,6 +1298,9 @@ function initTopbarControls() {
 }
 
 const amenagementColorByKey = new Map();
+const castleCostLedger = new Map();
+const outpostCostLedger = new Map();
+const amenagementCostLedger = new Map();
 
 function isValidPlayer(player) {
   return Number.isInteger(player) && player >= 1 && player <= activePlayerCount;
@@ -1385,7 +1395,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.tilePlacementsPerTurn,
       previous.tilePlacementsPerTurn,
-      { min: 0, max: 6 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.tilePlacementsPerTurn) {
       gameSettings.tilePlacementsPerTurn = next;
@@ -1397,7 +1407,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.colonStepsPerTurn,
       previous.colonStepsPerTurn,
-      { min: 0, max: 8 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.colonStepsPerTurn) {
       gameSettings.colonStepsPerTurn = next;
@@ -1417,7 +1427,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.castleCost,
       previous.castleCost,
-      { min: 0, max: 50 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.castleCost) {
       gameSettings.castleCost = next;
@@ -1429,7 +1439,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.outpostCost,
       previous.outpostCost,
-      { min: 0, max: 50 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.outpostCost) {
       gameSettings.outpostCost = next;
@@ -1441,7 +1451,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.amenagementCost,
       previous.amenagementCost,
-      { min: 0, max: 50 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.amenagementCost) {
       gameSettings.amenagementCost = next;
@@ -1453,7 +1463,7 @@ function updateGameSettings(changes = {}) {
     const next = normalizeIntegerSetting(
       changes.influenceRadius,
       previous.influenceRadius,
-      { min: 0, max: 6 },
+      { min: -99, max: 99 },
     );
     if (next !== gameSettings.influenceRadius) {
       gameSettings.influenceRadius = next;
@@ -1478,7 +1488,7 @@ function updateGameSettings(changes = {}) {
     const nextValue = normalizeIntegerSetting(
       changes.neighborPoint.value,
       table[idx],
-      { min: 0, max: 20 },
+      { min: -99, max: 99 },
     );
     if (nextValue !== table[idx]) {
       table[idx] = nextValue;
@@ -1617,38 +1627,38 @@ function ensureSettingsPanel() {
     tilePlacements: createNumberSettingControl(turnGrid, {
       label: 'Placements par tour',
       setting: 'tilePlacementsPerTurn',
-      min: 0,
-      max: 6,
+      min: -99,
+      max: 99,
     }),
     colonSteps: createNumberSettingControl(turnGrid, {
       label: 'Pas du colon par tour',
       setting: 'colonStepsPerTurn',
-      min: 0,
-      max: 8,
+      min: -99,
+      max: 99,
     }),
     influenceRadius: createNumberSettingControl(influenceGrid, {
       label: 'Distance d\u2019influence',
       setting: 'influenceRadius',
-      min: 0,
-      max: 6,
+      min: -99,
+      max: 99,
     }),
     castleCost: createNumberSettingControl(costGrid, {
       label: 'Co\u00fbt d\u2019un ch\u00e2teau',
       setting: 'castleCost',
-      min: 0,
-      max: 50,
+      min: -99,
+      max: 99,
     }),
     outpostCost: createNumberSettingControl(costGrid, {
       label: 'Co\u00fbt d\u2019un avant-poste',
       setting: 'outpostCost',
-      min: 0,
-      max: 50,
+      min: -99,
+      max: 99,
     }),
     amenagementCost: createNumberSettingControl(costGrid, {
       label: 'Co\u00fbt d\u2019un am\u00e9nagement',
       setting: 'amenagementCost',
-      min: 0,
-      max: 50,
+      min: -99,
+      max: 99,
     }),
     requireCastleAdjacencyForCastles: createToggleSettingControl(restrictionsGrid, {
       label: 'Ch\u00e2teau adjacent au colon',
@@ -1662,8 +1672,8 @@ function ensureSettingsPanel() {
     const input = createNumberSettingControl(neighborGrid, {
       label: `Voisins ${label}`,
       setting: 'neighborPoint',
-      min: 0,
-      max: 20,
+      min: -99,
+      max: 99,
       dataset: { index },
     });
     neighborInputs.push(input);
@@ -2415,14 +2425,11 @@ function colonColorForIndex(idx) {
 }
 
 function colorWithAlpha(hex, alpha = 0.2) {
-  if (typeof hex !== 'string') return `rgba(0,0,0,${alpha})`;
-  const value = hex.startsWith('#') ? hex.slice(1) : hex;
-  if (value.length !== 6) return `rgba(0,0,0,${alpha})`;
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  if (![r, g, b].every((n) => Number.isFinite(n))) return `rgba(0,0,0,${alpha})`;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const rgb = parseHexColor(hex);
+  if (!rgb) return `rgba(0,0,0,${alpha})`;
+  const baseAlpha = Number.isFinite(rgb.a) ? rgb.a : 1;
+  const finalAlpha = Math.max(0, Math.min(1, alpha * baseAlpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${finalAlpha})`;
 }
 
 function getBoardSvg() {
@@ -2692,22 +2699,17 @@ function createScorecardIcon(player) {
 
 function parseHexColor(value) {
   if (typeof value !== 'string') return null;
-  const hex = value.trim().replace(/^#/, '');
-  if (hex.length === 3) {
-    const r = parseInt(hex[0] + hex[0], 16);
-    const g = parseInt(hex[1] + hex[1], 16);
-    const b = parseInt(hex[2] + hex[2], 16);
-    if ([r, g, b].some(Number.isNaN)) return null;
-    return { r, g, b };
+  let hex = value.trim().replace(/^#/, '');
+  if (hex.length === 3 || hex.length === 4) {
+    hex = hex.split('').map((ch) => ch + ch).join('');
   }
-  if (hex.length === 6) {
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    if ([r, g, b].some(Number.isNaN)) return null;
-    return { r, g, b };
-  }
-  return null;
+  if (hex.length !== 6 && hex.length !== 8) return null;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+  if ([r, g, b, a].some(Number.isNaN)) return null;
+  return { r, g, b, a };
 }
 
 function blendWithWhite(rgb, factor = 0.65) {
@@ -2779,9 +2781,10 @@ function updateColorPercentageStyles() {
 }
 
 function sanitizeHexColor(value, fallback) {
-  const hex = (value ?? '').toString().trim();
-  if (/^#?[0-9a-fA-F]{6}$/.test(hex)) {
-    return hex.startsWith('#') ? hex : `#${hex}`;
+  const hex = (value ?? '').toString().trim().replace(/^#/, '');
+  const validLength = hex.length === 3 || hex.length === 4 || hex.length === 6 || hex.length === 8;
+  if (validLength && /^[0-9a-fA-F]+$/.test(hex)) {
+    return `#${hex.toLowerCase()}`;
   }
   return fallback;
 }
@@ -2790,10 +2793,14 @@ function setActiveColors(list) {
   const next = DEFAULT_COLOR_HEX.map((fallback, idx) =>
     sanitizeHexColor(Array.isArray(list) ? list[idx] : null, fallback),
   );
-  const changed = next.some((color, idx) => color !== activeColors[idx]);
-  activeColors = next;
+  const normalizedLegacy = LEGACY_DEFAULT_COLOR_HEX.map((c) => c.toLowerCase());
+  const normalizedNext = next.map((c) => (typeof c === 'string' ? c.toLowerCase() : c));
+  const isLegacyPalette = normalizedNext.every((c, idx) => c === normalizedLegacy[idx]);
+  const finalNext = isLegacyPalette ? DEFAULT_COLOR_HEX.slice() : next;
+  const changed = finalNext.some((color, idx) => color !== activeColors[idx]);
+  activeColors = finalNext;
   if (typeof window !== 'undefined') {
-    window.__pairleroyActiveColors = next.slice();
+    window.__pairleroyActiveColors = finalNext.slice();
   }
   if (changed) {
     cachedColorValues = ['', '', '', ''];
@@ -2802,14 +2809,20 @@ function setActiveColors(list) {
   }
 }
 
-function registerAmenagementForPlayer(player, key, colorIdx) {
+function registerAmenagementForPlayer(player, key, colorIdx, placementCost = 0) {
   if (!isValidPlayer(player) || typeof key !== 'string') return;
   const idx = playerIndex(player);
   const record = playerResources[idx];
   if (!record) return;
-  if (!record.amenagements.has(key)) {
+  const wasAdded = !record.amenagements.has(key);
+  if (wasAdded) {
     record.amenagements.add(key);
     if (Number.isInteger(colorIdx) && colorIdx >= 0) adjustResourceColorTally(player, colorIdx, 1);
+    if (Number.isFinite(placementCost) && placementCost > 0) {
+      amenagementCostLedger.set(key, placementCost);
+    } else if (!amenagementCostLedger.has(key)) {
+      amenagementCostLedger.delete(key);
+    }
   }
   amenagementColorByKey.set(key, colorIdx);
   renderGameHud();
@@ -2825,6 +2838,7 @@ function unregisterAmenagementForPlayer(player, key, colorIdx = null) {
     const targetColor = Number.isInteger(colorIdx) ? colorIdx : storedColor;
     if (Number.isInteger(targetColor) && targetColor >= 0) adjustResourceColorTally(player, targetColor, -1);
   }
+  amenagementCostLedger.delete(key);
   amenagementColorByKey.delete(key);
   renderGameHud();
 }
@@ -2838,8 +2852,9 @@ function amenagementCostValue() {
 
 function chargeAmenagementPlacement(player) {
   const cost = amenagementCostValue();
-  if (cost <= 0) return true;
-  return spendPoints(player, cost, 'amenagement');
+  if (cost <= 0) return { success: true, costPaid: 0 };
+  const paid = spendPoints(player, cost, 'amenagement');
+  return { success: paid, costPaid: paid ? cost : 0 };
 }
 
 function registerBuildingForPlayer(player, cardId, { applyReward = true } = {}) {
@@ -2878,6 +2893,9 @@ function resetGameDataForNewBoard() {
   const svg = getBoardSvg();
   const castleMap = svg?.__state?.castleByJunction ?? null;
   const outpostMap = svg?.__state?.outpostByJunction ?? null;
+  const castleCostMap = svg?.__state?.castleCostLedger ?? castleCostLedger ?? null;
+  const outpostCostMap = svg?.__state?.outpostCostLedger ?? outpostCostLedger ?? null;
+  const amenagementCostMap = svg?.__state?.amenagementCostLedger ?? amenagementCostLedger ?? null;
   if (castleMap) {
     castleMap.clear();
     svg?.__state?.renderCastleOverlays?.();
@@ -2886,6 +2904,9 @@ function resetGameDataForNewBoard() {
     outpostMap.clear();
     svg?.__state?.renderOutpostOverlays?.();
   }
+  if (castleCostMap) castleCostMap.clear();
+  if (outpostCostMap) outpostCostMap.clear();
+  if (amenagementCostMap) amenagementCostMap.clear();
   svg?.__state?.renderInfluenceZones?.();
   colonPositions = Array.from({ length: PLAYER_COUNT }, () => DEFAULT_CENTER_TILE_INDEX);
   colonMoveRemaining = Array.from({ length: PLAYER_COUNT }, () => gameSettings.colonStepsPerTurn);
@@ -4008,6 +4029,9 @@ function parseConfigFromURL() {
   if (colStr) {
     const cols = colStr.split(',');
     if (cols.length === 4) setActiveColors(cols);
+  } else {
+    // Si l'URL ne fournit pas de couleurs, s'assurer qu'on n'utilise pas une palette héritée
+    setActiveColors(activeColors);
   }
   updateColorPercentageStyles();
 }
@@ -4100,6 +4124,9 @@ function generateAndRender() {
     applyEntries(overlayByJunction, incomingState.overlayByJunction);
     applyEntries(castleByJunction, incomingState.castleByJunction);
     applyEntries(outpostByJunction, incomingState.outpostByJunction);
+    applyEntries(castleCostLedger, incomingState.castleCostLedger);
+    applyEntries(outpostCostLedger, incomingState.outpostCostLedger);
+    applyEntries(amenagementCostLedger, incomingState.amenagementCostLedger);
     try {
       renderJunctionOverlays();
       renderInfluenceZones();
@@ -4420,17 +4447,20 @@ function generateAndRender() {
       if (currentOwner == null && !allowCreation) continue;
       if (currentOwner === owner) continue;
       const colorIdx = dominantColorForJunction(entry);
+      let amenagementCost = 0;
       if (currentOwner == null) {
-        if (!chargeAmenagementPlacement(owner)) {
+        const charge = chargeAmenagementPlacement(owner);
+        if (!charge?.success) {
           debugLog('amenagement-cost-unpaid', { key, player: owner });
           continue;
         }
+        amenagementCost = Number.isFinite(charge.costPaid) ? charge.costPaid : 0;
       } else if (isValidPlayer(currentOwner) && currentOwner !== owner) {
         const previousColor = amenagementColorByKey.get(key);
         unregisterAmenagementForPlayer(currentOwner, key, previousColor);
       }
       overlayByJunction.set(key, owner);
-      registerAmenagementForPlayer(owner, key, colorIdx);
+      registerAmenagementForPlayer(owner, key, colorIdx, amenagementCost);
       changed = true;
     }
     if (changed) renderJunctionOverlays();
@@ -4445,7 +4475,8 @@ function generateAndRender() {
     if (previousOwner === player) return;
     const previousColor = amenagementColorByKey.get(key);
     const colorIdx = dominantColorForJunction(entry);
-    if (!chargeAmenagementPlacement(player)) {
+    const charge = chargeAmenagementPlacement(player);
+    if (!charge?.success) {
       debugLog('amenagement-cost-unpaid', { key, player });
       return;
     }
@@ -4453,24 +4484,24 @@ function generateAndRender() {
       unregisterAmenagementForPlayer(previousOwner, key, previousColor);
     }
     overlayByJunction.set(key, player);
-    registerAmenagementForPlayer(player, key, colorIdx);
-    renderJunctionOverlays();
-    broadcastGameState();
+    registerAmenagementForPlayer(player, key, colorIdx, Number.isFinite(charge.costPaid) ? charge.costPaid : 0);
+    finalizeStructureChange();
   }
 
   function removeAmenagementOwner(key) {
     const previousOwner = overlayByJunction.get(key);
+    const colorIdx = amenagementColorByKey.get(key);
     if (previousOwner == null) {
-      overlayByJunction.delete(key);
+      amenagementCostLedger.delete(key);
       amenagementColorByKey.delete(key);
-      broadcastGameState();
+      overlayByJunction.delete(key);
+      finalizeStructureChange();
       return;
     }
-    const colorIdx = amenagementColorByKey.get(key);
+    refundStructureCost(amenagementCostLedger, key, previousOwner, 'amenagement-refund');
     overlayByJunction.delete(key);
     unregisterAmenagementForPlayer(previousOwner, key, colorIdx);
-    renderJunctionOverlays();
-    broadcastGameState();
+    finalizeStructureChange();
   }
 
   function findCastleKeyForPlayer(player) {
@@ -4486,6 +4517,21 @@ function generateAndRender() {
       if (owner === player) keys.push(outpostKey);
     });
     return keys;
+  }
+
+  function refundStructureCost(ledger, key, player, source) {
+    const paid = ledger.get(key);
+    ledger.delete(key);
+    if (!isValidPlayer(player)) return;
+    if (!Number.isFinite(paid) || paid <= 0) return;
+    awardPoints(player, paid, source);
+  }
+
+  function finalizeStructureChange() {
+    renderJunctionOverlays();
+    renderInfluenceZones();
+    refreshStatsModal();
+    broadcastGameState();
   }
 
   function getInfluenceEntriesForPlayer(player) {
@@ -4577,19 +4623,13 @@ function generateAndRender() {
     const idx = playerIndex(player);
     if (idx === -1) return;
 
-    const finalizeCastleChange = () => {
-      renderJunctionOverlays();
-      renderInfluenceZones();
-      refreshStatsModal();
-      broadcastGameState();
-    };
-
     const currentCastleOwner = castleByJunction.get(key) ?? null;
     if (currentCastleOwner != null) {
       if (currentCastleOwner !== player) return;
       castleByJunction.delete(key);
+      refundStructureCost(castleCostLedger, key, player, 'castle-refund');
       cleanupAmenagementsForPlayer(player);
-      finalizeCastleChange();
+      finalizeStructureChange();
       return;
     }
 
@@ -4597,8 +4637,9 @@ function generateAndRender() {
     if (currentOutpostOwner != null) {
       if (currentOutpostOwner !== player) return;
       outpostByJunction.delete(key);
+      refundStructureCost(outpostCostLedger, key, player, 'outpost-refund');
       cleanupAmenagementsForPlayer(player);
-      finalizeCastleChange();
+      finalizeStructureChange();
       return;
     }
 
@@ -4615,9 +4656,15 @@ function generateAndRender() {
       );
       if (castleCost > 0 && !spendPoints(player, castleCost, 'castle')) return;
       castleByJunction.set(key, player);
+      if (castleCost > 0) {
+        castleCostLedger.set(key, castleCost);
+      } else {
+        castleCostLedger.delete(key);
+      }
+      outpostCostLedger.delete(key);
       const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
       tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-      finalizeCastleChange();
+      finalizeStructureChange();
       return;
     }
 
@@ -4631,9 +4678,15 @@ function generateAndRender() {
     );
     if (outpostCost > 0 && !spendPoints(player, outpostCost, 'outpost')) return;
     outpostByJunction.set(key, player);
+    if (outpostCost > 0) {
+      outpostCostLedger.set(key, outpostCost);
+    } else {
+      outpostCostLedger.delete(key);
+    }
+    castleCostLedger.delete(key);
     const tilesAround = Array.isArray(entry.tiles) ? entry.tiles : [];
     tilesAround.forEach((idxTile) => evaluateAmenagementsAround(idxTile, { allowCreation: false }));
-    finalizeCastleChange();
+    finalizeStructureChange();
   }
 
   function renderCastleOverlays() {
@@ -4646,11 +4699,13 @@ function generateAndRender() {
       const entry = junctionMap.get(key);
       if (!entry || !isJunctionReady(entry) || !isValidPlayer(player)) {
         castleByJunction.delete(key);
+        castleCostLedger.delete(key);
         continue;
       }
       const crestHref = PLAYER_CRESTS[player] || '';
       if (!crestHref) {
         castleByJunction.delete(key);
+        castleCostLedger.delete(key);
         continue;
       }
       const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -4675,10 +4730,9 @@ function generateAndRender() {
       marker.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         castleByJunction.delete(key);
+        refundStructureCost(castleCostLedger, key, player, 'castle-refund');
         cleanupAmenagementsForPlayer(player);
-        renderJunctionOverlays();
-        renderInfluenceZones();
-        refreshStatsModal();
+        finalizeStructureChange();
       });
       marker.classList.toggle('castle-marker--active', player === turnState.activePlayer);
       layer.appendChild(marker);
@@ -4695,11 +4749,13 @@ function generateAndRender() {
       const entry = junctionMap.get(key);
       if (!entry || !isJunctionReady(entry) || !isValidPlayer(player)) {
         outpostByJunction.delete(key);
+        outpostCostLedger.delete(key);
         continue;
       }
       const pIdx = playerIndex(player);
       if (pIdx === -1) {
         outpostByJunction.delete(key);
+        outpostCostLedger.delete(key);
         continue;
       }
       const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -4729,10 +4785,9 @@ function generateAndRender() {
       marker.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         outpostByJunction.delete(key);
+        refundStructureCost(outpostCostLedger, key, player, 'outpost-refund');
         cleanupAmenagementsForPlayer(player);
-        renderJunctionOverlays();
-        renderInfluenceZones();
-        refreshStatsModal();
+        finalizeStructureChange();
       });
       layer.appendChild(marker);
     }
@@ -5667,8 +5722,11 @@ function generateAndRender() {
     renderJunctionOverlays,
     castleByJunction,
     renderCastleOverlays,
+    castleCostLedger,
     outpostByJunction,
     renderOutpostOverlays,
+    outpostCostLedger,
+    amenagementCostLedger,
     toggleCastleAtJunction,
     junctionMap,
     tiles,
@@ -5939,7 +5997,7 @@ function refreshStatsModal() {
     .join('');
 
   // Cr�er les lignes pour les couleurs avec leurs pourcentages
-  const colors = state.colors || ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'];
+  const colors = state.colors || DEFAULT_COLOR_HEX;
   const colorRows = colorCounts.map((count, idx) => {
     const colorName = colors[idx] || `Couleur ${idx + 1}`;
     const percentage = colorPercentages[idx];
@@ -6105,8 +6163,13 @@ function bindUI() {
     if (!state) return;
     state.clearGrid?.();
     state.overlayByJunction?.clear();
+    state.amenagementCostLedger?.clear?.();
     state.renderJunctionOverlays?.();
     state.castleByJunction?.clear?.();
+    state.outpostByJunction?.clear?.();
+    state.castleCostLedger?.clear?.();
+    state.outpostCostLedger?.clear?.();
+    state.renderOutpostOverlays?.();
     state.renderCastleOverlays?.();
     state.regenPalette?.();
     state.setSelectedPalette?.(-1);

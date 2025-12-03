@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import handler from 'serve-handler';
@@ -31,6 +32,19 @@ wss.on('connection', (socket) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Pairleroy served at http://${HOST}:${PORT}`);
-  console.log(`WebSocket sync endpoint available at ws://${HOST}:${PORT}${WS_PATH}`);
+  const primaryHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  console.log(`Pairleroy served at http://${primaryHost}:${PORT}`);
+  console.log(`WebSocket sync endpoint available at ws://${primaryHost}:${PORT}${WS_PATH}`);
+  if (HOST === '0.0.0.0') {
+    const ipv4 = Object.values(os.networkInterfaces())
+      .flat()
+      .filter((entry) => entry && entry.family === 'IPv4' && !entry.internal)
+      .map((entry) => entry.address);
+    if (ipv4.length > 0) {
+      console.log('Accessible depuis le réseau local :');
+      ipv4.forEach((ip) => {
+        console.log(`  - http://${ip}:${PORT} (WS: ws://${ip}:${PORT}${WS_PATH})`);
+      });
+    }
+  }
 });
