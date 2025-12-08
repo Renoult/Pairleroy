@@ -1574,6 +1574,34 @@ function syncMapEntries(targetMap, entries) {
   if (Array.isArray(entries)) entries.forEach(([key, value]) => targetMap.set(key, value));
 }
 
+function clonePaletteCombo(combo) {
+  if (!combo || typeof combo !== 'object') return null;
+  const normalize = (typeof normalizeRotationStep === 'function')
+    ? normalizeRotationStep
+    : (_combo, rawStep) => (Number.isFinite(rawStep) ? rawStep : 0);
+  return {
+    type: combo.type,
+    colors: Array.isArray(combo.colors) ? combo.colors.slice() : [],
+    units: Array.isArray(combo.units) ? combo.units.slice() : [],
+    rotationStep: normalize(combo, combo.rotationStep),
+  };
+}
+
+function clonePaletteList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map((combo) => clonePaletteCombo(combo)).filter(Boolean);
+}
+
+function clonePlayerPalettes(source) {
+  const result = Array.from({ length: PLAYER_COUNT }, () => []);
+  if (!Array.isArray(source)) return result;
+  const cap = Math.min(result.length, source.length);
+  for (let i = 0; i < cap; i++) {
+    result[i] = clonePaletteList(source[i]);
+  }
+  return result;
+}
+
 // G�n�rer un ID unique pour cet onglet
 function generateTabId() {
   return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -1646,6 +1674,7 @@ function getGameState() {
       turnState: { ...turnState },
       playerScores: playerScores.slice(),
       playerResources: serializePlayerResources(),
+      playerPalettes: clonePlayerPalettes(playerPalettes),
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
@@ -1695,13 +1724,25 @@ function applyGameState(syncState) {
       playerResources = deserializePlayerResources(syncState.data.playerResources);
     }
 
+    // Synchroniser les palettes par joueur
+    if (Array.isArray(syncState.data.playerPalettes)) {
+      playerPalettes = clonePlayerPalettes(syncState.data.playerPalettes);
+    }
+
+    const svg = getBoardSvg();
+    const activePaletteIdx = playerIndex(turnState.activePlayer);
+    paletteCombos = activePaletteIdx !== -1 ? (playerPalettes[activePaletteIdx] || []) : [];
+    if (svg && svg.__state) {
+      svg.__state.playerPalettes = playerPalettes;
+      svg.__state.paletteCombos = paletteCombos;
+    }
+
     // Synchroniser la s�lection de palette
     selectedPalette = syncState.data.selectedPalette;
     setSelectedPalette(selectedPalette);
 
     // Synchroniser la tuile survol�e
     hoveredTileIdx = syncState.data.hoveredTileIdx;
-    const svg = getBoardSvg();
     if (svg && svg.__state) {
       svg.__state.hoveredTile = hoveredTileIdx;
     }
@@ -1877,12 +1918,18 @@ function renderAll() {
   }
 
   // R�actualiser la palette si la fonction est disponible
-  if (state.regenPalette) {
-    try {
+  try {
+    const activeIdx = playerIndex(turnState.activePlayer);
+    const paletteForPlayer = (activeIdx !== -1 && Array.isArray(state.playerPalettes?.[activeIdx]))
+      ? state.playerPalettes[activeIdx]
+      : state.paletteCombos;
+    if (state.renderPalette && Array.isArray(paletteForPlayer) && paletteForPlayer.length) {
+      state.renderPalette(paletteForPlayer);
+    } else if (state.regenPalette) {
       state.regenPalette();
-    } catch (e) {
-      console.warn('Erreur regenPalette:', e);
     }
+  } catch (e) {
+    console.warn('Erreur regenPalette:', e);
   }
 
   // R�actualiser la pr�visualisation de placement
@@ -4312,6 +4359,9 @@ function resetGameDataForNewBoard() {
   turnState.turnNumber = 1;
   turnState.activePlayer = getFirstActivePlayerId();
   amenagementColorByKey.clear();
+  playerPalettes = Array.from({ length: PLAYER_COUNT }, () => []);
+  paletteCombos = [];
+  selectedPalette = -1;
   const svg = getBoardSvg();
   const castleMap = svg?.__state?.castleByJunction ?? null;
   const outpostMap = svg?.__state?.outpostByJunction ?? null;
@@ -4347,6 +4397,15 @@ function setActivePlayer(player, { advanceTurn = false } = {}) {
     return;
   }
   turnState.activePlayer = player;
+  const svg = getBoardSvg();
+  const state = svg?.__state ?? null;
+  if (state?.usePlayerPalette) {
+    state.usePlayerPalette(player);
+  } else {
+    const idx = playerIndex(player);
+    paletteCombos = idx !== -1 ? (playerPalettes[idx] || []) : [];
+    setSelectedPalette(-1);
+  }
   selectedColonPlayer = null;
   updateColonMarkersPositions();
   renderGameHud();
@@ -5278,6 +5337,7 @@ let boardInitialized = false;
 
 // Variables de palette et d'interaction
 let paletteCombos = [];
+let playerPalettes = Array.from({ length: PLAYER_COUNT }, () => []);
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 
@@ -5506,7 +5566,11 @@ function generateAndRender() {
     syncArray(state.colors, colors);
     syncArray(state.typesPct, typesPct);
     syncArray(state.colorPct, colorPct);
-    state.regenPalette?.();
+    if (typeof state.regenAllPalettes === 'function') {
+      state.regenAllPalettes();
+    } else {
+      state.regenPalette?.();
+    }
     if (Array.isArray(placements)) {
       placements.forEach((placement, idx) => {
         if (!placement) {
@@ -6702,7 +6766,8 @@ function generateAndRender() {
   }
   renderJunctionOverlays();
 
-  paletteCombos = [];
+  const initialPaletteIdx = playerIndex(turnState.activePlayer);
+  paletteCombos = initialPaletteIdx !== -1 ? (playerPalettes[initialPaletteIdx] || []) : [];
   selectedPalette = -1;
   hoveredTileIdx = null;
 
@@ -6768,17 +6833,74 @@ function generateAndRender() {
         }
       });
 
+      label.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        replacePaletteEntry(idx);
+      });
+
       paletteEl.appendChild(optionDiv);
     });
     refreshStatsModal();
   }
 
-  function regenPalette() {
-    paletteCombos = createPalette(typesPct, colorPct, rng);
+  function getPaletteArrayForPlayer(player) {
+    const idx = playerIndex(player);
+    if (idx === -1) return [];
+    if (!Array.isArray(playerPalettes[idx])) playerPalettes[idx] = [];
+    return playerPalettes[idx];
+  }
+
+  function usePaletteForPlayer(player, { keepSelection = false } = {}) {
+    const palette = getPaletteArrayForPlayer(player);
+    paletteCombos = palette;
     renderPaletteUI(paletteCombos);
-    setSelectedPalette(-1);
-    refreshStatsModal();
+    if (!keepSelection) setSelectedPalette(-1);
     return paletteCombos;
+  }
+
+  function regenPaletteForPlayer(player) {
+    const idx = playerIndex(player);
+    if (idx === -1) return [];
+    const combos = createPalette(typesPct, colorPct, rng);
+    playerPalettes[idx] = combos;
+    if (svg.__state) svg.__state.playerPalettes = playerPalettes;
+    if (player === turnState.activePlayer) {
+      paletteCombos = combos;
+      renderPaletteUI(paletteCombos);
+      setSelectedPalette(-1);
+    }
+    return combos;
+  }
+
+  function regenAllPalettes() {
+    getActivePlayerIds().forEach((playerId) => regenPaletteForPlayer(playerId));
+    if (!getPaletteArrayForPlayer(turnState.activePlayer).length) {
+      regenPaletteForPlayer(turnState.activePlayer);
+    }
+    if (svg.__state) svg.__state.playerPalettes = playerPalettes;
+    return playerPalettes;
+  }
+
+  function replacePaletteEntry(idx) {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= paletteCombos.length) return;
+    const replacement = sampleCombo(typesPct, colorPct, rng);
+    const steps = rotationStepsForCombo(replacement);
+    replacement.rotationStep = steps[0] ?? 0;
+    paletteCombos[idx] = replacement;
+    const pIdx = playerIndex(turnState.activePlayer);
+    if (pIdx !== -1) playerPalettes[pIdx] = paletteCombos;
+    renderPaletteUI(paletteCombos);
+    if (svg.__state) {
+      svg.__state.paletteCombos = paletteCombos;
+      svg.__state.playerPalettes = playerPalettes;
+    }
+    broadcastGameState();
+  }
+
+  function regenPalette() {
+    const combos = regenPaletteForPlayer(turnState.activePlayer);
+    refreshStatsModal();
+    return combos;
   }
 
   function neighborPlacementCount(tileIdx) {
@@ -7031,6 +7153,7 @@ function generateAndRender() {
       paletteCombos[usedIndex] = replacement;
       renderPaletteUI(paletteCombos);
       svg.__state.paletteCombos = paletteCombos;
+      svg.__state.playerPalettes = playerPalettes;
       setSelectedPalette(-1);
       renderPlacementPreview(null);
       clearColonSelection();
@@ -7077,8 +7200,13 @@ function generateAndRender() {
   svg.addEventListener('pointercancel', handlePanPointerEnd);
 
   function regenerateAndRenderPalette() {
-    regenPalette();
-    if (svg.__state) svg.__state.paletteCombos = paletteCombos;
+    regenAllPalettes();
+    const combos = getPaletteArrayForPlayer(turnState.activePlayer);
+    paletteCombos = combos;
+    if (svg.__state) {
+      svg.__state.paletteCombos = combos;
+      svg.__state.playerPalettes = playerPalettes;
+    }
   }
 
   function attemptPlacementWithPalette(palette) {
@@ -7168,9 +7296,20 @@ function generateAndRender() {
     get placements() { return placements; },
     get paletteCombos() { return paletteCombos; },
     set paletteCombos(value) {
-      paletteCombos = Array.isArray(value) ? value : [];
+      const combos = Array.isArray(value) ? value : [];
+      paletteCombos = combos;
+      const idx = playerIndex(turnState.activePlayer);
+      if (idx !== -1) playerPalettes[idx] = combos;
       renderPaletteUI(paletteCombos);
     },
+    get playerPalettes() { return playerPalettes; },
+    set playerPalettes(value) {
+      playerPalettes = clonePlayerPalettes(value);
+      usePaletteForPlayer(turnState.activePlayer, { keepSelection: false });
+    },
+    usePlayerPalette: usePaletteForPlayer,
+    regenPaletteForPlayer,
+    regenAllPalettes,
     get selectedPalette() { return selectedPalette; },
     set selectedPalette(value) { setSelectedPalette(Number(value)); },
     setSelectedPalette,
@@ -7597,7 +7736,8 @@ function bindUI() {
     state.outpostCostLedger?.clear?.();
     state.renderOutpostOverlays?.();
     state.renderCastleOverlays?.();
-    state.regenPalette?.();
+    if (state.regenAllPalettes) state.regenAllPalettes();
+    else state.regenPalette?.();
     state.setSelectedPalette?.(-1);
   });
 
