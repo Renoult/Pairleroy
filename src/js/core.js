@@ -44,6 +44,17 @@ function cryptoSeed() {
   return arr[0] >>> 0;
 }
 
+function dateSeed() {
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+    hash = hash >>> 0;
+  }
+  return hash;
+}
+
 // ---------------- Hex math ----------------
 function axialToPixel(q, r, size) {
   const x = size * Math.sqrt(3) * (q + r / 2);

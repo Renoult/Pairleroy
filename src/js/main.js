@@ -260,7 +260,44 @@ function clonePlayerPalettes(source) {
   return result;
 }
 
-// G�n�rer un ID unique pour cet onglet
+// ============ Persistance des palettes par jour ============
+const PALETTE_STORAGE_KEY = 'pairleroy_daily_palette';
+
+function getTodayString() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+function savePalettesToStorage() {
+  try {
+    const data = {
+      date: getTodayString(),
+      palette: clonePaletteList(paletteCombos)
+    };
+    localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save palette to localStorage:', e);
+  }
+}
+
+function loadPalettesFromStorage() {
+  try {
+    const stored = localStorage.getItem(PALETTE_STORAGE_KEY);
+    if (!stored) return null;
+    const data = JSON.parse(stored);
+    if (data.date !== getTodayString()) {
+      // Nouvelle journée, supprimer l'ancienne palette
+      localStorage.removeItem(PALETTE_STORAGE_KEY);
+      return null;
+    }
+    return data.palette;
+  } catch (e) {
+    console.warn('Failed to load palette from localStorage:', e);
+    return null;
+  }
+}
+
+// Générer un ID unique pour cet onglet
 function generateTabId() {
   return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
@@ -332,7 +369,7 @@ function getGameState() {
       turnState: { ...turnState },
       playerScores: playerScores.slice(),
       playerResources: serializePlayerResources(),
-      playerPalettes: clonePlayerPalettes(playerPalettes),
+      sharedPalette: clonePaletteList(paletteCombos),
       selectedPalette: selectedPalette,
       hoveredTileIdx: hoveredTileIdx,
       selectedColonPlayer: selectedColonPlayer,
@@ -408,20 +445,20 @@ function applyGameState(syncState) {
       playerResources = deserializePlayerResources(syncState.data.playerResources);
     }
 
-    // Synchroniser les palettes par joueur
-    if (Array.isArray(syncState.data.playerPalettes)) {
-      playerPalettes = clonePlayerPalettes(syncState.data.playerPalettes);
+    // Synchroniser la palette partagée
+    if (Array.isArray(syncState.data.sharedPalette)) {
+      paletteCombos = clonePaletteList(syncState.data.sharedPalette);
+      sharedPalette = paletteCombos;
+      savePalettesToStorage();
     }
 
     const svg = getBoardSvg();
-    const activePaletteIdx = playerIndex(turnState.activePlayer);
-    paletteCombos = activePaletteIdx !== -1 ? (playerPalettes[activePaletteIdx] || []) : [];
     if (svg && svg.__state) {
-      svg.__state.playerPalettes = playerPalettes;
+      svg.__state.sharedPalette = sharedPalette;
       svg.__state.paletteCombos = paletteCombos;
     }
 
-    // Synchroniser la s�lection de palette
+    // Synchroniser la sélection de palette
     selectedPalette = syncState.data.selectedPalette;
     setSelectedPalette(selectedPalette);
 
@@ -1983,7 +2020,6 @@ function bindEndTurnButton(button) {
   if (!button || button.__pairleroyBound) return;
   button.__pairleroyBound = true;
   button.addEventListener('click', () => {
-    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     endCurrentTurn({ reason: 'manual' });
   });
 }
@@ -2726,7 +2762,6 @@ function clearColonSelection() {
 }
 
 function attemptColonMoveTo(tileIdx) {
-  if (localPlayerId !== turnState.activePlayer) return false; // Enforce turn
   if (!isValidPlayer(selectedColonPlayer)) return false;
   const player = selectedColonPlayer;
   if (player !== turnState.activePlayer) {
@@ -3043,8 +3078,7 @@ function resetGameDataForNewBoard() {
   turnState.turnNumber = 1;
   turnState.activePlayer = getFirstActivePlayerId();
   amenagementColorByKey.clear();
-  playerPalettes = Array.from({ length: PLAYER_COUNT }, () => []);
-  paletteCombos = [];
+  // Ne pas réinitialiser la palette - elle est partagée et persistante
   selectedPalette = -1;
   const svg = getBoardSvg();
   const castleMap = svg?.__state?.castleByJunction ?? null;
@@ -3081,15 +3115,7 @@ function setActivePlayer(player, { advanceTurn = false } = {}) {
     return;
   }
   turnState.activePlayer = player;
-  const svg = getBoardSvg();
-  const state = svg?.__state ?? null;
-  if (state?.usePlayerPalette) {
-    state.usePlayerPalette(player);
-  } else {
-    const idx = playerIndex(player);
-    paletteCombos = idx !== -1 ? (playerPalettes[idx] || []) : [];
-    setSelectedPalette(-1);
-  }
+  // Ne pas changer la palette - elle est partagée entre tous les joueurs
   selectedColonPlayer = null;
   updateColonMarkersPositions();
   renderGameHud();
@@ -3660,7 +3686,6 @@ function handleMarketCardPurchase(event) {
 }
 
 function purchaseMarketSlot(slotIdx, { player = turnState.activePlayer } = {}) {
-  if (localPlayerId !== turnState.activePlayer) return false; // Enforce turn
   if (!Number.isInteger(slotIdx) || slotIdx < 0) return false;
   if (!isValidPlayer(player)) return false;
   const playerIdx = playerIndex(player);
@@ -4020,8 +4045,8 @@ let panSuppressClick = false;
 let boardInitialized = false;
 
 // Variables de palette et d'interaction
-let paletteCombos = [];
-let playerPalettes = Array.from({ length: PLAYER_COUNT }, () => []);
+let paletteCombos = [];  // Palette partagée unique pour tous les joueurs
+let sharedPalette = [];  // Référence à la palette partagée
 let selectedPalette = -1;
 let hoveredTileIdx = null;
 const UNDO_STACK_LIMIT = 30;
@@ -4253,11 +4278,7 @@ function generateAndRender() {
     syncArray(state.colors, colors);
     syncArray(state.typesPct, typesPct);
     syncArray(state.colorPct, colorPct);
-    if (typeof state.regenAllPalettes === 'function') {
-      state.regenAllPalettes();
-    } else {
-      state.regenPalette?.();
-    }
+    // Ne plus régénérer automatiquement les palettes - elles sont persistantes
     if (Array.isArray(placements)) {
       placements.forEach((placement, idx) => {
         if (!placement) {
@@ -4281,12 +4302,27 @@ function generateAndRender() {
   }
 
   surface.innerHTML = '';
-  const rng = xorshift32(cryptoSeed());
+  // Utiliser une graine basée sur la date pour des palettes cohérentes
+  const rng = xorshift32(dateSeed());
 
   const { width, height, size } = layoutSize(surface);
   const svg = buildSVG({ width, height, size, tiles, combos: null, colors });
   surface.appendChild(svg);
   resetGameDataForNewBoard();
+
+  // Charger la palette partagée sauvegardée si disponible (même jour)
+  const storedPalette = loadPalettesFromStorage();
+  if (storedPalette && Array.isArray(storedPalette)) {
+    paletteCombos = clonePaletteList(storedPalette);
+    sharedPalette = paletteCombos;
+  }
+
+  // Générer la palette initiale si elle n'existe pas
+  if (!paletteCombos || paletteCombos.length === 0) {
+    paletteCombos = createPalette(typesPct, colorPct, rng);
+    sharedPalette = paletteCombos;
+    savePalettesToStorage();
+  }
 
   const junctionMap = computeJunctionMap(tiles, size);
   const overlayByJunction = new Map();
@@ -4645,7 +4681,6 @@ function generateAndRender() {
   }
 
   function assignAmenagementOwner(key, player) {
-    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
     if (!playerHasInfluenceForEntry(player, entry)) return;
@@ -4794,7 +4829,6 @@ function generateAndRender() {
   }
 
   function toggleCastleAtJunction(key, player) {
-    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     if (!junctionMap.has(key) || !isValidPlayer(player)) return;
     const entry = junctionMap.get(key);
     if (!isJunctionReady(entry)) return;
@@ -5453,8 +5487,7 @@ function generateAndRender() {
   }
   renderJunctionOverlays();
 
-  const initialPaletteIdx = playerIndex(turnState.activePlayer);
-  paletteCombos = initialPaletteIdx !== -1 ? (playerPalettes[initialPaletteIdx] || []) : [];
+  paletteCombos = sharedPalette || [];
   selectedPalette = -1;
   hoveredTileIdx = null;
 
@@ -5531,10 +5564,7 @@ function generateAndRender() {
   }
 
   function getPaletteArrayForPlayer(player) {
-    const idx = playerIndex(player);
-    if (idx === -1) return [];
-    if (!Array.isArray(playerPalettes[idx])) playerPalettes[idx] = [];
-    return playerPalettes[idx];
+    return paletteCombos || [];
   }
 
   function usePaletteForPlayer(player, { keepSelection = false } = {}) {
@@ -5546,27 +5576,19 @@ function generateAndRender() {
   }
 
   function regenPaletteForPlayer(player) {
-    const idx = playerIndex(player);
-    if (idx === -1) return [];
     pushUndoState('regen-palette');
     const combos = createPalette(typesPct, colorPct, rng);
-    playerPalettes[idx] = combos;
-    if (svg.__state) svg.__state.playerPalettes = playerPalettes;
-    if (player === turnState.activePlayer) {
-      paletteCombos = combos;
-      renderPaletteUI(paletteCombos);
-      setSelectedPalette(-1);
-    }
+    paletteCombos = combos;
+    sharedPalette = combos;
+    if (svg.__state) svg.__state.sharedPalette = sharedPalette;
+    renderPaletteUI(paletteCombos);
+    setSelectedPalette(-1);
+    savePalettesToStorage();
     return combos;
   }
 
   function regenAllPalettes() {
-    getActivePlayerIds().forEach((playerId) => regenPaletteForPlayer(playerId));
-    if (!getPaletteArrayForPlayer(turnState.activePlayer).length) {
-      regenPaletteForPlayer(turnState.activePlayer);
-    }
-    if (svg.__state) svg.__state.playerPalettes = playerPalettes;
-    return playerPalettes;
+    return regenPaletteForPlayer(turnState.activePlayer);
   }
 
   function replacePaletteEntry(idx) {
@@ -5576,13 +5598,13 @@ function generateAndRender() {
     const steps = rotationStepsForCombo(replacement);
     replacement.rotationStep = steps[0] ?? 0;
     paletteCombos[idx] = replacement;
-    const pIdx = playerIndex(turnState.activePlayer);
-    if (pIdx !== -1) playerPalettes[pIdx] = paletteCombos;
+    sharedPalette = paletteCombos;
     renderPaletteUI(paletteCombos);
     if (svg.__state) {
       svg.__state.paletteCombos = paletteCombos;
-      svg.__state.playerPalettes = playerPalettes;
+      svg.__state.sharedPalette = sharedPalette;
     }
+    savePalettesToStorage();
     broadcastGameState();
   }
 
@@ -5802,7 +5824,6 @@ function generateAndRender() {
   function handleTilePlacement(tileIdx) {
     if (panSuppressClick) return;
     if (selectedPalette < 0) return;
-    if (localPlayerId !== turnState.activePlayer) return; // Enforce turn
     const player = turnState.activePlayer;
     const pIdx = playerIndex(player);
     if (pIdx !== -1) {
@@ -5838,16 +5859,16 @@ function generateAndRender() {
     });
 
     if (tryPlaceComboOnTile(tileIdx, combo, player, options)) {
-      const replacement = sampleCombo(typesPct, colorPct, rng);
-      const steps = rotationStepsForCombo(replacement);
-      replacement.rotationStep = steps[0] ?? 0;
-      paletteCombos[usedIndex] = replacement;
+      // La tuile disparaît de la palette sans être remplacée
+      paletteCombos.splice(usedIndex, 1);
+      sharedPalette = paletteCombos;
       renderPaletteUI(paletteCombos);
       svg.__state.paletteCombos = paletteCombos;
-      svg.__state.playerPalettes = playerPalettes;
+      svg.__state.sharedPalette = sharedPalette;
       setSelectedPalette(-1);
       renderPlacementPreview(null);
       clearColonSelection();
+      savePalettesToStorage();
 
       // Synchroniser avec les autres onglets
       broadcastGameState();
@@ -5989,14 +6010,14 @@ function generateAndRender() {
     set paletteCombos(value) {
       const combos = Array.isArray(value) ? value : [];
       paletteCombos = combos;
-      const idx = playerIndex(turnState.activePlayer);
-      if (idx !== -1) playerPalettes[idx] = combos;
+      sharedPalette = combos;
       renderPaletteUI(paletteCombos);
     },
-    get playerPalettes() { return playerPalettes; },
-    set playerPalettes(value) {
-      playerPalettes = clonePlayerPalettes(value);
-      usePaletteForPlayer(turnState.activePlayer, { keepSelection: false });
+    get sharedPalette() { return sharedPalette; },
+    set sharedPalette(value) {
+      sharedPalette = value;
+      paletteCombos = value;
+      renderPaletteUI(paletteCombos);
     },
     usePlayerPalette: usePaletteForPlayer,
     regenPaletteForPlayer,
